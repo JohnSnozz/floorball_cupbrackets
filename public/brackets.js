@@ -276,6 +276,10 @@ function renderBracket() {
         if (typeof initializeTeamHighlighting === 'function') {
             initializeTeamHighlighting();
         }
+        
+        if (typeof initializeMatchLinks === 'function') {
+            initializeMatchLinks();
+        }
     }, 100);
 }
 
@@ -288,12 +292,13 @@ function renderMatch(game, gameIndex, roundIndex) {
     let matchClasses = 'match';
     if (isFreilos) matchClasses += ' freilos';
     
-    // Debug-Attribute - jetzt nur noch bracketSortOrder relevant
+    // Debug-Attribute - mit numericGameId für Match-Links
     const bracketInfo = `data-bracket-sort="${game.bracketSortOrder}"`;
     const sortOrderInfo = `data-sort-order="${gameIndex + 1}"`;
+    const gameIdInfo = `data-game-id="${game.numericGameId || ''}"`;
     
-    let html = `<div class="${matchClasses}" ${bracketInfo} ${sortOrderInfo} 
-                     title="Game: ${game.gameId} | bracketSortOrder: ${game.bracketSortOrder}">`;
+    let html = `<div class="${matchClasses}" ${bracketInfo} ${sortOrderInfo} ${gameIdInfo}
+                     title="Game: ${game.gameId} | numericGameId: ${game.numericGameId} | bracketSortOrder: ${game.bracketSortOrder}">`;
     
     if (!hasResult && !isFreilos) {
         // Noch nicht gespielt
@@ -306,11 +311,7 @@ function renderMatch(game, gameIndex, roundIndex) {
         html += renderFinishedMatch(game, team1Winner, team2Winner);
     }
     
-    html += `
-    <a class="match-link" href="https://www.swissunihockey.ch/de/game-detail?&game_id=${game.numericGameId}" 
-       target="_blank" title="Spiel-Details ansehen">
-    </a>
-    </div>`;
+    html += '</div>';
     return html;
 }
 

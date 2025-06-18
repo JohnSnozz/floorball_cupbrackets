@@ -1,15 +1,32 @@
+/* Match Links für Swiss Cup Brackets */
+
 .match-link {
     position: absolute;
     right: 0;
     top: 0;
     bottom: 0;
     width: 6px;
-    background-color: #4acfff;
+    background-color: #007bff;
     cursor: pointer;
     z-index: 2;
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
+    border-radius: 0 4px 4px 0;
+    opacity: 0.8;
 }
 
 .match-link:hover {
-    background-color: #1da9d4;
+    background-color: #0056b3;
+    opacity: 1;
+    width: 8px;
+    box-shadow: 0 0 4px rgba(0, 123, 255, 0.4);
+}
+
+.match-link:active {
+    background-color: #004085;
+}
+
+/* Kein Link bei Freilos oder TBD Spielen */
+.match.freilos .match-link,
+.match .team.tbd ~ .match-link {
+    display: none;
 }

@@ -51,7 +51,7 @@ async function startInteractiveCrawl(baseUrl = 'http://localhost:3000') {
     const rl = createReadlineInterface();
     
     try {
-        // Erste Abfrage: Crawling
+        // Crawling-Abfrage
         console.log('\n📊 Verfügbare Daten:');
         console.log(`   📅 Saisons: ${SEASONS.join(', ')}`);
         console.log(`   🏒 Cups: ${CUPS.length} verschiedene Cups`);
@@ -67,17 +67,7 @@ async function startInteractiveCrawl(baseUrl = 'http://localhost:3000') {
             console.log('\n⏭️  Crawling übersprungen');
         }
         
-        // Zweite Abfrage: Bracket-Sortierung
-        const shouldCalculateBrackets = await askQuestion(rl, '\n❓ Sollen die Brackets berechnet werden? (y/n): ');
-        
-        if (shouldCalculateBrackets) {
-            console.log('\n🎯 Starte Bracket-Sortierung...');
-            await performBracketCalculation(baseUrl);
-        } else {
-            console.log('\n⏭️  Bracket-Berechnung übersprungen');
-        }
-        
-        console.log('\n🎉 Startup-Prozess abgeschlossen!');
+        console.log('\n🎉 Crawling-Prozess abgeschlossen!');
         console.log('═'.repeat(50));
         
         if (crawlResults) {
@@ -162,26 +152,6 @@ async function performCrawling(baseUrl) {
 }
 
 /**
- * Führt die Bracket-Sortierung durch
- */
-async function performBracketCalculation(baseUrl) {
-    try {
-        console.log('   🔄 Berechne Bracket-Sortierung...');
-        
-        const result = await calculateBracketSorting(baseUrl);
-        
-        if (result.success) {
-            console.log('   ✅ Bracket-Sortierung erfolgreich abgeschlossen');
-        } else {
-            console.log(`   ❌ Bracket-Sortierung fehlgeschlagen: ${result.message || 'Unbekannter Fehler'}`);
-        }
-        
-    } catch (error) {
-        console.log(`   ❌ Bracket-Sortierung fehlgeschlagen: ${error.message}`);
-    }
-}
-
-/**
  * Zeigt eine Zusammenfassung der Crawling-Ergebnisse
  */
 function printCrawlSummary(crawlResults) {
@@ -212,24 +182,6 @@ async function crawlCup(baseUrl, cup, season) {
     
     if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const result = await response.json();
-    return result;
-}
-
-/**
- * Startet Bracket-Sortierung
- */
-async function calculateBracketSorting(baseUrl) {
-    const url = `${baseUrl}/calculate-bracket-sorting`;
-    
-    const response = await fetch(url, {
-        method: 'POST'
-    });
-    
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
     const result = await response.json();
