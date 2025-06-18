@@ -1,0 +1,20 @@
+/* Team Highlighting für Swiss Cup Brackets - Dezent */
+
+.team.highlight {
+    border: 2px solid rgba(255, 107, 0, 0.6) !important;
+    box-shadow: 0 0 8px rgba(255, 107, 0, 0.3) !important;
+    background-color: rgba(255, 107, 0, 0.05) !important;
+    transition: all 0.2s ease !important;
+}
+
+.team.highlight.winner {
+    border-color: rgba(255, 107, 0, 0.8) !important;
+    box-shadow: 0 0 10px rgba(255, 107, 0, 0.4) !important;
+    background-color: rgba(255, 107, 0, 0.08) !important;
+}
+
+.team.highlight.freilos-team {
+    border-color: rgba(255, 107, 0, 0.4) !important;
+    box-shadow: 0 0 5px rgba(255, 107, 0, 0.2) !important;
+    background-color: rgba(255, 107, 0, 0.03) !important;
+}

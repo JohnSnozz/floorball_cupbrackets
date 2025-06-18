@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏒 Swiss Cup Crawler - Datenbank Review</title>
+    <link rel="stylesheet" href="dbreview.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🏒 Swiss Cup Crawler - Datenbank Review</h1>
+        
+        <div class="controls">
+            <div class="stats-info" id="statsInfo">📊 Lade Daten...</div>
+            <div class="control-actions">
+                <button class="btn btn-primary" onclick="loadAllGames()">🔄 Alle laden</button>
+                <button class="btn btn-secondary" onclick="exportCSV()">📥 CSV Export</button>
+                <a href="/" class="btn btn-secondary">🏠 Zurück</a>
+            </div>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="table-container">
+            <div class="filter-row" id="filterRow">
+                <!-- Filter werden dynamisch generiert -->
+            </div>
+            <div class="table-wrapper">
+                <table id="gamesTable">
+                    <thead id="tableHead">
+                        <!-- Spalten werden dynamisch generiert -->
+                    </thead>
+                    <tbody id="gamesTableBody">
+                        <tr>
+                            <td colspan="20" class="loading">📊 Lade alle Spiele...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allGames = [];
+        let filteredGames = [];
+        let currentSort = { column: null, direction: 'asc' };
+        let columnFilters = {};
+
+        // Alle verfügbaren Spalten aus der SQLite Tabelle
+        const tableColumns = [
+            { key: 'gameId', label: 'Spiel ID', width: '120px' },
+            { key: 'numericGameId', label: 'Numerische ID', width: '100px' },
+            { key: 'team1', label: 'Team 1', width: '150px' },
+            { key: 'team2', label: 'Team 2', width: '150px' },
+            { key: 'result', label: 'Resultat', width: '80px' },
+            { key: 'homeTeamScore', label: 'Heim Score', width: '80px' },
+            { key: 'awayTeamScore', label: 'Auswärts Score', width: '80px' },
+            { key: 'roundName', label: 'Runde', width: '120px' },
+            { key: 'roundId', label: 'Runden ID', width: '80px' },
+            { key: 'tournamentId', label: 'Turnier ID', width: '100px' },
+            { key: 'tournamentName', label: 'Turnier Name', width: '200px' },
+            { key: 'season', label: 'Saison', width: '80px' },
+            { key: 'cupType', label: 'Cup Typ', width: '120px' },
+            { key: 'gender', label: 'Gender', width: '80px' },
+            { key: 'fieldType', label: 'Feld Typ', width: '80px' },
+            { key: 'gameDate', label: 'Datum', width: '100px' },
+            { key: 'gameTime', label: 'Zeit', width: '80px' },
+            { key: 'venue', label: 'Venue', width: '150px' },
+            { key: 'gameLocation', label: 'Spielort', width: '150px' },
+            { key: 'status', label: 'Status', width: '80px' },
+            { key: 'source', label: 'Quelle', width: '60px' },
+            { key: 'apiEndpoint', label: 'API Endpoint', width: '200px' },
+            { key: 'link', label: 'Link', width: '60px' },
+            { key: 'referees', label: 'Schiedsrichter', width: '150px' },
+            { key: 'spectators', label: 'Zuschauer', width: '80px' },
+            { key: 'notes', label: 'Notizen', width: '150px' },
+            { key: 'crawledAt', label: 'Gecrawlt am', width: '130px' },
+            { key: 'updatedAt', label: 'Aktualisiert am', width: '130px' }
+        ];
+
+        async function loadAllGames() {
+            try {
+                showLoading();
+                
+                // Versuche zuerst limit=all, falls das nicht funktioniert, nehme eine sehr hohe Zahl
+                let response = await fetch('/games?limit=10000');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                allGames = await response.json();
+                
+                // Falls immer noch begrenzt, versuche es ohne limit Parameter
+                if (allGames.length === 100) {
+                    console.log('Nur 100 Spiele erhalten, versuche größeres Limit...');
+                    response = await fetch('/games?limit=50000');
+                    if (response.ok) {
+                        const moreGames = await response.json();
+                        if (moreGames.length > allGames.length) {
+                            allGames = moreGames;
+                        }
+                    }
+                }
+                filteredGames = [...allGames];
+                
+                generateTableHeaders();
+                generateColumnFilters();
+                displayGames(filteredGames);
+                updateStats();
+                clearAlert();
+                
+            } catch (error) {
+                console.error('Error loading games:', error);
+                showAlert('❌ Fehler beim Laden der Spiele: ' + error.message, 'error');
+                showNoData();
+            }
+        }
+
+        function generateTableHeaders() {
+            const thead = document.getElementById('tableHead');
+            const headerRow = document.createElement('tr');
+            
+            tableColumns.forEach(column => {
+                const th = document.createElement('th');
+                th.className = 'sortable';
+                th.dataset.column = column.key;
+                th.style.minWidth = column.width;
+                th.innerHTML = `${column.label} <span class="sort-icon">↕</span>`;
+                th.addEventListener('click', () => sortTable(column.key));
+                headerRow.appendChild(th);
+            });
+            
+            thead.innerHTML = '';
+            thead.appendChild(headerRow);
+        }
+
+        function generateColumnFilters() {
+            const filterRow = document.getElementById('filterRow');
+            filterRow.innerHTML = '';
+            
+            tableColumns.forEach(column => {
+                const filterCell = document.createElement('div');
+                filterCell.className = 'filter-cell';
+                filterCell.style.minWidth = column.width;
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = `Filter ${column.label}...`;
+                input.className = 'column-filter';
+                input.dataset.column = column.key;
+                input.addEventListener('input', (e) => applyColumnFilter(column.key, e.target.value));
+                
+                filterCell.appendChild(input);
+                filterRow.appendChild(filterCell);
+            });
+        }
+
+        function displayGames(games) {
+            const tbody = document.getElementById('gamesTableBody');
+            
+            if (!games || games.length === 0) {
+                showNoData();
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            
+            games.forEach((game, index) => {
+                const row = document.createElement('tr');
+                
+                tableColumns.forEach(column => {
+                    const cell = document.createElement('td');
+                    cell.style.minWidth = column.width;
+                    
+                    let value = game[column.key] || '';
+                    
+                    // Spezielle Formatierung für bestimmte Spalten
+                    if (column.key === 'numericGameId') {
+                        cell.innerHTML = value ? `<strong>${value}</strong>` : '-';
+                    } else if (column.key === 'apiEndpoint' && value) {
+                        const fullUrl = `https://api-v2.swissunihockey.ch${value}`;
+                        cell.innerHTML = `<a href="${fullUrl}" target="_blank" class="api-link">🔗 API</a>`;
+                    } else if (column.key === 'link' && value) {
+                        cell.innerHTML = `<a href="${value}" target="_blank" class="external-link">🔗</a>`;
+                    } else if (column.key === 'status') {
+                        cell.innerHTML = `<span class="status-badge status-${value}">${formatStatus(value)}</span>`;
+                    } else if (column.key === 'cupType') {
+                        cell.innerHTML = `<span class="cup-type-badge cup-${value}">${formatCupType(value)}</span>`;
+                    } else if (column.key === 'crawledAt' || column.key === 'updatedAt') {
+                        cell.textContent = formatDateTime(value);
+                    } else {
+                        cell.textContent = value;
+                    }
+                    
+                    row.appendChild(cell);
+                });
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function applyColumnFilter(columnKey, filterValue) {
+            columnFilters[columnKey] = filterValue.toLowerCase();
+            applyAllFilters();
+        }
+
+        function applyAllFilters() {
+            filteredGames = allGames.filter(game => {
+                return Object.keys(columnFilters).every(columnKey => {
+                    const filterValue = columnFilters[columnKey];
+                    if (!filterValue) return true;
+                    
+                    const gameValue = (game[columnKey] || '').toString().toLowerCase();
+                    return gameValue.includes(filterValue);
+                });
+            });
+            
+            displayGames(filteredGames);
+            updateStats();
+        }
+
+        function sortTable(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+            
+            updateSortHeaders();
+            
+            const sortedGames = [...filteredGames].sort((a, b) => {
+                let valueA = a[column] || '';
+                let valueB = b[column] || '';
+                
+                if (typeof valueA === 'string') {
+                    valueA = valueA.toLowerCase();
+                    valueB = valueB.toLowerCase();
+                }
+                
+                if (currentSort.direction === 'asc') {
+                    return valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
+                } else {
+                    return valueA > valueB ? -1 : valueA < valueB ? 1 : 0;
+                }
+            });
+            
+            displayGames(sortedGames);
+        }
+
+        function updateSortHeaders() {
+            document.querySelectorAll('th.sortable').forEach(th => {
+                const icon = th.querySelector('.sort-icon');
+                if (th.dataset.column === currentSort.column) {
+                    icon.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+                    th.classList.add(`sort-${currentSort.direction}`);
+                } else {
+                    icon.textContent = '↕';
+                    th.classList.remove('sort-asc', 'sort-desc');
+                }
+            });
+        }
+
+        function formatStatus(status) {
+            const statuses = {
+                'scheduled': 'Geplant',
+                'finished': 'Beendet',
+                'cancelled': 'Abgesagt'
+            };
+            return statuses[status] || status;
+        }
+
+        function formatCupType(cupType) {
+            const types = {
+                'herren_grossfeld': 'H-GF',
+                'damen_grossfeld': 'D-GF', 
+                'herren_kleinfeld': 'H-KF',
+                'damen_kleinfeld': 'D-KF'
+            };
+            return types[cupType] || cupType;
+        }
+
+        function formatDateTime(datetime) {
+            if (!datetime) return '';
+            return new Date(datetime).toLocaleString('de-CH', {
+                day: '2-digit',
+                month: '2-digit', 
+                year: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function updateStats() {
+            const total = filteredGames.length;
+            const totalInDb = allGames.length;
+            const seasons = [...new Set(filteredGames.map(g => g.season))].length;
+            const cupTypes = [...new Set(filteredGames.map(g => g.cupType))].length;
+            
+            document.getElementById('statsInfo').innerHTML = 
+                `📊 ${total} von ${totalInDb} Spielen | ${seasons} Saisons | ${cupTypes} Cup-Typen`;
+        }
+
+        function showLoading() {
+            document.getElementById('gamesTableBody').innerHTML = 
+                '<tr><td colspan="27" class="loading">📊 Lade alle Spiele...</td></tr>';
+        }
+
+        function showNoData() {
+            document.getElementById('gamesTableBody').innerHTML = 
+                '<tr><td colspan="27" class="no-data">🤷‍♂️ Keine Spiele gefunden</td></tr>';
+        }
+
+        function showAlert(message, type = 'error') {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        }
+
+        function clearAlert() {
+            document.getElementById('alertContainer').innerHTML = '';
+        }
+
+        function exportCSV() {
+            if (!filteredGames || filteredGames.length === 0) {
+                showAlert('❌ Keine Daten zum Exportieren vorhanden', 'error');
+                return;
+            }
+            
+            const headers = tableColumns.map(col => col.key);
+            
+            const csvContent = [
+                headers.join(','),
+                ...filteredGames.map(game => 
+                    headers.map(header => {
+                        const value = game[header] || '';
+                        return `"${value.toString().replace(/"/g, '""')}"`;
+                    }).join(',')
+                )
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `swiss_cup_all_games_${new Date().toISOString().split('T')[0]}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // Auto-load beim Seitenaufruf
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAllGames();
+        });
+    </script>
+</body>
+</html>

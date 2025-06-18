@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏒 Swiss Cup Bracket</title>
+    <link rel="stylesheet" href="brackets.css">
+    <link rel="stylesheet" href="connectors.css">
+    <link rel="stylesheet" href="team_highlight.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🏒 Swiss Cup Bracket</h1>
+        
+        <div class="bracket-controls">
+            <div class="control-group">
+                <label for="cupSelect">Cup:</label>
+                <select id="cupSelect">
+                    <option value="herren_grossfeld">🏒 Mobiliar Cup Herren Grossfeld</option>
+                    <option value="damen_grossfeld">🏒 Mobiliar Cup Damen Grossfeld</option>
+                    <option value="herren_kleinfeld">🏑 Liga Cup Herren Kleinfeld</option>
+                    <option value="damen_kleinfeld">🏑 Liga Cup Damen Kleinfeld</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="seasonSelect">Saison:</label>
+                <select id="seasonSelect">
+                    <option value="2025/26" selected>2025/26</option>
+                    <option value="2024/25">2024/25</option>
+                    <option value="2023/24">2023/24</option>
+                    <option value="2022/23">2022/23</option>
+                </select>
+            </div>
+            
+            <button onclick="loadBracket()">🔄 Bracket laden</button>
+        </div>
+        
+        <div id="infoBox" class="info-box" style="display: none;">
+            Wähle Cup und Saison aus und klicke "Bracket laden"
+        </div>
+        
+        <div class="bracket-container">
+            <div id="bracketContent" class="loading">
+                Wähle Cup und Saison aus und klicke "Bracket laden"
+            </div>
+        </div>
+    </div>
+
+    <script src="brackets.js"></script>
+    <script src="connectors.js"></script>
+    <script src="team_highlight.js"></script>
+</body>
+</html>

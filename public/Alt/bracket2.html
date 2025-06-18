@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏒 Swiss Cup Bracket (ab 1/8-Final)</title>
+    <link rel="stylesheet" href="brackets.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🏒 Swiss Cup Bracket (ab 1/8-Final)</h1>
+        
+        <div class="bracket-controls">
+            <div class="control-group">
+                <label for="cupSelect">Cup:</label>
+                <select id="cupSelect">
+                    <option value="herren_grossfeld">🏒 Mobiliar Cup Herren Grossfeld</option>
+                    <option value="damen_grossfeld">🏒 Mobiliar Cup Damen Grossfeld</option>
+                    <option value="herren_kleinfeld">🏑 Liga Cup Herren Kleinfeld</option>
+                    <option value="damen_kleinfeld">🏑 Liga Cup Damen Kleinfeld</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="seasonSelect">Saison:</label>
+                <select id="seasonSelect">
+                    <option value="2025/26" selected>2025/26</option>
+                    <option value="2024/25">2024/25</option>
+                    <option value="2023/24">2023/24</option>
+                    <option value="2022/23">2022/23</option>
+                </select>
+            </div>
+            
+            <button onclick="loadBracket()">🔄 Bracket laden</button>
+        </div>
+        
+        <div id="infoBox" class="info-box" style="display: none;">
+            Wähle Cup und Saison aus und klicke "Bracket laden"
+        </div>
+        
+        <div class="bracket-container">
+            <div id="bracketContent" class="loading">
+                Wähle Cup und Saison aus und klicke "Bracket laden"
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modifizierte Version von brackets.js - nur für 1/8-Final und höher
+        
+        let currentGames = [];
+        let currentRounds = [];
+
+        async function loadBracket() {
+            const cupType = document.getElementById('cupSelect').value;
+            const season = document.getElementById('seasonSelect').value;
+            const bracketContent = document.getElementById('bracketContent');
+            const infoBox = document.getElementById('infoBox');
+            
+            bracketContent.innerHTML = '<div class="loading">⏳ Lade Bracket-Daten...</div>';
+            infoBox.style.display = 'none';
+            
+            try {
+                // Lade Spiele aus der Datenbank
+                const response = await fetch(`/games?cup=${cupType}&season=${season}&limit=1000`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const games = await response.json();
+                
+                if (games.length === 0) {
+                    bracketContent.innerHTML = `
+                        <div class="error">
+                            Keine Spiele gefunden für ${cupType} in Saison ${season}.<br>
+                            Versuche zuerst die Spiele zu crawlen auf der Hauptseite.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                currentGames = games;
+                
+                // Gruppiere Spiele nach Runden
+                const roundsMap = new Map();
+                games.forEach(game => {
+                    const roundName = game.roundName || 'Unbekannte Runde';
+                    if (!roundsMap.has(roundName)) {
+                        roundsMap.set(roundName, []);
+                    }
+                    roundsMap.get(roundName).push(game);
+                });
+                
+                // FILTER: Nur Runden ab 1/8-Final anzeigen
+                const allowedRounds = new Set([
+                    '1/8', 'achtelfinale', '1/8-final', '1/8 final',
+                    '1/4', 'viertelfinale', '1/4-final', '1/4 final', 
+                    '1/2', 'halbfinale', '1/2-final', '1/2 final',
+                    '1/1', 'finale', 'final'
+                ]);
+                
+                // Filtere Runden basierend auf Namen
+                const filteredRoundsMap = new Map();
+                for (const [roundName, roundGames] of roundsMap.entries()) {
+                    const roundValue = getRoundValue(roundName);
+                    // Nur Runden ab Wert 5 (1/8-Final = 5, 1/4 = 6, 1/2 = 7, Finale = 8)
+                    if (roundValue >= 5) {
+                        filteredRoundsMap.set(roundName, roundGames);
+                        console.log(`✅ Including round: ${roundName} (value: ${roundValue})`);
+                    } else {
+                        console.log(`❌ Excluding round: ${roundName} (value: ${roundValue})`);
+                    }
+                }
+                
+                // Sortiere gefilterte Runden
+                currentRounds = Array.from(filteredRoundsMap.entries()).sort((a, b) => {
+                    console.log(`🔄 Comparing rounds: "${a[0]}" vs "${b[0]}"`);
+                    
+                    const aValue = getRoundValue(a[0]);
+                    const bValue = getRoundValue(b[0]);
+                    
+                    console.log(`   -> Round values: ${aValue} vs ${bValue}`);
+                    
+                    const result = aValue - bValue;
+                    console.log(`   -> Result: ${result} (${aValue < bValue ? 'A first' : 'B first'})`);
+                    return result;
+                });
+                
+                console.log('🎯 Final filtered round order (1/8-Final and higher):');
+                currentRounds.forEach(([roundName], index) => {
+                    console.log(`   ${index + 1}. ${roundName} (value: ${getRoundValue(roundName)})`);
+                });
+
+                // Sortiere Spiele innerhalb jeder Runde nach numerischer ID
+                currentRounds = currentRounds.map(([roundName, roundGames]) => {
+                    console.log(`\n🔄 Sorting round: ${roundName} (${roundGames.length} games)`);
+                    
+                    const sortedGames = roundGames.sort((a, b) => {
+                        const numericIdA = a.numericGameId ? parseInt(a.numericGameId) : null;
+                        const numericIdB = b.numericGameId ? parseInt(b.numericGameId) : null;
+                        
+                        console.log(`   Comparing: ${a.team1} vs ${a.team2} (ID: ${numericIdA}) <-> ${b.team1} vs ${b.team2} (ID: ${numericIdB})`);
+                        
+                        if (numericIdA !== null && numericIdB !== null) {
+                            const result = numericIdA - numericIdB;
+                            console.log(`   -> Numeric comparison: ${numericIdA} vs ${numericIdB} = ${result}`);
+                            return result;
+                        }
+                        
+                        if (numericIdA !== null && numericIdB === null) {
+                            console.log(`   -> A has numeric ID, B doesn't: A wins`);
+                            return -1;
+                        }
+                        if (numericIdA === null && numericIdB !== null) {
+                            console.log(`   -> B has numeric ID, A doesn't: B wins`);
+                            return 1;
+                        }
+                        
+                        const gameIdA = a.gameId || '';
+                        const gameIdB = b.gameId || '';
+                        
+                        const extractedNumA = gameIdA.match(/(\d+)/);
+                        const extractedNumB = gameIdB.match(/(\d+)/);
+                        
+                        if (extractedNumA && extractedNumB) {
+                            const numA = parseInt(extractedNumA[1]);
+                            const numB = parseInt(extractedNumB[1]);
+                            const result = numA - numB;
+                            console.log(`   -> Extracted number comparison: ${numA} vs ${numB} = ${result}`);
+                            return result;
+                        }
+                        
+                        const result = gameIdA.localeCompare(gameIdB);
+                        console.log(`   -> Alphabetic fallback: ${gameIdA} vs ${gameIdB} = ${result}`);
+                        return result;
+                    });
+                    
+                    console.log(`✅ Final order for ${roundName}:`);
+                    sortedGames.forEach((game, index) => {
+                        const numericId = game.numericGameId || 'N/A';
+                        const preview = `${game.team1} vs ${game.team2}`.substring(0, 30);
+                        console.log(`   ${index + 1}. ${preview} (Numeric ID: ${numericId})`);
+                    });
+                    
+                    return [roundName, sortedGames];
+                });
+                
+                const totalFilteredGames = currentRounds.reduce((sum, [, games]) => sum + games.length, 0);
+                infoBox.innerHTML = `📊 ${totalFilteredGames} Spiele in ${currentRounds.length} Runden geladen (ab 1/8-Final)`;
+                infoBox.style.display = 'flex';
+                
+                renderBracket();
+                
+            } catch (error) {
+                console.error('Error loading bracket:', error);
+                bracketContent.innerHTML = `
+                    <div class="error">
+                        Fehler beim Laden der Bracket-Daten: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Hilfsfunktion: Wandelt Rundennamen in sortierbare Zahlen um
+        function getRoundValue(roundName) {
+            const name = roundName.toLowerCase();
+            
+            // 1/X Format (Cup-Notation) - je größer X, desto früher
+            const fractionMatch = name.match(/1\/(\d+)/);
+            if (fractionMatch) {
+                const denominator = parseInt(fractionMatch[1]);
+                // Umkehrung: 1/128 = 1, 1/64 = 2, 1/32 = 3, ..., 1/1 = 8
+                if (denominator === 128) return 1;
+                if (denominator === 64) return 2;
+                if (denominator === 32) return 3;
+                if (denominator === 16) return 4;
+                if (denominator === 8) return 5;
+                if (denominator === 4) return 6;
+                if (denominator === 2) return 7;
+                if (denominator === 1) return 8; // Finale
+                return 100 + (128 - denominator); // Fallback für andere Werte
+            }
+            
+            // Explizite Rundennamen
+            if (name.includes('1.') || name.includes('erste')) return 1;
+            if (name.includes('2.') || name.includes('zweite')) return 2;
+            if (name.includes('3.') || name.includes('dritte')) return 3;
+            if (name.includes('4.') || name.includes('vierte')) return 4;
+            if (name.includes('5.') || name.includes('fünfte')) return 5;
+            if (name.includes('6.') || name.includes('sechste')) return 6;
+            if (name.includes('7.') || name.includes('siebte')) return 7;
+            if (name.includes('8.') || name.includes('achte')) return 8;
+            
+            // Spezielle Rundennamen
+            if (name.includes('achtelfinale') || name.includes('1/8')) return 5;
+            if (name.includes('viertelfinale') || name.includes('1/4')) return 6;
+            if (name.includes('halbfinale') || name.includes('1/2')) return 7;
+            if (name.includes('finale') || name.includes('final') || name.includes('1/1')) return 8;
+            
+            // Fallback: Extrahiere erste Zahl aus dem Namen
+            const numberMatch = name.match(/(\d+)/);
+            if (numberMatch) {
+                return parseInt(numberMatch[1]);
+            }
+            
+            // Letzter Fallback: Alphabetisch (mit hohem Wert damit es ans Ende kommt)
+            return 1000 + name.charCodeAt(0);
+        }
+
+        function renderBracket() {
+            const bracketContent = document.getElementById('bracketContent');
+            
+            if (currentRounds.length === 0) {
+                bracketContent.innerHTML = '<div class="error">Keine Runden ab 1/8-Final gefunden</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            // Erstelle separaten Headers-Container
+            html += '<div class="bracket-headers">';
+            currentRounds.forEach(([roundName, roundGames]) => {
+                html += `
+                    <div class="round-header">
+                        ${roundName}
+                        <span class="round-count">(${roundGames.length} Spiele)</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            // Erstelle Bracket mit Matches
+            html += '<div class="bracket">';
+            
+            currentRounds.forEach(([roundName, roundGames], roundIndex) => {
+                html += `
+                    <div class="round round-${roundIndex + 1}">
+                        <div class="round-matches">
+                `;
+                
+                roundGames.forEach((game, gameIndex) => {
+                    const team1Winner = isWinner(game, game.team1);
+                    const team2Winner = isWinner(game, game.team2);
+                    const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
+                    const isFreilos = game.team1 === 'Freilos' || game.team2 === 'Freilos';
+                    
+                    let matchClasses = 'match';
+                    
+                    if (isFreilos) {
+                        matchClasses += ' freilos';
+                    }
+                    
+                    const debugInfo = game.numericGameId ? `data-numeric-id="${game.numericGameId}"` : '';
+                    const sortOrderInfo = `data-sort-order="${gameIndex + 1}"`;
+                    
+                    html += `<div class="${matchClasses}" ${debugInfo} ${sortOrderInfo} title="Numeric ID: ${game.numericGameId || 'N/A'}, Sort Order: ${gameIndex + 1}">`;
+                    
+                    if (!hasResult && !isFreilos) {
+                        // Spiel noch nicht gespielt
+                        html += `
+                            <div class="team tbd">
+                                <span class="team-name">${game.team1 || 'TBD'}</span>
+                            </div>
+                            <div class="team tbd">
+                                <span class="team-name">${game.team2 || 'TBD'}</span>
+                            </div>
+                        `;
+                    } else if (isFreilos) {
+                        // Freilos-Spiel - zeige beide Teams
+                        const team1IsFreilos = game.team1 === 'Freilos';
+                        const team2IsFreilos = game.team2 === 'Freilos';
+                        
+                        if (team1IsFreilos && team2IsFreilos) {
+                            html += `
+                                <div class="team freilos-team">
+                                    <span class="team-name">Freilos</span>
+                                </div>
+                                <div class="team freilos-team">
+                                    <span class="team-name">Freilos</span>
+                                </div>
+                            `;
+                        } else {
+                            if (team1IsFreilos) {
+                                html += `
+                                    <div class="team freilos-team">
+                                        <span class="team-name">Freilos</span>
+                                    </div>
+                                `;
+                            } else {
+                                html += `
+                                    <div class="team winner">
+                                        <span class="team-name">${game.team1}</span>
+                                    </div>
+                                `;
+                            }
+                            
+                            if (team2IsFreilos) {
+                                html += `
+                                    <div class="team freilos-team">
+                                        <span class="team-name">Freilos</span>
+                                    </div>
+                                `;
+                            } else {
+                                html += `
+                                    <div class="team winner">
+                                        <span class="team-name">${game.team2}</span>
+                                    </div>
+                                `;
+                            }
+                        }
+                    } else {
+                        // Spiel gespielt - zeige Resultat
+                        const scores = parseScore(game.result);
+                        
+                        html += `
+                            <div class="team ${team1Winner ? 'winner' : ''}">
+                                <span class="team-name">${game.team1}</span>
+                                <span class="team-score">${scores.team1}</span>
+                            </div>
+                            <div class="team ${team2Winner ? 'winner' : ''}">
+                                <span class="team-name">${game.team2}</span>
+                                <span class="team-score">${scores.team2}</span>
+                            </div>
+                        `;
+                    }
+                    
+                    html += '</div>';
+                });
+                
+                html += '</div></div>';
+            });
+            
+            html += '</div>';
+            
+            bracketContent.innerHTML = html;
+            
+            // Nach dem Rendern: Erkenne lange Namen und passe sie an
+            setTimeout(() => {
+                const teamNames = document.querySelectorAll('.team-name');
+                teamNames.forEach(nameElement => {
+                    const text = nameElement.textContent;
+                    if (text.length > 15 || text.includes(' ')) {
+                        nameElement.classList.add('long-name');
+                    }
+                });
+            }, 100);
+        }
+
+        function isWinner(game, teamName) {
+            if (!game.result || !game.result.trim() || game.result === 'TBD') {
+                return false;
+            }
+            
+            const scores = parseScore(game.result);
+            if (!scores) return false;
+            
+            const team1Score = parseInt(scores.team1) || 0;
+            const team2Score = parseInt(scores.team2) || 0;
+            
+            if (team1Score === team2Score) return false;
+            
+            if (teamName === game.team1) {
+                return team1Score > team2Score;
+            } else if (teamName === game.team2) {
+                return team2Score > team1Score;
+            }
+            
+            return false;
+        }
+
+        function parseScore(resultString) {
+            if (!resultString || resultString.trim() === '' || resultString === 'TBD') {
+                return { team1: 'TBD', team2: 'TBD' };
+            }
+            
+            const scoreMatch = resultString.match(/(\d+)[\s\-:]+(\d+)/);
+            
+            if (scoreMatch) {
+                return {
+                    team1: scoreMatch[1],
+                    team2: scoreMatch[2]
+                };
+            }
+            
+            return { team1: resultString, team2: '' };
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Optional: Lade automatisch das erste Bracket
+            // loadBracket();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'r' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                loadBracket();
+            }
+        });
+
+        // Debug-Funktion: Zeige Sortierung in der Konsole
+        function debugSorting() {
+            console.log('\n🔍 DEBUG: Current bracket sorting (filtered)');
+            currentRounds.forEach(([roundName, games]) => {
+                console.log(`\n📊 Round: ${roundName}`);
+                games.forEach((game, index) => {
+                    console.log(`   ${index + 1}. ${game.team1} vs ${game.team2} (ID: ${game.numericGameId || 'N/A'})`);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

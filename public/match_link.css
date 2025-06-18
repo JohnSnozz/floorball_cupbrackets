@@ -1,0 +1,15 @@
+.match-link {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background-color: #4acfff;
+    cursor: pointer;
+    z-index: 2;
+    transition: background-color 0.2s;
+}
+
+.match-link:hover {
+    background-color: #1da9d4;
+}

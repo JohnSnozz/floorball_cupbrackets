@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏒 Swiss Cup Crawler</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🏒 Swiss Cup Crawler</h1>
+        
+        <div class="content-box">
+            <div class="form-section">
+                <div class="form-layout">
+                    <div class="cup-selection">
+                        <h3>Cup auswählen:</h3>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" name="cupType" id="herren_grossfeld" value="herren_grossfeld" checked>
+                                <label for="herren_grossfeld">🏒 Mobiliar Cup Herren Grossfeld</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" name="cupType" id="damen_grossfeld" value="damen_grossfeld">
+                                <label for="damen_grossfeld">🏒 Mobiliar Cup Damen Grossfeld</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" name="cupType" id="herren_kleinfeld" value="herren_kleinfeld">
+                                <label for="herren_kleinfeld">🏑 Liga Cup Herren Kleinfeld</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" name="cupType" id="damen_kleinfeld" value="damen_kleinfeld">
+                                <label for="damen_kleinfeld">🏑 Liga Cup Damen Kleinfeld</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="season-selection">
+                        <h3>Saison:</h3>
+                        <select id="seasonSelect">
+                            <option value="2022/23">2022/23</option>
+                            <option value="2023/24">2023/24</option>
+                            <option value="2024/25">2024/25</option>
+                            <option value="2025/26" selected>2025/26</option>
+                        </select>
+                        <div id="currentInfo" class="info-box">📊 Lade Statistiken...</div>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="crawlCup()" id="crawlBtn">⚡ Cup crawlen</button>
+                    <button class="btn btn-success" onclick="showDatabase()" id="dbBtn">📊 Datenbank anzeigen</button>
+                    <button class="btn btn-info" onclick="showStats()" id="statsBtn">📈 Statistiken</button>
+                    <button class="btn btn-danger" onclick="clearDatabase()" id="clearBtn">🗑️ DB löschen</button>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalGames">0</div>
+                    <div class="stat-label">Spiele total</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="newGames">0</div>
+                    <div class="stat-label">Neu gecrawlt</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="cachedGames">0</div>
+                    <div class="stat-label">Aus Cache</div>
+                </div>
+            </div>
+            
+            <div id="results" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let isLoading = false;
+
+        function getSelectedCup() {
+            const checked = document.querySelector('input[name="cupType"]:checked');
+            return checked ? checked.value : 'herren_grossfeld';
+        }
+
+        function getSelectedSeason() {
+            return document.getElementById('seasonSelect').value;
+        }
+
+        function setButtonsDisabled(disabled) {
+            const buttons = ['crawlBtn', 'dbBtn', 'statsBtn', 'clearBtn'];
+            buttons.forEach(function(id) {
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = disabled;
+            });
+        }
+
+        async function updateCurrentStats() {
+            try {
+                const cup = getSelectedCup();
+                const season = getSelectedSeason();
+                const response = await fetch('/games?cup=' + cup + '&season=' + season + '&limit=1000');
+                const games = await response.json();
+                
+                document.getElementById('totalGames').textContent = games.length;
+                document.getElementById('cachedGames').textContent = games.length;
+                document.getElementById('newGames').textContent = '0';
+                
+                document.getElementById('currentInfo').innerHTML = '📊 ' + games.length + ' Spiele für ' + cup.replace(/_/g, ' ') + ' (' + season + ') in DB';
+                document.getElementById('currentInfo').classList.remove('error');
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('currentInfo').innerHTML = '❌ Fehler beim Laden';
+                document.getElementById('currentInfo').classList.add('error');
+            }
+        }
+
+        async function crawlCup() {
+            if (isLoading) return;
+            isLoading = true;
+            setButtonsDisabled(true);
+            
+            const cup = getSelectedCup();
+            const season = getSelectedSeason();
+            
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').innerHTML = '<div class="alert alert-info">⏳ Crawling läuft...</div>';
+            
+            try {
+                const response = await fetch('/crawl-cup?cup=' + cup + '&season=' + season);
+                const data = await response.json();
+                
+                document.getElementById('totalGames').textContent = data.totalGames || 0;
+                document.getElementById('newGames').textContent = data.newlyCrawled || 0;
+                document.getElementById('cachedGames').textContent = data.fromCache || 0;
+                
+                let html = '';
+                
+                if (data.newlyCrawled === 0 && data.fromCache > 0) {
+                    html += '<div class="alert alert-info">ℹ️ Keine neuen Spiele gefunden - alle bereits in Datenbank</div>';
+                } else if (data.newlyCrawled > 0) {
+                    html += '<div class="alert alert-success">✅ Crawling abgeschlossen</div>';
+                } else {
+                    html += '<div class="alert alert-info">📊 Crawling abgeschlossen</div>';
+                }
+                
+                html += '<div class="results-summary">';
+                html += '<h3>Ergebnisse:</h3>';
+                html += '<p>🎯 <strong>' + (data.totalGames || 0) + '</strong> Spiele total</p>';
+                html += '<p>🔵 <strong>' + (data.newlyCrawled || 0) + '</strong> neu gefunden und gespeichert</p>';
+                html += '<p>🟡 <strong>' + (data.fromCache || 0) + '</strong> bereits in Datenbank</p>';
+                html += '<p>🏆 Cup: <strong>' + data.cupName + '</strong></p>';
+                html += '<p>📅 Saison: <strong>' + data.season + '</strong></p>';
+                html += '</div>';
+                
+                if (data.errors && data.errors.length > 0) {
+                    html += '<div class="alert alert-error">❌ Fehler: ' + data.errors.join(', ') + '</div>';
+                }
+                
+                if (data.matches && data.matches.length > 0) {
+                    html += '<div class="game-list">';
+                    html += '<h4>Beispiel-Spiele:</h4>';
+                    for (let i = 0; i < Math.min(5, data.matches.length); i++) {
+                        const game = data.matches[i];
+                        const cacheStatus = game.fromCache ? 'cache' : 'new';
+                        html += '<div class="game-item">';
+                        html += '<span class="game-status ' + cacheStatus + '"></span>';
+                        html += '<span class="game-teams">' + game.team1 + ' vs ' + game.team2;
+                        if (game.result) html += ' <span class="game-score">(' + game.result + ')</span>';
+                        html += '</span>';
+                        html += '<span class="game-date">' + game.roundName + '</span>';
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
+                
+                document.getElementById('results').innerHTML = html;
+                updateCurrentStats();
+                
+            } catch (error) {
+                document.getElementById('results').innerHTML = '<div class="alert alert-error">❌ Fehler: ' + error.message + '</div>';
+            } finally {
+                isLoading = false;
+                setButtonsDisabled(false);
+            }
+        }
+
+        async function showDatabase() {
+            if (isLoading) return;
+            isLoading = true;
+            setButtonsDisabled(true);
+            
+            const cup = getSelectedCup();
+            const season = getSelectedSeason();
+            
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').innerHTML = '<div class="alert alert-info">⏳ Lade Datenbank...</div>';
+            
+            try {
+                const response = await fetch('/games?cup=' + cup + '&season=' + season + '&limit=50');
+                const games = await response.json();
+                
+                let html = '<div class="alert alert-success">📊 ' + games.length + ' Spiele aus Datenbank</div>';
+                html += '<div class="game-list">';
+                
+                for (let i = 0; i < games.length; i++) {
+                    const game = games[i];
+                    html += '<div class="game-item">';
+                    html += '<span class="game-teams"><strong>' + game.team1 + ' vs ' + game.team2 + '</strong>';
+                    if (game.result) html += ' <span class="game-score">(' + game.result + ')</span>';
+                    html += '</span>';
+                    html += '<span class="game-info">Runde: ' + game.roundName + ' | Saison: ' + game.season + ' | ID: ' + game.gameId + '</span>';
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+                document.getElementById('results').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('results').innerHTML = '<div class="alert alert-error">❌ Fehler: ' + error.message + '</div>';
+            } finally {
+                isLoading = false;
+                setButtonsDisabled(false);
+            }
+        }
+
+        async function showStats() {
+            if (isLoading) return;
+            isLoading = true;
+            setButtonsDisabled(true);
+            
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').innerHTML = '<div class="alert alert-info">⏳ Lade Statistiken...</div>';
+            
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+                
+                let html = '<div class="alert alert-success">📈 Datenbank-Statistiken</div>';
+                html += '<div class="stats-summary">';
+                html += '<p><strong>Total:</strong> ' + stats.totalGames + ' Spiele in ' + stats.totalTournaments + ' Turnieren</p>';
+                
+                if (stats.byStatus && stats.byStatus.length > 0) {
+                    html += '<h4>Nach Status:</h4>';
+                    html += '<div class="game-list">';
+                    for (let i = 0; i < stats.byStatus.length; i++) {
+                        const item = stats.byStatus[i];
+                        html += '<div class="game-item">Status "' + item.status + '": ' + item.count + ' Spiele</div>';
+                    }
+                    html += '</div>';
+                }
+                
+                html += '<h4>Nach Cup und Saison:</h4>';
+                html += '<div class="game-list">';
+                for (let i = 0; i < stats.bySeason.length; i++) {
+                    const item = stats.bySeason[i];
+                    html += '<div class="game-item">' + item.cupType + ' (' + item.season + '): ' + item.count + ' Spiele</div>';
+                }
+                html += '</div>';
+                html += '</div>';
+                
+                document.getElementById('results').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('results').innerHTML = '<div class="alert alert-error">❌ Fehler: ' + error.message + '</div>';
+            } finally {
+                isLoading = false;
+                setButtonsDisabled(false);
+            }
+        }
+
+        async function clearDatabase() {
+            if (!confirm('Wirklich alle Daten löschen?')) return;
+            if (isLoading) return;
+            isLoading = true;
+            setButtonsDisabled(true);
+            
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').innerHTML = '<div class="alert alert-info">⏳ Lösche Datenbank...</div>';
+            
+            try {
+                const response = await fetch('/clear-db', { method: 'POST' });
+                const result = await response.json();
+                
+                document.getElementById('totalGames').textContent = '0';
+                document.getElementById('newGames').textContent = '0';
+                document.getElementById('cachedGames').textContent = '0';
+                
+                document.getElementById('results').innerHTML = '<div class="alert alert-success">✅ ' + result.message + '</div>';
+                updateCurrentStats();
+                
+            } catch (error) {
+                document.getElementById('results').innerHTML = '<div class="alert alert-error">❌ Fehler: ' + error.message + '</div>';
+            } finally {
+                isLoading = false;
+                setButtonsDisabled(false);
+            }
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCurrentStats();
+            
+            const radioButtons = document.querySelectorAll('input[name="cupType"]');
+            for (let i = 0; i < radioButtons.length; i++) {
+                radioButtons[i].addEventListener('change', updateCurrentStats);
+            }
+            
+            document.getElementById('seasonSelect').addEventListener('change', updateCurrentStats);
+        });
+    </script>
+</body>
+</html>

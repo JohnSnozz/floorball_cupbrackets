@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏒 Swiss Cup Crawler</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🏒 Swiss Cup Crawler</h1>
+        
+        <div class="status-banner">
+            <strong>Automatischer Modus aktiv:</strong> Alle Cups ab Saison 2022/23 werden beim Server-Start automatisch gecrawlt und die Bracket-Sortierung wird berechnet.
+        </div>
+        
+        <div class="navigation-section">
+            <h2>🚀 Verfügbare Tools</h2>
+            
+            <div class="tool-grid">
+                <div class="tool-card">
+                    <div class="tool-icon">🏆</div>
+                    <h3>Bracket Viewer</h3>
+                    <p>Interaktive Darstellung der Tournament-Brackets mit Team-Highlighting und Verbindungslinien</p>
+                    <a href="/bracket.html" class="btn btn-primary">
+                        🎯 Bracket öffnen
+                    </a>
+                </div>
+                
+                <div class="tool-card">
+                    <div class="tool-icon">📊</div>
+                    <h3>Datenbank Review</h3>
+                    <p>Detaillierte Übersicht aller gecrawlten Spiele mit Statistiken und Exportfunktionen</p>
+                    <a href="/dbreview.html" class="btn btn-success">
+                        📋 DB Review öffnen
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-section">
+            <h2>📈 System Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">Server Status</span>
+                    <span class="status-value status-active" id="serverStatus">🟢 Online</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Auto-Crawl</span>
+                    <span class="status-value" id="autoCrawlStatus">⏳ Läuft...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Letzte Aktualisierung</span>
+                    <span class="status-value" id="lastUpdate">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="quick-stats">
+            <div class="stat-card">
+                <span class="stat-value" id="totalGames">-</span>
+                <span class="stat-label">Spiele Total</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="totalEvents">-</span>
+                <span class="stat-label">Events</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="bracketSorted">-</span>
+                <span class="stat-label">Bracket-sortiert</span>
+            </div>
+        </div>
+        
+        <div class="admin-section">
+            <h2>⚙️ Admin Tools</h2>
+            <div class="admin-buttons">
+                <a href="/stats" class="btn btn-info btn-small">📊 Statistiken</a>
+                <a href="/games/all" class="btn btn-info btn-small">📋 Alle Spiele</a>
+                <a href="/bracket-sorting-status" class="btn btn-info btn-small">🎯 Bracket Status</a>
+                <a href="/health" class="btn btn-success btn-small">❤️ Health Check</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Status-Updates laden
+        async function updateStatus() {
+            try {
+                // Lade Spiel-Statistiken
+                const statsResponse = await fetch('/stats');
+                const stats = await statsResponse.json();
+                
+                if (stats.totalGames !== undefined) {
+                    document.getElementById('totalGames').textContent = stats.totalGames.toLocaleString();
+                    document.getElementById('totalEvents').textContent = stats.totalTournaments || '-';
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleString('de-CH');
+                }
+                
+                // Lade Bracket-Sortierung Status
+                const bracketResponse = await fetch('/bracket-sorting-status');
+                const bracketStats = await bracketResponse.json();
+                
+                if (bracketStats.success) {
+                    const totalSorted = bracketStats.events.reduce((sum, event) => sum + event.sortedGames, 0);
+                    document.getElementById('bracketSorted').textContent = totalSorted.toLocaleString();
+                }
+                
+                // Auto-Crawl Status (vereinfacht)
+                document.getElementById('autoCrawlStatus').innerHTML = '✅ Abgeschlossen';
+                document.getElementById('autoCrawlStatus').className = 'status-value status-active';
+                
+            } catch (error) {
+                console.error('Status update failed:', error);
+                document.getElementById('autoCrawlStatus').innerHTML = '❌ Fehler';
+                document.getElementById('autoCrawlStatus').className = 'status-value status-error';
+            }
+        }
+        
+        // Status beim Laden und alle 30 Sekunden aktualisieren
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus();
+            setInterval(updateStatus, 30000);
+        });
+        
+        // Health Check
+        setInterval(async () => {
+            try {
+                const response = await fetch('/health');
+                const status = response.ok ? '🟢 Online' : '🔴 Fehler';
+                document.getElementById('serverStatus').textContent = status;
+                document.getElementById('serverStatus').className = response.ok ? 
+                    'status-value status-active' : 'status-value status-error';
+            } catch (error) {
+                document.getElementById('serverStatus').textContent = '🔴 Offline';
+                document.getElementById('serverStatus').className = 'status-value status-error';
+            }
+        }, 10000);
+    </script>
+</body>
+</html>
