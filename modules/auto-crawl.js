@@ -1,10 +1,6 @@
 // modules/auto-crawl.js
-// Interaktives Crawling aller Cups ab 2022/23 beim Server-Start
+// Crawling-Logik OHNE Benutzerabfragen (wird von server.js gesteuert)
 
-// Node.js 18+ hat fetch eingebaut, kein externes Paket nötig
-const readline = require('readline');
-
-// Alle verfügbaren Cups und Saisons
 const CUPS = [
     'herren_grossfeld',
     'damen_grossfeld', 
@@ -20,71 +16,9 @@ const SEASONS = [
 ];
 
 /**
- * Erstellt readline Interface für Benutzereingaben
- */
-function createReadlineInterface() {
-    return readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-}
-
-/**
- * Stellt eine Ja/Nein Frage an den Benutzer
- */
-function askQuestion(rl, question) {
-    return new Promise((resolve) => {
-        rl.question(question, (answer) => {
-            const normalizedAnswer = answer.toLowerCase().trim();
-            resolve(normalizedAnswer === 'y' || normalizedAnswer === 'yes' || normalizedAnswer === 'j' || normalizedAnswer === 'ja');
-        });
-    });
-}
-
-/**
- * Führt interaktive Abfragen durch und startet entsprechende Aktionen
- */
-async function startInteractiveCrawl(baseUrl = 'http://localhost:3000') {
-    console.log('\n🎯 Swiss Cup Crawler - Interaktiver Modus');
-    console.log('═'.repeat(50));
-    
-    const rl = createReadlineInterface();
-    
-    try {
-        // Crawling-Abfrage
-        console.log('\n📊 Verfügbare Daten:');
-        console.log(`   📅 Saisons: ${SEASONS.join(', ')}`);
-        console.log(`   🏒 Cups: ${CUPS.length} verschiedene Cups`);
-        console.log(`   📈 Total: ${CUPS.length * SEASONS.length} Events\n`);
-        
-        const shouldCrawl = await askQuestion(rl, '❓ Soll alles gecrawlt werden? (y/n): ');
-        
-        let crawlResults = null;
-        if (shouldCrawl) {
-            console.log('\n🚀 Starte Crawling-Prozess...');
-            crawlResults = await performCrawling(baseUrl);
-        } else {
-            console.log('\n⏭️  Crawling übersprungen');
-        }
-        
-        console.log('\n🎉 Crawling-Prozess abgeschlossen!');
-        console.log('═'.repeat(50));
-        
-        if (crawlResults) {
-            printCrawlSummary(crawlResults);
-        }
-        
-    } catch (error) {
-        console.error('\n❌ Fehler während des interaktiven Prozesses:', error.message);
-    } finally {
-        rl.close();
-    }
-}
-
-/**
  * Führt das Crawling für alle Cups und Saisons durch
  */
-async function performCrawling(baseUrl) {
+async function performAutoCrawling(baseUrl = 'http://localhost:3000') {
     console.log(`\n📋 Crawling von ${CUPS.length * SEASONS.length} Events...`);
     
     let totalSuccessful = 0;
@@ -152,25 +86,6 @@ async function performCrawling(baseUrl) {
 }
 
 /**
- * Zeigt eine Zusammenfassung der Crawling-Ergebnisse
- */
-function printCrawlSummary(crawlResults) {
-    console.log('\n📈 Detaillierte Zusammenfassung:');
-    
-    if (crawlResults.totalNewGames > 0) {
-        console.log(`   🆕 ${crawlResults.totalNewGames} neue Spiele gefunden`);
-    }
-    
-    if (crawlResults.totalCacheGames > 0) {
-        console.log(`   💾 ${crawlResults.totalCacheGames} Spiele aus Cache geladen`);
-    }
-    
-    if (crawlResults.totalFailed > 0) {
-        console.log(`   ⚠️  ${crawlResults.totalFailed} Events konnten nicht geladen werden`);
-    }
-}
-
-/**
  * Crawlt einen spezifischen Cup
  */
 async function crawlCup(baseUrl, cup, season) {
@@ -208,36 +123,8 @@ function getCupDisplayName(cup) {
     return names[cup] || cup;
 }
 
-/**
- * Prüft ob interaktiver Modus aktiviert werden soll
- */
-function shouldRunInteractiveMode() {
-    // Interaktiver Modus läuft standardmäßig, außer explizit deaktiviert
-    const disabled = process.env.DISABLE_INTERACTIVE_CRAWL === 'true' || 
-                    process.env.DISABLE_INTERACTIVE_CRAWL === '1';
-    return !disabled;
-}
-
-/**
- * Startet interaktiven Modus mit Verzögerung
- */
-function initializeInteractiveCrawl(delayMs = 2000) {
-    if (!shouldRunInteractiveMode()) {
-        console.log('🚫 Interaktiver Crawl-Modus deaktiviert (DISABLE_INTERACTIVE_CRAWL=true)');
-        return;
-    }
-    
-    setTimeout(async () => {
-        try {
-            await startInteractiveCrawl();
-        } catch (error) {
-            console.error('❌ Interaktiver Crawl-Modus fehlgeschlagen:', error);
-        }
-    }, delayMs);
-}
-
 module.exports = {
-    startInteractiveCrawl,
-    initializeInteractiveCrawl,
-    shouldRunInteractiveMode
+    performAutoCrawling,
+    CUPS,
+    SEASONS
 };

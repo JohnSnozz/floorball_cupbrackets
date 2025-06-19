@@ -1,40 +1,4 @@
-/**
- * Startet Bracket-Sortierung
- */
-async function calculateBracketSorting(baseUrl) {
-    const url = `${baseUrl}/calculate-bracket-sorting`;
-    
-    const response = await fetch(url, {
-        method: 'POST'
-    });
-    
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const result = await response.json();
-    return result;
-}
-
-/**
- * Führt die Bracket-Sortierung durch
- */
-async function performBracketCalculation(baseUrl) {
-    try {
-        console.log('   🔄 Berechne Bracket-Sortierung...');
-        
-        const result = await calculateBracketSorting(baseUrl);
-        
-        if (result.success) {
-            console.log('   ✅ Bracket-Sortierung erfolgreich abgeschlossen');
-        } else {
-            console.log(`   ❌ Bracket-Sortierung fehlgeschlagen: ${result.message || 'Unbekannter Fehler'}`);
-        }
-        
-    } catch (error) {
-        console.log(`   ❌ Bracket-Sortierung fehlgeschlagen: ${error.message}`);
-    }
-}// modules/game-details.js - GameDetails für sqlite3 (CORRECTED)
+// modules/game-details.js - GameDetails für sqlite3 (OHNE Benutzerabfragen)
 
 const fetch = require('node-fetch');
 
@@ -173,56 +137,6 @@ class GameDetailsManager {
       ]);
     } catch (error) {
       console.error(`❌ Fehler beim Speichern von GameID ${numericGameId}:`, error);
-    }
-  }
-
-  // Interaktive Abfrage für GameDetails Crawling
-  async askUserForCrawling() {
-    const readline = require('readline');
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-
-    return new Promise((resolve) => {
-      rl.question('❓ Sollen Spieldetails (Events) gecrawlt werden? (y/n): ', (answer) => {
-        rl.close();
-        resolve(answer.toLowerCase().trim() === 'y');
-      });
-    });
-  }
-
-  // Interaktiver Crawl-Starter
-  async initializeInteractiveGameDetailsCrawl(delay = 0) {
-    if (delay > 0) {
-      setTimeout(async () => {
-        try {
-          const shouldCrawl = await this.askUserForCrawling();
-          
-          if (shouldCrawl) {
-            console.log('🎯 Starte GameDetails Crawling...');
-            await this.crawlAllGameDetails();
-          } else {
-            console.log('⏭️  GameDetails Crawling übersprungen');
-          }
-        } catch (error) {
-          console.error('❌ Fehler bei GameDetails Abfrage:', error.message);
-        }
-      }, delay);
-    } else {
-      // Ohne delay - direkt ausführen
-      try {
-        const shouldCrawl = await this.askUserForCrawling();
-        
-        if (shouldCrawl) {
-          console.log('🎯 Starte GameDetails Crawling...');
-          await this.crawlAllGameDetails();
-        } else {
-          console.log('⏭️  GameDetails Crawling übersprungen');
-        }
-      } catch (error) {
-        console.error('❌ Fehler bei GameDetails Abfrage:', error.message);
-      }
     }
   }
 

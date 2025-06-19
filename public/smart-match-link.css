@@ -1,0 +1,31 @@
+/* Smart Match Links für Swiss Cup Smart Brackets */
+
+.smart-match-link {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background-color: #007bff;
+    cursor: pointer;
+    z-index: 2;
+    transition: all 0.2s ease;
+    border-radius: 0 4px 4px 0;
+    opacity: 0.8;
+}
+
+.smart-match-link:hover {
+    background-color: #0056b3;
+    opacity: 1;
+    width: 8px;
+    box-shadow: 0 0 4px rgba(0, 123, 255, 0.4);
+}
+
+.smart-match-link:active {
+    background-color: #004085;
+}
+
+/* Sicherstellen dass Smart Matches relative Positionierung haben */
+.smart-match {
+    position: relative;
+}
