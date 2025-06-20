@@ -1,4 +1,4 @@
-// modules/cup-routes.js - Cup-Crawling Routen
+// modules/cup-routes.js - Cup-Crawling Routen mit Smart Skip Logic
 
 const dbHelpers = require('./database');
 
@@ -41,13 +41,14 @@ function register(app, db) {
   app.get('/crawl-cup', async (req, res) => {
     const cupType = req.query.cup || 'herren_grossfeld';
     const requestedSeason = req.query.season || null;
+    const skipPlayed = req.query.skipPlayed === 'true'; // Neuer Parameter
     const cupConfig = CUP_CONFIGS[cupType];
     
     if (!cupConfig) {
       return res.status(400).json({ error: 'Unbekannter Cup-Typ: ' + cupType });
     }
     
-    console.log(`🏆 Crawling ${cupConfig.name} (Saison: ${requestedSeason || 'Auto'})...`);
+    console.log(`🏆 Crawling ${cupConfig.name} (Saison: ${requestedSeason || 'Auto'})${skipPlayed ? ' [Skip Played]' : ''}...`);
     
     try {
       // 1. Hole aktuelle Cup-Übersicht von API
@@ -63,8 +64,11 @@ function register(app, db) {
           tournaments: [],
           matches: [],
           totalGames: 0,
-          fromCache: 0,
-          newlyCrawled: 0,
+          newGames: 0,
+          cacheGames: 0,
+          skippedPlayed: 0,
+          updatedGames: 0,
+          success: false,
           errors: [`Kein passendes Turnier für ${cupConfig.name} in Saison ${requestedSeason || 'Auto'} gefunden`]
         });
       }
@@ -75,10 +79,12 @@ function register(app, db) {
       const rounds = await getCupRounds(tournament.id);
       console.log(`📊 Found ${rounds.length} rounds for tournament ${tournament.id}`);
       
-      // 4. Crawle alle Spiele aus allen Runden
+      // 4. Crawle alle Spiele aus allen Runden mit Smart Logic
       let allMatches = [];
-      let fromCache = 0;
-      let newlyCrawled = 0;
+      let newGames = 0;
+      let cacheGames = 0;
+      let skippedPlayed = 0;
+      let updatedGames = 0;
       let errors = [];
       
       for (let i = 0; i < rounds.length; i++) {
@@ -120,17 +126,66 @@ function register(app, db) {
               uniqueGameId = `${cleanTeam1}_vs_${cleanTeam2}_r${round.id}_t${tournament.id}`;
             }
             
-            console.log(`🔍 Checking game: ${game.team1} vs ${game.team2} (ID: ${uniqueGameId})`);
-            
-            // Prüfe ob Spiel bereits in DB existiert
+            // 🎯 SMART LOGIC: Prüfe existierendes Spiel
             const existingGame = await dbHelpers.getGameFromDB(db, uniqueGameId);
             
             if (existingGame) {
-              console.log(`🟡 DUPLICATE FOUND: ${game.team1} vs ${game.team2} already exists in DB`);
-              game.fromCache = true;
-              game.gameId = uniqueGameId;
-              fromCache++;
+              // Spiel existiert bereits - prüfe ob es gespielt wurde
+              const hasResult = existingGame.result && existingGame.result.trim() !== '';
+              const currentResult = game.result || '';
+              
+              if (skipPlayed && hasResult && currentResult === existingGame.result) {
+                // ⏭️ SKIP: Spiel bereits gespielt und Resultat unverändert
+                skippedPlayed++;
+                continue; // Spiel wird NICHT zur allMatches Liste hinzugefügt
+                
+              } else if (hasResult && currentResult !== existingGame.result && currentResult.trim() !== '') {
+                // 🔄 UPDATE: Spiel hat neues/anderes Resultat
+                console.log(`🔄 UPDATE: ${game.team1} vs ${game.team2} - Resultat geändert: "${existingGame.result}" → "${currentResult}"`);
+                
+                await updateGameInDB(db, uniqueGameId, {
+                  result: currentResult,
+                  status: currentResult ? 'finished' : 'scheduled'
+                });
+                
+                game.fromCache = false;
+                game.gameId = uniqueGameId;
+                game.roundName = round.name;
+                game.tournamentName = tournament.name;
+                game.season = tournament.season;
+                allMatches.push(game);
+                updatedGames++;
+                
+              } else if (!hasResult && currentResult.trim() !== '') {
+                // 🆕 NEW RESULT: Spiel war unentschieden, hat jetzt Resultat
+                console.log(`🆕 NEW RESULT: ${game.team1} vs ${game.team2} - Neues Resultat: "${currentResult}"`);
+                
+                await updateGameInDB(db, uniqueGameId, {
+                  result: currentResult,
+                  status: 'finished'
+                });
+                
+                game.fromCache = false;
+                game.gameId = uniqueGameId;
+                game.roundName = round.name;
+                game.tournamentName = tournament.name;
+                game.season = tournament.season;
+                allMatches.push(game);
+                updatedGames++;
+                
+              } else {
+                // 💾 CACHE: Unverändert, aus Cache
+                game.fromCache = true;
+                game.gameId = uniqueGameId;
+                game.roundName = round.name;
+                game.tournamentName = tournament.name;
+                game.season = tournament.season;
+                allMatches.push(game);
+                cacheGames++;
+              }
+              
             } else {
+              // 🔵 NEUES SPIEL: Komplett neu speichern
               console.log(`🔵 NEW GAME: ${game.team1} vs ${game.team2} will be saved`);
               
               // Neue Spieldaten aufbereiten und speichern
@@ -150,7 +205,7 @@ function register(app, db) {
                 gameDate: game.gameDate || '',
                 gameTime: game.gameTime || '',
                 venue: game.venue || '',
-                status: game.status || 'scheduled',
+                status: game.result ? 'finished' : 'scheduled',
                 result: game.result || '',
                 source: 'api',
                 apiEndpoint: `/api/games?mode=cup&tournament_id=${tournament.id}&round=${round.id}`,
@@ -170,28 +225,27 @@ function register(app, db) {
                   console.log(`✅ SAVED: ${game.team1} vs ${game.team2} saved to DB`);
                   game.fromCache = false;
                   game.gameId = uniqueGameId;
-                  newlyCrawled++;
+                  game.roundName = round.name;
+                  game.tournamentName = tournament.name;
+                  game.season = tournament.season;
+                  allMatches.push(game);
+                  newGames++;
                 } else {
                   console.log(`🟡 DUPLICATE via INSERT IGNORE: ${game.team1} vs ${game.team2}`);
                   game.fromCache = true;
                   game.gameId = uniqueGameId;
-                  fromCache++;
+                  game.roundName = round.name;
+                  game.tournamentName = tournament.name;
+                  game.season = tournament.season;
+                  allMatches.push(game);
+                  cacheGames++;
                 }
               } catch (saveError) {
                 console.error(`❌ SAVE ERROR: ${saveError.message}`);
-                // Behandle als Duplikat bei Fehlern
-                game.fromCache = true;
-                game.gameId = uniqueGameId;
-                fromCache++;
+                errors.push(`Fehler beim Speichern: ${game.team1} vs ${game.team2}`);
               }
             }
-            
-            game.roundName = round.name;
-            game.tournamentName = tournament.name;
-            game.season = tournament.season;
           }
-          
-          allMatches = allMatches.concat(uniqueGames);
           
         } catch (roundError) {
           console.error(`Error crawling round ${round.id}:`, roundError.message);
@@ -199,28 +253,43 @@ function register(app, db) {
         }
       }
       
-      console.log(`🎯 Crawling complete: ${allMatches.length} total games, ${fromCache} from cache, ${newlyCrawled} newly crawled`);
+      // 📊 SUMMARY LOGGING
+      console.log(`🎯 Crawling complete for ${cupConfig.name}:`);
+      console.log(`   📊 Total verarbeitet: ${allMatches.length + skippedPlayed} Spiele`);
+      console.log(`   🆕 Neu hinzugefügt: ${newGames}`);
+      console.log(`   🔄 Aktualisiert: ${updatedGames}`);
+      console.log(`   💾 Aus Cache: ${cacheGames}`);
+      console.log(`   ⏭️ Übersprungen (bereits gespielt): ${skippedPlayed}`);
+      if (errors.length > 0) {
+        console.log(`   ❌ Fehler: ${errors.length}`);
+      }
       
       res.json({
+        success: true,
         cupName: cupConfig.name,
         season: tournament.season,
         tournaments: [tournament],
         matches: allMatches,
         totalGames: allMatches.length,
-        fromCache: fromCache,
-        newlyCrawled: newlyCrawled,
+        newGames: newGames,
+        cacheGames: cacheGames,
+        skippedPlayed: skippedPlayed,
+        updatedGames: updatedGames,
         errors: errors
       });
       
     } catch (error) {
       console.error('❌ Cup crawling error:', error.message);
       res.status(500).json({ 
+        success: false,
         error: error.message,
         cupName: cupConfig.name,
         season: requestedSeason,
         totalGames: 0,
-        newlyCrawled: 0,
-        fromCache: 0,
+        newGames: 0,
+        cacheGames: 0,
+        skippedPlayed: 0,
+        updatedGames: 0,
         errors: [error.message]
       });
     }
@@ -229,7 +298,25 @@ function register(app, db) {
   console.log('✅ Cup-Routen registriert');
 }
 
-// API helper functions
+// 🔄 Neue Hilfsfunktion: Update Game in DB
+async function updateGameInDB(db, gameId, updates) {
+  return new Promise((resolve, reject) => {
+    const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const values = Object.values(updates);
+    
+    const sql = `UPDATE games SET ${fields} WHERE gameId = ?`;
+    
+    db.run(sql, [...values, gameId], function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ changes: this.changes });
+      }
+    });
+  });
+}
+
+// API helper functions (unverändert)
 async function fetchCupOverview() {
   try {
     console.log('🔍 Fetching cup overview from API...');

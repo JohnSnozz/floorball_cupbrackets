@@ -1,4 +1,4 @@
-// Smart Bracket für Swiss Cup - Dynamische Abstände ohne Freilos
+// Smart Bracket für Swiss Cup - Absolute Koordinaten System
 // =====================================================================
 
 let currentGames = [];
@@ -7,6 +7,9 @@ let debugData = {};
 
 // Konstanten
 const MATCH_HEIGHT = 62; // Höhe eines einzelnen Spiels in px
+const ROUND_WIDTH = 180; // Breite einer Runde in px
+const ROUND_GAP = 40; // Horizontaler Abstand zwischen Runden in px
+const TOTAL_ROUND_SPACING = ROUND_WIDTH + ROUND_GAP; // 220px
 
 /**
  * Einheitliche Runden-Priorität für chronologische Sortierung
@@ -100,8 +103,8 @@ async function loadSmartBracket() {
             return;
         }
         
-        // Verarbeite und berechne Smart Bracket
-        const smartRounds = processSmartBracket(games);
+        // Verarbeite und berechne Smart Bracket mit absoluten Koordinaten
+        const smartRounds = processSmartBracketAbsolute(games);
         currentRounds = smartRounds;
         
         const totalGames = games.length;
@@ -111,7 +114,7 @@ async function loadSmartBracket() {
         infoBox.innerHTML = `📊 ${totalGames} Spiele total • ${nonFreilosGames} echte Spiele • ${freilosGames} Freilos ausgeblendet • ${smartRounds.length} Runden`;
         infoBox.style.display = 'flex';
         
-        renderSmartBracket();
+        renderSmartBracketAbsolute();
         
     } catch (error) {
         console.error('Error loading smart bracket:', error);
@@ -149,10 +152,10 @@ function validateBracketSorting(games) {
 }
 
 /**
- * Verarbeitet die Spiele zu einem Smart Bracket
+ * Verarbeitet die Spiele zu einem Smart Bracket mit absoluten Koordinaten
  */
-function processSmartBracket(games) {
-    console.log('🧠 Processing Smart Bracket...');
+function processSmartBracketAbsolute(games) {
+    console.log('🧠 Processing Smart Bracket with absolute coordinates...');
     
     // 1. Gruppiere nach Runden und sortiere chronologisch
     const roundsMap = new Map();
@@ -201,6 +204,7 @@ function processSmartBracket(games) {
         processedRounds.push({
             name: roundName,
             games: nonFreilosGames,
+            allGames: sortedGames, // Behalte alle Spiele für Vorgänger-Analyse
             originalGameCount: sortedGames.length,
             index: roundIndex
         });
@@ -211,31 +215,55 @@ function processSmartBracket(games) {
         return [];
     }
     
-    // 3. Berechne Layout für alle Runden
-    // Zuerst: Berechne das Layout der Referenz-Runde (kompakt)
-    const maxGameRound = processedRounds[maxGameRoundIndex];
-    const referenceLayout = calculateMaxGamesRoundLayout(maxGameRound.games, null, maxGameRound.name);
-    const actualBracketHeight = referenceLayout.totalHeight;
+    // 3. Berechne maximale Bracket-Höhe basierend auf der Max-Games-Runde
+    const maxBracketHeight = calculateCompactBracketHeight(maxGameCount);
+    console.log(`🎯 Max bracket height: ${maxBracketHeight}px (from ${maxGameCount} games)`);
     
-    console.log(`🎯 Actual bracket height: ${actualBracketHeight}px (from max games round: ${maxGameRound.name})`);
+    // 4. Berechne absolute Koordinaten für alle Runden
+    const smartRounds = [];
     
-    // Dann: Berechne alle anderen Runden basierend auf dieser Höhe
-    const smartRounds = processedRounds.map((round, index) => {
-        let roundLayout;
-        if (index === maxGameRoundIndex) {
-            // Verwende das bereits berechnete Layout der Referenz-Runde
-            roundLayout = referenceLayout;
-        } else {
-            // Alle anderen Runden - dynamischer Abstand mit Zentrierung
-            roundLayout = calculateCenteredRoundLayout(round.games, actualBracketHeight, round.name);
-        }
+    for (let roundIndex = 0; roundIndex < processedRounds.length; roundIndex++) {
+        const round = processedRounds[roundIndex];
+        const roundX = roundIndex * TOTAL_ROUND_SPACING; // Horizontale Position
+        let gamePositions;
         
-        return {
-            ...round,
-            layout: roundLayout,
-            isMaxGameRound: index === maxGameRoundIndex
-        };
-    });
+        if (roundIndex === maxGameRoundIndex) {
+            // Max-Games-Runde: Kompakte Anordnung mit 4px Abstand
+            gamePositions = calculateMaxGamesAbsolutePositions(round.games, roundX);
+            // Für Max-Games-Runde: Erstelle auch allGamePositions für Freilos-Tracking
+            const allGamePositions = createAllGamePositions(round.allGames, round.games, gamePositions);
+            smartRounds.push({
+                ...round,
+                gamePositions,
+                allGamePositions, // Neue Struktur für Freilos-Tracking
+                isMaxGameRound: true,
+                roundX
+            });
+        } else if (roundIndex < maxGameRoundIndex) {
+            // Runden VOR der Max-Games-Runde: Gleichmäßig über maximale Höhe verteilt
+            gamePositions = calculatePreMaxRoundAbsolutePositions(round.games, roundX, maxBracketHeight);
+            const allGamePositions = createAllGamePositions(round.allGames, round.games, gamePositions);
+            smartRounds.push({
+                ...round,
+                gamePositions,
+                allGamePositions,
+                isMaxGameRound: false,
+                roundX
+            });
+        } else {
+            // Runden NACH der Max-Games-Runde: Alle mit vereinfachter Bracket-Logik
+            const previousRound = smartRounds[roundIndex - 1];
+            console.log(`   🧪 Testing bracket logic for post-max round: ${round.name}`);
+            gamePositions = calculatePostMaxRoundAbsolutePositions(round, previousRound, roundX);
+            
+            smartRounds.push({
+                ...round,
+                gamePositions,
+                isMaxGameRound: false,
+                roundX
+            });
+        }
+    }
     
     // Debug-Daten speichern
     debugData = {
@@ -243,116 +271,237 @@ function processSmartBracket(games) {
         smartRounds: smartRounds.length,
         maxGameCount,
         maxGameRoundIndex,
-        actualBracketHeight,
+        maxBracketHeight,
         rounds: smartRounds.map(r => ({
             name: r.name,
             games: r.games.length,
             originalGames: r.originalGameCount,
-            spacing: r.layout.spacing,
-            topMargin: r.layout.topMargin,
             isMaxGameRound: r.isMaxGameRound,
-            totalHeight: r.layout.totalHeight
+            roundX: r.roundX,
+            gamePositions: r.gamePositions.length
         }))
     };
     
-    console.log('🎯 Smart Bracket processing complete:', debugData);
+    console.log('🎯 Smart Bracket absolute coordinates processing complete:', debugData);
     
     return smartRounds;
 }
 
 /**
- * Berechnet die kompakte Gesamthöhe des Brackets (für Referenz-Runde)
+ * Erstellt allGamePositions Array mit Freilos-Tracking
+ */
+function createAllGamePositions(allGames, visibleGames, visibleGamePositions) {
+    return allGames.map((game, index) => {
+        const isVisible = !isFreilosGame(game);
+        
+        if (isVisible) {
+            // Finde entsprechende Position im visibleGamePositions Array
+            const visibleIndex = visibleGames.findIndex(vGame => 
+                vGame.bracketSortOrder === game.bracketSortOrder
+            );
+            if (visibleIndex >= 0 && visibleIndex < visibleGamePositions.length) {
+                return {
+                    ...visibleGamePositions[visibleIndex],
+                    isVisible: true,
+                    originalIndex: index
+                };
+            }
+        }
+        
+        // Freilos-Spiel: Position wird nicht verwendet, aber Index gespeichert
+        return {
+            game,
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            isVisible: false,
+            originalIndex: index
+        };
+    });
+}
+
+/**
+ * Berechnet die kompakte Gesamthöhe des Brackets (für Max-Games-Runde)
  */
 function calculateCompactBracketHeight(maxGameCount) {
     return maxGameCount * MATCH_HEIGHT + (maxGameCount - 1) * 4; // 4px Abstand für kompaktes Layout
 }
 
 /**
- * Berechnet die Gesamthöhe des Brackets basierend auf der maximalen Spielanzahl
- * @deprecated - Verwende calculateCompactBracketHeight für konsistente Referenz
+ * Berechnet absolute Positionen für die Max-Games-Runde (kompakt mit 4px Abstand)
  */
-function calculateBracketHeight(maxGameCount) {
-    return calculateCompactBracketHeight(maxGameCount);
-}
-
-/**
- * Berechnet Layout für die Runde mit den meisten Spielen (fixer 4px Abstand)
- */
-function calculateMaxGamesRoundLayout(games, totalHeight, roundName) {
-    const gameCount = games.length;
-    const spacing = 4; // Fixer minimaler Abstand für kompaktes Layout
-    const topMargin = 0;
+function calculateMaxGamesAbsolutePositions(games, roundX) {
+    console.log(`   📏 Max games round: ${games.length} games at x=${roundX}px (compact layout)`);
     
-    // Berechne die tatsächlich benötigte Höhe für kompaktes Layout
-    const actualHeight = gameCount * MATCH_HEIGHT + (gameCount - 1) * spacing;
-    
-    console.log(`   📏 Max games round "${roundName}": ${gameCount} games, fixed 4px spacing (compact: ${actualHeight}px)`);
-    
-    const gamePositions = games.map((game, index) => ({
+    return games.map((game, index) => ({
         game,
-        top: topMargin + index * (MATCH_HEIGHT + spacing)
+        x: roundX,
+        y: index * (MATCH_HEIGHT + 4), // 4px Abstand
+        width: ROUND_WIDTH,
+        height: MATCH_HEIGHT
     }));
-    
-    return {
-        totalHeight: actualHeight, // Diese Höhe wird als Referenz für alle anderen Runden verwendet
-        spacing,
-        topMargin,
-        gamePositions
-    };
 }
 
 /**
- * Berechnet Layout für andere Runden mit zentrierter Positionierung
+ * Berechnet absolute Positionen für Runden VOR der Max-Games-Runde (gleichmäßig verteilt)
  */
-function calculateCenteredRoundLayout(games, totalHeight, roundName) {
-    const gameCount = games.length;
+function calculatePreMaxRoundAbsolutePositions(games, roundX, maxBracketHeight) {
+    console.log(`   📏 Pre-max round: ${games.length} games at x=${roundX}px (distributed over ${maxBracketHeight}px)`);
     
-    if (gameCount === 1) {
-        // Nur ein Spiel - zentriere es
-        const topMargin = (totalHeight - MATCH_HEIGHT) / 2;
-        console.log(`   📏 Centered round "${roundName}": 1 game, centered at ${topMargin.toFixed(1)}px`);
-        
-        return {
-            totalHeight,
-            spacing: 0,
-            topMargin,
-            gamePositions: [{
-                game: games[0],
-                top: topMargin
-            }]
-        };
+    if (games.length === 1) {
+        // Ein Spiel: Mittig platzieren
+        const y = (maxBracketHeight - MATCH_HEIGHT) / 2;
+        return [{
+            game: games[0],
+            x: roundX,
+            y: y,
+            width: ROUND_WIDTH,
+            height: MATCH_HEIGHT
+        }];
     }
     
-    // Korrekte Berechnung nach deiner Formel:
-    // AZS = (TotalHöhe - (Anzahl Spiele × Spielhöhe)) / Anzahl Spiele
-    const spacingBetweenGames = (totalHeight - (gameCount * MATCH_HEIGHT)) / gameCount;
+    // Mehrere Spiele: Gleichmäßig über die verfügbare Höhe verteilen
+    const availableHeight = maxBracketHeight - MATCH_HEIGHT;
+    const spacing = availableHeight / (games.length - 1);
     
-    // Abstand oben und unten: jeweils AZS / 2
-    const topMargin = spacingBetweenGames / 2;
-    const bottomMargin = spacingBetweenGames / 2;
-    
-    console.log(`   📏 Centered round "${roundName}": ${gameCount} games`);
-    console.log(`     TotalHeight: ${totalHeight}px, GameHeight: ${MATCH_HEIGHT}px`);
-    console.log(`     SpacingBetweenGames: ${spacingBetweenGames.toFixed(1)}px`);
-    console.log(`     TopMargin: ${topMargin.toFixed(1)}px, BottomMargin: ${bottomMargin.toFixed(1)}px`);
-    
-    const gamePositions = games.map((game, index) => ({
+    return games.map((game, index) => ({
         game,
-        top: topMargin + index * (MATCH_HEIGHT + spacingBetweenGames)
+        x: roundX,
+        y: index * spacing,
+        width: ROUND_WIDTH,
+        height: MATCH_HEIGHT
     }));
+}
+
+/**
+ * Berechnet absolute Positionen für Runden NACH der Max-Games-Runde (basierend auf Vorgängerspielen)
+ */
+function calculatePostMaxRoundAbsolutePositions(currentRound, previousRound, roundX) {
+    console.log(`   📏 Post-max round: ${currentRound.games.length} games at x=${roundX}px (based on predecessors)`);
+    
+    return currentRound.games.map((game, index) => {
+        // Finde Y-Koordinaten aller Vorgängerspiele mit Freilos-Behandlung
+        const predecessorInfo = findPredecessorGamesWithFreilos(game, currentRound, previousRound);
+        
+        let y;
+        if (predecessorInfo.hasFreilos) {
+            // Variante 2: Mindestens ein Vorgängerspiel hat Freilos
+            // Positioniere auf gleicher Höhe wie das Spiel ohne Freilos
+            y = predecessorInfo.nonFreilosY;
+            console.log(`     Game ${index + 1}: Freilos detected, using non-Freilos position y=${y}px`);
+        } else if (predecessorInfo.validYs.length > 0) {
+            // Variante 1: Kein Freilos in Vorgängerspielen
+            // Berechne Mittelwert aller Vorgänger-Y-Koordinaten
+            y = predecessorInfo.validYs.reduce((sum, yCoord) => sum + yCoord, 0) / predecessorInfo.validYs.length;
+            console.log(`     Game ${index + 1}: No Freilos, average of [${predecessorInfo.validYs.join(', ')}] → y=${y}px`);
+        } else {
+            // Fallback: Gleichmäßig verteilen (sollte nicht vorkommen)
+            console.warn(`⚠️ Game ${index + 1}: No valid predecessors found, using fallback positioning`);
+            y = index * (MATCH_HEIGHT + 10);
+        }
+        
+        return {
+            game,
+            x: roundX,
+            y: y,
+            width: ROUND_WIDTH,
+            height: MATCH_HEIGHT
+        };
+    });
+}
+
+/**
+ * Findet die Vorgängerspiele für ein gegebenes Spiel mit Freilos-Behandlung
+ */
+function findPredecessorGamesWithFreilos(currentGame, currentRound, previousRound) {
+    // Finde Index des aktuellen Spiels in der aktuellen Runde (0-basiert)
+    const currentGameIndex = currentRound.games.findIndex(game => 
+        game.bracketSortOrder === currentGame.bracketSortOrder
+    );
+    
+    console.log(`   🔍 Current game index: ${currentGameIndex} (bracketSortOrder: ${currentGame.bracketSortOrder})`);
+    console.log(`   📋 Previous round has ${previousRound.allGamePositions ? previousRound.allGamePositions.length : previousRound.gamePositions.length} total games`);
+    
+    // Berechne die Indizes der Vorgängerspiele (1-basiert zu 0-basiert konvertiert)
+    const currentIndex1Based = currentGameIndex + 1; // Zu 1-basiert
+    const pred1Index = (currentIndex1Based - 1) * 2 + 1; // 1-basiert
+    const pred2Index = (currentIndex1Based - 1) * 2 + 2; // 1-basiert
+    
+    // Konvertiere zurück zu 0-basiert für Array-Zugriff
+    const pred1ArrayIndex = pred1Index - 1;
+    const pred2ArrayIndex = pred2Index - 1;
+    
+    console.log(`   🎯 Looking for predecessors: Game ${pred1Index} and ${pred2Index} (array indices: ${pred1ArrayIndex}, ${pred2ArrayIndex})`);
+    
+    // Verwende allGamePositions falls verfügbar (für Freilos-Behandlung), sonst gamePositions
+    const gamePositions = previousRound.allGamePositions || previousRound.gamePositions;
+    
+    let hasFreilos = false;
+    let nonFreilosY = null;
+    const validYs = [];
+    
+    // Prüfe erstes Vorgängerspiel
+    if (pred1ArrayIndex >= 0 && pred1ArrayIndex < gamePositions.length) {
+        const pred1Position = gamePositions[pred1ArrayIndex];
+        
+        if (previousRound.allGamePositions) {
+            // Verwende allGamePositions Struktur
+            if (pred1Position.isVisible) {
+                validYs.push(pred1Position.y);
+                if (nonFreilosY === null) nonFreilosY = pred1Position.y;
+                console.log(`     ✅ Predecessor 1: visible, y=${pred1Position.y}px`);
+            } else {
+                hasFreilos = true;
+                console.log(`     ❌ Predecessor 1: Freilos game (hidden)`);
+            }
+        } else {
+            // Fallback: Verwende gamePositions direkt
+            validYs.push(pred1Position.y);
+            if (nonFreilosY === null) nonFreilosY = pred1Position.y;
+            console.log(`     ✅ Predecessor 1: y=${pred1Position.y}px`);
+        }
+    } else {
+        console.log(`     ❌ Predecessor 1: Index ${pred1ArrayIndex} out of range (max: ${gamePositions.length - 1})`);
+    }
+    
+    // Prüfe zweites Vorgängerspiel
+    if (pred2ArrayIndex >= 0 && pred2ArrayIndex < gamePositions.length) {
+        const pred2Position = gamePositions[pred2ArrayIndex];
+        
+        if (previousRound.allGamePositions) {
+            // Verwende allGamePositions Struktur
+            if (pred2Position.isVisible) {
+                validYs.push(pred2Position.y);
+                if (nonFreilosY === null) nonFreilosY = pred2Position.y;
+                console.log(`     ✅ Predecessor 2: visible, y=${pred2Position.y}px`);
+            } else {
+                hasFreilos = true;
+                console.log(`     ❌ Predecessor 2: Freilos game (hidden)`);
+            }
+        } else {
+            // Fallback: Verwende gamePositions direkt
+            validYs.push(pred2Position.y);
+            if (nonFreilosY === null) nonFreilosY = pred2Position.y;
+            console.log(`     ✅ Predecessor 2: y=${pred2Position.y}px`);
+        }
+    } else {
+        console.log(`     ❌ Predecessor 2: Index ${pred2ArrayIndex} out of range (max: ${gamePositions.length - 1})`);
+    }
+    
+    console.log(`     📊 Result: hasFreilos=${hasFreilos}, validYs=[${validYs.join(', ')}], nonFreilosY=${nonFreilosY}`);
     
     return {
-        totalHeight,
-        spacing: spacingBetweenGames,
-        topMargin,
-        gamePositions
+        hasFreilos,
+        validYs,
+        nonFreilosY: nonFreilosY || (validYs.length > 0 ? validYs[0] : 0)
     };
 }
 
 /**
- * Rendert das Smart Bracket
+ * Rendert das Smart Bracket mit absoluten Koordinaten
  */
-function renderSmartBracket() {
+function renderSmartBracketAbsolute() {
     const bracketContent = document.getElementById('bracketContent');
     
     if (currentRounds.length === 0) {
@@ -360,38 +509,144 @@ function renderSmartBracket() {
         return;
     }
     
-    console.log('🎨 Starting smart bracket render...');
+    console.log('🎨 Starting smart bracket render with absolute coordinates...');
     
-    let html = '<div class="smart-bracket">';
+    // Berechne gesamte Bracket-Dimensionen
+    const totalWidth = currentRounds.length * TOTAL_ROUND_SPACING;
+    const totalHeight = debugData.maxBracketHeight;
     
+    let html = '';
+    
+    // Headers Container
+    html += '<div class="bracket-headers">';
     currentRounds.forEach((round, roundIndex) => {
+        const nonFreilosCount = round.games.length;
+        const totalCount = round.originalGameCount;
         html += `
-            <div class="smart-round smart-round-${roundIndex + 1}">
-                <div class="smart-round-header">
-                    ${round.name}
-                    <span class="smart-round-count">(${round.games.length}/${round.originalGameCount} Spiele)</span>
-                </div>
-                <div class="smart-round-matches" style="position: relative; height: ${round.layout.totalHeight}px;">
+            <div class="round-header">
+                ${round.name}
+                <span class="round-count">(${nonFreilosCount} Spiele)</span>
+            </div>
         `;
-        
-        round.layout.gamePositions.forEach((position, gameIndex) => {
-            html += renderSmartMatch(position.game, position.top, gameIndex);
+    });
+    html += '</div>';
+    
+    // Bracket Container mit absoluten Koordinaten
+    html += `<div class="smart-bracket-absolute" style="position: relative; width: ${totalWidth}px; height: ${totalHeight}px; margin: 0 auto;">`;
+    
+    // Rendere alle Spiele mit absoluten Koordinaten
+    currentRounds.forEach((round, roundIndex) => {
+        round.gamePositions.forEach((position, gameIndex) => {
+            html += renderAbsoluteMatch(position, roundIndex, gameIndex);
         });
-        
-        html += '</div></div>';
     });
     
     html += '</div>';
     
     bracketContent.innerHTML = html;
-    console.log('✅ Smart bracket HTML rendered');
+    console.log('✅ Smart bracket HTML rendered with absolute coordinates and headers');
     
-    // Verhindere weitere Layout-Änderungen durch sofortiges "Einfrieren" der Positionen
-    setTimeout(() => {
-        freezeMatchPositions();
-    }, 50);
+    // CSS für die Headers dynamisch hinzufügen (falls nicht in smartbracket.css)
+    if (!document.querySelector('#smart-bracket-headers-css')) {
+        const style = document.createElement('style');
+        style.id = 'smart-bracket-headers-css';
+        style.textContent = `
+            /* Bracket Headers Container für Smart Bracket */
+            .bracket-headers {
+                display: flex;
+                gap: 40px;
+                margin-bottom: 15px;
+                padding: 0 15px;
+                position: sticky;
+                top: 0;
+                background-color: #2d2d2d;
+                z-index: 10;
+            }
+
+            .bracket-headers .round-header {
+                min-width: 180px;
+                width: 180px;
+                text-align: center;
+                font-weight: 600;
+                color: #ff6b00;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                font-size: 14px;
+                padding: 8px;
+                background-color: #333;
+                border-radius: 4px;
+                position: relative;
+            }
+
+            .bracket-headers .round-count {
+                display: block;
+                font-size: 10px;
+                color: #bbb;
+                font-weight: 400;
+                text-transform: none;
+                letter-spacing: 0;
+                margin-top: 3px;
+            }
+
+            /* Smart Bracket Absolute Container */
+            .smart-bracket-absolute {
+                background-image: 
+                    linear-gradient(to right, rgba(255, 107, 0, 0.1) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 107, 0, 0.1) 1px, transparent 1px);
+                background-size: 20px 20px;
+                background-position: 0 0;
+                padding: 15px;
+            }
+
+            /* Smart Match Absolute */
+            .smart-match-absolute {
+                background-color: #333;
+                border-radius: 4px;
+                overflow: hidden;
+                border: 1px solid #444;
+                transition: all 0.2s;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .smart-match-absolute:hover {
+                border-color: #555;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            }
+
+            /* Responsive Header-Skalierung */
+            @media (max-width: 1400px) {
+                .bracket-headers {
+                    transform: scale(0.85);
+                    transform-origin: top left;
+                }
+            }
+
+            @media (max-width: 1200px) {
+                .bracket-headers {
+                    transform: scale(0.7);
+                    transform-origin: top left;
+                }
+            }
+
+            @media (max-width: 1000px) {
+                .bracket-headers {
+                    transform: scale(0.6);
+                    transform-origin: top left;
+                }
+            }
+
+            @media (max-width: 800px) {
+                .bracket-headers {
+                    transform: scale(0.5);
+                    transform-origin: top left;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
     
-    // Initialisiere alle Features nach dem Rendern - OHNE weitere Layout-Änderungen
+    // Initialisiere Features nach dem Rendern
     setTimeout(() => {
         console.log('🔧 Initializing additional features...');
         
@@ -403,7 +658,7 @@ function renderSmartBracket() {
             initializeTeamHighlighting();
         }
         
-        // Smart Match Links initialisieren (spezielle Funktion für Smart Bracket)
+        // Smart Match Links initialisieren
         if (typeof initializeSmartMatchLinks === 'function') {
             console.log('🔗 Initializing smart match links...');
             initializeSmartMatchLinks();
@@ -414,69 +669,21 @@ function renderSmartBracket() {
 }
 
 /**
- * Friert die Match-Positionen ein, um weitere Layout-Änderungen zu verhindern
+ * Rendert ein einzelnes Match mit absoluten Koordinaten
  */
-function freezeMatchPositions() {
-    console.log('🔒 Freezing match positions...');
-    
-    const smartMatches = document.querySelectorAll('.smart-match');
-    let frozenCount = 0;
-    
-    smartMatches.forEach(match => {
-        const currentStyle = match.getAttribute('style');
-        if (currentStyle) {
-            // Entferne Event Listener und mache das Element "read-only"
-            match.style.pointerEvents = 'auto'; // Behalte Interaktivität
-            match.setAttribute('data-frozen-style', currentStyle);
-            frozenCount++;
-        }
-    });
-    
-    console.log(`✅ Frozen ${frozenCount} match positions`);
-    
-    // Observer um zu verhindern, dass style-Attribute verändert werden
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'attributes' && 
-                mutation.attributeName === 'style' && 
-                mutation.target.classList.contains('smart-match')) {
-                
-                const frozenStyle = mutation.target.getAttribute('data-frozen-style');
-                const currentStyle = mutation.target.getAttribute('style');
-                
-                if (frozenStyle && currentStyle !== frozenStyle) {
-                    console.log('🛑 Preventing style change on frozen match');
-                    mutation.target.setAttribute('style', frozenStyle);
-                }
-            }
-        });
-    });
-    
-    // Beobachte alle Smart Matches
-    smartMatches.forEach(match => {
-        observer.observe(match, { 
-            attributes: true,
-            attributeFilter: ['style']
-        });
-    });
-    
-    return observer;
-}
-
-/**
- * Rendert ein einzelnes Match mit absoluter Positionierung
- */
-function renderSmartMatch(game, topPosition, gameIndex) {
+function renderAbsoluteMatch(position, roundIndex, gameIndex) {
+    const { game, x, y, width, height } = position;
     const team1Winner = isWinner(game, game.team1);
     const team2Winner = isWinner(game, game.team2);
     const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
     
-    const style = `position: absolute; top: ${topPosition}px; left: 0; right: 0;`;
+    const style = `position: absolute; top: ${y}px; left: ${x}px; width: ${width}px; height: ${height}px;`;
     const gameIdInfo = `data-game-id="${game.numericGameId || ''}"`;
     const bracketInfo = `data-bracket-sort="${game.bracketSortOrder}"`;
+    const positionInfo = `data-position="${x},${y}"`;
     
-    let html = `<div class="smart-match" style="${style}" ${gameIdInfo} ${bracketInfo}
-                     title="Game: ${game.gameId} | numericGameId: ${game.numericGameId} | bracketSortOrder: ${game.bracketSortOrder}">`;
+    let html = `<div class="smart-match-absolute" style="${style}" ${gameIdInfo} ${bracketInfo} ${positionInfo}
+                     title="Game: ${game.gameId} | numericGameId: ${game.numericGameId} | bracketSortOrder: ${game.bracketSortOrder} | Position: (${x}, ${y})">`;
     
     if (!hasResult) {
         // Noch nicht gespielt
@@ -589,21 +796,21 @@ function showDebugInfo() {
         return;
     }
     
-    let debugText = `🧠 Smart Bracket Debug Info\n`;
-    debugText += `================================\n\n`;
+    let debugText = `🧠 Smart Bracket Debug Info (Absolute Coordinates)\n`;
+    debugText += `=======================================================\n\n`;
     debugText += `📊 Gesamt-Statistik:\n`;
     debugText += `   Total Runden: ${debugData.totalRounds}\n`;
     debugText += `   Smart Runden: ${debugData.smartRounds}\n`;
     debugText += `   Max Games: ${debugData.maxGameCount} (Runde ${debugData.maxGameRoundIndex + 1})\n`;
-    debugText += `   Bracket-Höhe: ${debugData.actualBracketHeight}px\n\n`;
+    debugText += `   Bracket-Höhe: ${debugData.maxBracketHeight}px\n\n`;
     
     debugText += `🎯 Runden-Details:\n`;
     debugData.rounds.forEach((round, index) => {
         const marker = round.isMaxGameRound ? '⭐ ' : '   ';
         debugText += `${marker}${index + 1}. ${round.name}:\n`;
         debugText += `      Spiele: ${round.games}/${round.originalGames} (${round.originalGames - round.games} Freilos ausgeblendet)\n`;
-        debugText += `      Abstand: ${round.spacing.toFixed(1)}px\n`;
-        debugText += `      Top Margin: ${round.topMargin.toFixed(1)}px\n`;
+        debugText += `      X-Position: ${round.roundX}px\n`;
+        debugText += `      Game Positions: ${round.gamePositions}\n`;
         debugText += `      Max Game Round: ${round.isMaxGameRound ? 'JA' : 'NEIN'}\n\n`;
     });
     
@@ -627,32 +834,28 @@ function showDebugInfo() {
  * Debug-Funktionen für Konsole
  */
 function debugSmartBracket() {
-    console.log('\n🔍 DEBUG: Smart Bracket Structure');
+    console.log('\n🔍 DEBUG: Smart Bracket Structure (Absolute Coordinates)');
     currentRounds.forEach((round, index) => {
         console.log(`\n📊 Round ${index + 1}: ${round.name} ${round.isMaxGameRound ? '⭐ MAX' : ''}`);
         console.log(`   Games: ${round.games.length}/${round.originalGameCount}`);
-        console.log(`   Layout:`, round.layout);
-        round.games.forEach((game, gameIndex) => {
-            console.log(`   ${gameIndex + 1}. ${game.team1} vs ${game.team2} | bracketSortOrder: ${game.bracketSortOrder}`);
+        console.log(`   Round X: ${round.roundX}px`);
+        console.log(`   Game Positions:`);
+        round.gamePositions.forEach((pos, gameIndex) => {
+            console.log(`     ${gameIndex + 1}. ${pos.game.team1} vs ${pos.game.team2} | Position: (${pos.x}, ${pos.y}) | Size: ${pos.width}x${pos.height}`);
         });
     });
 }
 
 function debugSmartMatchPositions() {
-    console.log('\n🔍 CURRENT Smart Match Positions:');
-    const smartMatches = document.querySelectorAll('.smart-match');
+    console.log('\n🔍 CURRENT Smart Match Positions (Absolute):');
+    const smartMatches = document.querySelectorAll('.smart-match-absolute');
     
     smartMatches.forEach((match, index) => {
+        const position = match.getAttribute('data-position');
         const style = match.getAttribute('style');
-        const frozenStyle = match.getAttribute('data-frozen-style');
-        const roundElement = match.closest('.smart-round');
-        const roundHeader = roundElement ? roundElement.querySelector('.smart-round-header').textContent.trim() : 'Unknown';
         
-        console.log(`${index + 1}. ${roundHeader}:`);
-        console.log(`   Current: ${style}`);
-        if (frozenStyle) {
-            console.log(`   Frozen:  ${frozenStyle}`);
-        }
+        console.log(`${index + 1}. Position: ${position}`);
+        console.log(`   Style: ${style}`);
     });
     
     return smartMatches.length;

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏒 Swiss Cup Crawler - Datenbank Review</title>
+    <link rel="stylesheet" href="dbreview.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🏒 Swiss Cup Crawler - Datenbank Review</h1>
+        
+        <div class="controls">
+            <div class="stats-info" id="statsInfo">📊 Klicke "Alle laden" um zu starten</div>
+            <div class="control-actions">
+                <button class="btn btn-primary" onclick="loadAllGames()">🔄 Alle laden</button>
+                <button class="btn btn-secondary" onclick="exportCSV()">📥 CSV Export</button>
+                <a href="/" class="btn btn-secondary">🏠 Zurück</a>
+            </div>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table id="gamesTable">
+                    <thead id="tableHead">
+                        <tr id="filterRow">
+                            <th><input oninput="filterTable()" placeholder="gameId"></th>
+                            <th><input oninput="filterTable()" placeholder="team1"></th>
+                            <th><input oninput="filterTable()" placeholder="team2"></th>
+                            <th><input oninput="filterTable()" placeholder="roundName"></th>
+                            <th><input oninput="filterTable()" placeholder="roundId"></th>
+                            <th><input oninput="filterTable()" placeholder="tournamentId"></th>
+                            <th><input oninput="filterTable()" placeholder="tournamentName"></th>
+                            <th><input oninput="filterTable()" placeholder="season"></th>
+                            <th><input oninput="filterTable()" placeholder="cupType"></th>
+                            <th><input oninput="filterTable()" placeholder="gender"></th>
+                            <th><input oninput="filterTable()" placeholder="fieldType"></th>
+                            <th><input oninput="filterTable()" placeholder="gameDate"></th>
+                            <th><input oninput="filterTable()" placeholder="gameTime"></th>
+                            <th><input oninput="filterTable()" placeholder="venue"></th>
+                            <th><input oninput="filterTable()" placeholder="status"></th>
+                            <th><input oninput="filterTable()" placeholder="result"></th>
+                            <th><input oninput="filterTable()" placeholder="source"></th>
+                            <th><input oninput="filterTable()" placeholder="apiEndpoint"></th>
+                            <th><input oninput="filterTable()" placeholder="link"></th>
+                            <th><input oninput="filterTable()" placeholder="homeTeamScore"></th>
+                            <th><input oninput="filterTable()" placeholder="awayTeamScore"></th>
+                            <th><input oninput="filterTable()" placeholder="gameLocation"></th>
+                            <th><input oninput="filterTable()" placeholder="referees"></th>
+                            <th><input oninput="filterTable()" placeholder="spectators"></th>
+                            <th><input oninput="filterTable()" placeholder="notes"></th>
+                            <th><input oninput="filterTable()" placeholder="numericGameId"></th>
+                            <th><input oninput="filterTable()" placeholder="bracketSortOrder"></th>
+                            <th><input oninput="filterTable()" placeholder="crawledAt"></th>
+                            <th><input oninput="filterTable()" placeholder="updatedAt"></th>
+                        </tr>
+                        <tr>
+                            <th onclick="sortTable('gameId')">gameId <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('team1')">team1 <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('team2')">team2 <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('roundName')">roundName <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('roundId')">roundId <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('tournamentId')">tournamentId <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('tournamentName')">tournamentName <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('season')">season <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('cupType')">cupType <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('gender')">gender <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('fieldType')">fieldType <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('gameDate')">gameDate <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('gameTime')">gameTime <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('venue')">venue <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('status')">status <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('result')">result <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('source')">source <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('apiEndpoint')">apiEndpoint <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('link')">link <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('homeTeamScore')">homeTeamScore <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('awayTeamScore')">awayTeamScore <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('gameLocation')">gameLocation <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('referees')">referees <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('spectators')">spectators <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('notes')">notes <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('numericGameId')">numericGameId <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('bracketSortOrder')">bracketSortOrder <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('crawledAt')">crawledAt <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('updatedAt')">updatedAt <span class="sort-icon">↕</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="gamesTableBody">
+                        <tr>
+                            <td colspan="29" class="loading">Klicke "Alle laden" um die Spiele zu laden</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allGames = [];
+        let filteredGames = [];
+
+        async function loadAllGames() {
+            try {
+                showLoading();
+                showAlert('🔄 Lade Spiele...', 'info');
+                
+                const response = await fetch('/games/all');
+                if (!response.ok) throw new Error(`Server Error: ${response.status} ${response.statusText}`);
+                
+                allGames = await response.json();
+                filteredGames = allGames;
+                displayGames(filteredGames);
+                updateStats();
+                showAlert(`✅ ${allGames.length} Spiele erfolgreich geladen`, 'success');
+                
+            } catch (error) {
+                console.error('Error loading games:', error);
+                showAlert(`❌ Fehler: ${error.message}`, 'error');
+                showNoData();
+            }
+        }
+
+        function displayGames(games) {
+            const tbody = document.getElementById('gamesTableBody');
+            if (!games || games.length === 0) { showNoData(); return; }
+            
+            tbody.innerHTML = '';
+            const displayGames = games.slice(0, 500);
+            
+            displayGames.forEach(game => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td title="${game.gameId || ''}">${truncate(game.gameId || '', 15)}</td>
+                    <td>${game.team1 || ''}</td>
+                    <td>${game.team2 || ''}</td>
+                    <td>${game.roundName || ''}</td>
+                    <td>${game.roundId || ''}</td>
+                    <td>${game.tournamentId || ''}</td>
+                    <td>${game.tournamentName || ''}</td>
+                    <td>${game.season || ''}</td>
+                    <td><span class="cup-badge cup-${game.cupType}">${formatCupType(game.cupType)}</span></td>
+                    <td>${game.gender || ''}</td>
+                    <td>${game.fieldType || ''}</td>
+                    <td>${game.gameDate || ''}</td>
+                    <td>${game.gameTime || ''}</td>
+                    <td>${game.venue || ''}</td>
+                    <td><span class="status-badge status-${game.status}">${formatStatus(game.status)}</span></td>
+                    <td class="result">${game.result || 'TBD'}</td>
+                    <td>${game.source || ''}</td>
+                    <td>${game.apiEndpoint || ''}</td>
+                    <td>${game.link ? `<a href="${game.link}" target="_blank" class="external-link">🔗</a>` : '-'}</td>
+                    <td>${game.homeTeamScore ?? ''}</td>
+                    <td>${game.awayTeamScore ?? ''}</td>
+                    <td>${game.gameLocation || ''}</td>
+                    <td>${game.referees || ''}</td>
+                    <td>${game.spectators ?? ''}</td>
+                    <td>${game.notes || ''}</td>
+                    <td>${game.numericGameId || ''}</td>
+                    <td>${game.bracketSortOrder || ''}</td>
+                    <td>${game.crawledAt || ''}</td>
+                    <td>${game.updatedAt || ''}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            if (games.length > 500) {
+                const infoRow = document.createElement('tr');
+                infoRow.innerHTML = `<td colspan="29" class="info-message">Zeige ersten 500 von ${games.length} Spielen (Performance-Optimierung)</td>`;
+                tbody.appendChild(infoRow);
+            }
+        }
+
+        function sortTable(column, silent = false) {
+            // Sortier‐Logik nur ändern, wenn der Aufruf NICHT „silent“ ist
+            if (!silent) {
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+            }
+
+            const numericCols = ['numericGameId', 'homeTeamScore', 'awayTeamScore', 'bracketSortOrder', 'spectators'];
+            const sortedGames = [...filteredGames].sort((a, b) => {
+                let valA = a[column] ?? '';
+                let valB = b[column] ?? '';
+
+                if (numericCols.includes(column)) {
+                    valA = parseInt(valA) || 0;
+                    valB = parseInt(valB) || 0;
+                } else if (typeof valA === 'string') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                }
+
+                if (currentSort.direction === 'asc') return valA < valB ? -1 : valA > valB ? 1 : 0;
+                return valA > valB ? -1 : valA < valB ? 1 : 0;
+            });
+
+            filteredGames = sortedGames;
+            displayGames(filteredGames);
+
+            // Header nur neu setzen, wenn NICHT „silent“
+            if (!silent) updateSortHeaders();
+        }
+
+
+        function updateSortHeaders() {
+            document.querySelectorAll('th .sort-icon').forEach(icon => {
+                icon.textContent = '↕';
+                icon.parentElement.classList.remove('sort-asc', 'sort-desc');
+            });
+            const currentHeader = document.querySelector(`th[onclick*="${currentSort.column}"]`);
+            if (currentHeader) {
+                const icon = currentHeader.querySelector('.sort-icon');
+                icon.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+                currentHeader.classList.add(`sort-${currentSort.direction}`);
+            }
+        }
+
+        function formatStatus(status) {
+            const map = { scheduled: 'Geplant', finished: 'Beendet', cancelled: 'Abgesagt' };
+            return map[status] || status || 'Unbekannt';
+        }
+
+        function formatCupType(cupType) {
+            const map = { herren_grossfeld: 'H-GF', damen_grossfeld: 'D-GF', herren_kleinfeld: 'H-KF', damen_kleinfeld: 'D-KF' };
+            return map[cupType] || cupType || 'Unbekannt';
+        }
+
+        const truncate = (str, len) => (!str ? '' : str.length > len ? str.slice(0, len) + '…' : str);
+
+        function updateStats() {
+            const total = allGames.length;
+            const seasons = new Set(allGames.map(g => g.season).filter(Boolean)).size;
+            const cupTypes = new Set(allGames.map(g => g.cupType).filter(Boolean)).size;
+            const tournaments = new Set(allGames.map(g => g.tournamentId).filter(Boolean)).size;
+            document.getElementById('statsInfo').innerHTML = `📊 ${total} Spiele | ${seasons} Saisons | ${cupTypes} Cup-Typen | ${tournaments} Turniere`;
+        }
+
+        const showLoading = () => document.getElementById('gamesTableBody').innerHTML = `<tr><td colspan="29" class="loading">📊 Lade alle Spiele…</td></tr>`;
+        const showNoData  = () => document.getElementById('gamesTableBody').innerHTML = `<tr><td colspan="29" class="no-data">🤷‍♂️ Keine Spiele gefunden</td></tr>`;
+
+        function showAlert(msg, type='info') {
+            const c = document.getElementById('alertContainer');
+            c.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+            if (['success','info'].includes(type)) setTimeout(() => c.innerHTML = '', 3000);
+        }
+
+        function exportCSV() {
+            if (!allGames.length) { showAlert('❌ Keine Daten zum Exportieren vorhanden','error'); return; }
+            const headers = ['gameId','team1','team2','roundName','roundId','tournamentId','tournamentName','season','cupType','gender','fieldType','gameDate','gameTime','venue','status','result','source','apiEndpoint','link','homeTeamScore','awayTeamScore','gameLocation','referees','spectators','notes','numericGameId','bracketSortOrder','crawledAt','updatedAt'];
+            const csv = [headers.join(','), ...allGames.map(g => headers.map(h => `"${(g[h] ?? '').toString().replace(/"/g,'""')}"`).join(','))].join('\n');
+            const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+            const url  = URL.createObjectURL(blob);
+            const a    = Object.assign(document.createElement('a'), {href:url, download:`swiss_cup_games_${new Date().toISOString().split('T')[0]}.csv`});
+            document.body.appendChild(a); a.click(); a.remove();
+            showAlert(`✅ CSV-Export erfolgreich: ${allGames.length} Spiele`,'success');
+        }
+        function filterTable() {
+            const inputs = Array.from(document.querySelectorAll('#filterRow input'));
+            const filters = inputs.map(input => input.value.trim().toLowerCase());
+
+            const filtered = allGames.filter(game => {
+                const values = [
+                    game.gameId, game.team1, game.team2, game.roundName, game.roundId,
+                    game.tournamentId, game.tournamentName, game.season, game.cupType,
+                    game.gender, game.fieldType, game.gameDate, game.gameTime, game.venue,
+                    game.status, game.result, game.source, game.apiEndpoint, game.link,
+                    game.homeTeamScore, game.awayTeamScore, game.gameLocation, game.referees,
+                    game.spectators, game.notes, game.numericGameId, game.bracketSortOrder,
+                    game.crawledAt, game.updatedAt
+                ];
+
+                return values.every((value, index) => {
+                    const text = (value ?? '').toString().toLowerCase();
+                    return text.includes(filters[index]);
+                });
+            });
+        filteredGames = filtered;
+        displayGames(filtered);
+        sortTable(currentSort.column, true); // true = interner Aufruf
+        }
+    </script>
+</body>
+</html>
