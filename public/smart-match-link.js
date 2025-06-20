@@ -1,7 +1,16 @@
 // Smart Match Links für Swiss Cup Smart Brackets
 // Speziell für .smart-match-absolute Elemente (nicht Prognose, nicht Freilos)
 
+let smartLinksInitialized = false;
+let smartLinksObserver = null;
+
 function initializeSmartMatchLinks() {
+    // Verhindere mehrfache Initialisierung
+    if (smartLinksInitialized) {
+        console.log('🔗 Smart match links bereits initialisiert, überspringe...');
+        return;
+    }
+    
     console.log('🔗 Initializing smart match links...');
     
     // Entferne alle existierenden Smart Match-Links
@@ -22,6 +31,20 @@ function initializeSmartMatchLinks() {
     });
     
     console.log(`✅ Created ${linkCount} smart match links`);
+    smartLinksInitialized = true;
+}
+
+// Reset-Funktion für neues Bracket
+function resetSmartMatchLinks() {
+    console.log('🔄 Resetting smart match links...');
+    smartLinksInitialized = false;
+    removeSmartMatchLinks();
+    
+    // Observer stoppen falls aktiv
+    if (smartLinksObserver) {
+        smartLinksObserver.disconnect();
+        smartLinksObserver = null;
+    }
 }
 
 function getNumericGameIdFromSmartMatch(matchElement) {
@@ -47,34 +70,32 @@ function getNumericGameIdFromSmartMatch(matchElement) {
 }
 
 function shouldCreateSmartMatchLink(matchElement, numericGameId) {
-    // Debug-Ausgabe
-    const title = matchElement.getAttribute('title');
+    // Debug-Ausgabe nur bei tatsächlicher Verarbeitung
     const team1Text = getTeamText(matchElement, 0);
     const team2Text = getTeamText(matchElement, 1);
     
-    console.log(`🔍 Checking smart match: team1="${team1Text}", team2="${team2Text}", gameId="${numericGameId}"`);
+    // Reduziere Debug-Output
+    if (numericGameId && !isSmartPrognoseMatch(matchElement) && !isSmartFreilosMatch(matchElement) && !isSmartTBDMatch(matchElement)) {
+        console.log(`🔍 Checking smart match: team1="${team1Text}", team2="${team2Text}", gameId="${numericGameId}"`);
+    }
     
     // Kein Link ohne numericGameId
     if (!numericGameId) {
-        console.log('❌ No numericGameId found');
         return false;
     }
     
-    // Kein Link für Prognose-Spiele (prüfe beide Teams auf "TBD" oder Prognose-Pattern)
+    // Kein Link für Prognose-Spiele
     if (isSmartPrognoseMatch(matchElement)) {
-        console.log('❌ Skipping Prognose match');
         return false;
     }
     
     // Kein Link für Freilos-Spiele
     if (isSmartFreilosMatch(matchElement)) {
-        console.log('❌ Skipping Freilos match');
         return false;
     }
     
-    // Kein Link für TBD-Spiele (noch nicht angesetzt)
+    // Kein Link für TBD-Spiele
     if (isSmartTBDMatch(matchElement)) {
-        console.log('❌ Skipping TBD match');
         return false;
     }
     
@@ -184,7 +205,7 @@ function removeSmartMatchLinks() {
 
 function refreshSmartMatchLinks() {
     console.log('🔄 Refreshing smart match links...');
-    removeSmartMatchLinks();
+    resetSmartMatchLinks();
     setTimeout(initializeSmartMatchLinks, 100);
 }
 
@@ -218,44 +239,54 @@ function debugSmartMatchLinks() {
     });
 }
 
-// Auto-Initialisierung nach Smart Bracket-Rendering
-document.addEventListener('DOMContentLoaded', function() {
-    // Observer für Smart Bracket-Änderungen
-    const observer = new MutationObserver(function(mutations) {
+// Optimierte Auto-Initialisierung - nur bei echten Bracket-Änderungen
+function setupSmartLinksObserver() {
+    // Verhindere mehrfache Observer
+    if (smartLinksObserver) {
+        return;
+    }
+    
+    smartLinksObserver = new MutationObserver(function(mutations) {
+        let shouldReinitialize = false;
+        
         mutations.forEach(function(mutation) {
             if (mutation.type === 'childList') {
-                // Prüfe ob Smart Bracket Container geändert wurde
-                const target = mutation.target;
-                if (target.classList && 
-                    (target.classList.contains('smart-bracket') ||
-                     target.classList.contains('bracket-container') ||
-                     target.id === 'bracketContent')) {
-                    setTimeout(initializeSmartMatchLinks, 300);
-                }
-                
-                // Prüfe auch hinzugefügte Nodes
+                // Nur bei echten Bracket-Änderungen reagieren
                 mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === 1 && node.classList) { // Element node
+                    if (node.nodeType === 1 && node.classList) {
                         if (node.classList.contains('smart-bracket') ||
                             node.classList.contains('smart-match-absolute')) {
-                            setTimeout(initializeSmartMatchLinks, 300);
+                            shouldReinitialize = true;
                         }
                     }
                 });
             }
         });
+        
+        // Debounced Reinitialisierung
+        if (shouldReinitialize && !smartLinksInitialized) {
+            setTimeout(() => {
+                if (!smartLinksInitialized) {
+                    initializeSmartMatchLinks();
+                }
+            }, 500);
+        }
     });
     
-    // Beobachte Bracket-Container
+    // Beobachte nur den Bracket-Container
     const bracketContainer = document.querySelector('.bracket-container');
     if (bracketContainer) {
-        observer.observe(bracketContainer, { 
+        smartLinksObserver.observe(bracketContainer, { 
             childList: true, 
             subtree: true,
             attributes: false,
             characterData: false
         });
     }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    setupSmartLinksObserver();
 });
 
 // Keyboard shortcuts für Debug
@@ -274,4 +305,5 @@ document.addEventListener('keydown', function(e) {
 window.initializeSmartMatchLinks = initializeSmartMatchLinks;
 window.refreshSmartMatchLinks = refreshSmartMatchLinks;
 window.removeSmartMatchLinks = removeSmartMatchLinks;
+window.resetSmartMatchLinks = resetSmartMatchLinks;
 window.debugSmartMatchLinks = debugSmartMatchLinks;

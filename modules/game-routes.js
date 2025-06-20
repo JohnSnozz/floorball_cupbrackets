@@ -93,6 +93,83 @@ function register(app, db) {
   console.log('✅ Game-Routen registriert');
 }
 
+// Füge diese Routes zu modules/game-routes.js hinzu (am Ende der register function):
+
+// GET /api/seasons - Verfügbare Seasons aus DB
+app.get('/api/seasons', async (req, res) => {
+  try {
+    console.log('📅 API call: Get available seasons');
+    
+    const query = `
+      SELECT DISTINCT season 
+      FROM games 
+      WHERE season IS NOT NULL AND season != ''
+      ORDER BY season DESC
+    `;
+    
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        console.error('❌ Error fetching seasons:', err.message);
+        res.status(500).json({ error: err.message });
+      } else {
+        const seasons = rows.map(row => row.season);
+        console.log(`✅ Found ${seasons.length} seasons:`, seasons);
+        res.json(seasons);
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in /api/seasons:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/cups - Verfügbare Cups
+app.get('/api/cups', async (req, res) => {
+  try {
+    console.log('🏆 API call: Get available cups');
+    
+    // Cup-Konfiguration
+    const CUP_CONFIGS = {
+      herren_grossfeld: { name: 'Grossfeld Herren' },
+      damen_grossfeld: { name: 'Grossfeld Damen' },
+      herren_kleinfeld: { name: 'Kleinfeld Herren' },
+      damen_kleinfeld: { name: 'Kleinfeld Damen' }
+    };
+    
+    const query = `
+      SELECT DISTINCT cupType, COUNT(*) as gameCount
+      FROM games 
+      WHERE cupType IS NOT NULL AND cupType != ''
+      GROUP BY cupType
+      HAVING gameCount > 0
+      ORDER BY cupType
+    `;
+    
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        console.error('❌ Error fetching cups:', err.message);
+        res.status(500).json({ error: err.message });
+      } else {
+        const availableCups = rows
+          .filter(row => CUP_CONFIGS[row.cupType])
+          .map(row => ({
+            id: row.cupType,
+            name: CUP_CONFIGS[row.cupType].name,
+            gameCount: row.gameCount
+          }));
+        
+        console.log(`✅ Found ${availableCups.length} cups with data`);
+        res.json(availableCups);
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in /api/cups:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = {
   register
 };

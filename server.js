@@ -19,6 +19,8 @@ const bracketSorting = require('./modules/bracket-sorting');
 const bracketRoutes = require('./modules/bracket-routes');
 const prognoseGames = require('./modules/prognose-games');
 const backendApi = require('./modules/backend-api');
+const apiRoutes = require('./modules/api-routes');
+
 
 // Auto-Crawl Modul nur laden wenn verfügbar
 let autoCrawl;
@@ -53,6 +55,7 @@ utilRoutes.register(app, db);
 bracketRoutes.register(app, db);
 prognoseGames.register(app, db);
 backendApi.register(app, db);
+apiRoutes.register(app, db);
 
 // Error-Handling (muss am Ende stehen)
 middleware.errorHandling(app);
@@ -387,6 +390,7 @@ app.listen(PORT, () => {
   console.log('Bracket-Sortierung verfügbar über API (vereinheitlicht)');
   console.log('Bracket-Module bereinigt - nur bracket-sorting.js aktiv');
   console.log('Prognose-Spiele Modul geladen');
+ 
   
   // Interaktiver Setup nach kurzer Verzögerung
   setTimeout(() => {

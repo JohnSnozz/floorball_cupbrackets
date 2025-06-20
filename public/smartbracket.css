@@ -1,4 +1,4 @@
-/* Smart Brackets CSS - EXAKT wie brackets.css Struktur */
+/* Smart Brackets CSS - Updated Layout */
 
 * {
     box-sizing: border-box;
@@ -7,17 +7,26 @@
 }
 
 body {
-    background-color: #1a1a1a;
+    background-color: #000;
     color: #e0e0e0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 13px;
-    padding: 20px;
+    padding: 0;
+    overflow-x: auto;
+    min-height: 100vh;
 }
 
 .container {
-    max-width: 100vw;
-    margin: 0 auto;
-    overflow-x: hidden;
+    background-color: #1a1a1a;
+    min-height: 100vh;
+    width: fit-content;
+    max-width: calc(100vw - 40px); /* Verhindert Überlauf */
+    margin: 0;
+    overflow-x: visible;
+    padding: 20px;
+    min-width: 800px;
+    transition: width 0.3s ease;
+    position: relative;
 }
 
 h1 {
@@ -27,9 +36,7 @@ h1 {
     font-weight: 600;
     margin: 0 0 20px 0;
     padding: 15px 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    text-align: center;
     border-bottom: 3px solid #ff6b00;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -43,7 +50,8 @@ h1 {
     margin-bottom: 20px;
     display: flex;
     gap: 20px;
-    align-items: center;
+    align-items: flex-end;
+    justify-content: center;
     flex-wrap: wrap;
 }
 
@@ -53,24 +61,17 @@ h1 {
     gap: 5px;
 }
 
-.control-group label {
-    color: #bbb;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 600;
-}
-
 select {
     background-color: #333;
     color: #e0e0e0;
     border: 1px solid #444;
-    padding: 8px 12px;
+    padding: 10px 12px;
     font-size: 12px;
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s;
-    min-width: 150px;
+    min-width: 200px;
+    height: 40px;
 }
 
 select:hover {
@@ -96,20 +97,14 @@ button {
     letter-spacing: 0.5px;
     background-color: #007bff;
     color: white;
+    height: 40px;
+    min-width: 100px;
 }
 
 button:hover {
     background-color: #0056b3;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.debug-btn {
-    background-color: #28a745;
-}
-
-.debug-btn:hover {
-    background-color: #1e7e34;
 }
 
 .bracket-container {
@@ -119,43 +114,8 @@ button:hover {
     overflow: hidden;
     min-height: calc(100vh - 200px);
     position: relative;
-}
-
-/* EXAKT wie brackets.css - Bracket Headers Container */
-.bracket-headers {
-    display: flex;
-    gap: 40px;
-    margin-bottom: 15px;
-    padding: 0 15px;
-    position: sticky;
-    top: 0;
-    background-color: #2d2d2d;
-    z-index: 10;
-}
-
-.bracket-headers .round-header {
-    text-align: center;
-    font-weight: 600;
-    color: #ff6b00;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 14px;
-    padding: 8px;
-    background-color: #333;
-    border-radius: 4px;
-    position: relative;
-    min-width: 180px;
-    width: 180px;
-}
-
-.bracket-headers .round-count {
-    display: block;
-    font-size: 10px;
-    color: #bbb;
-    font-weight: 400;
-    text-transform: none;
-    letter-spacing: 0;
-    margin-top: 3px;
+    width: fit-content;
+    margin: 0 auto;
 }
 
 /* Smart Bracket Container mit absoluter Positionierung */
@@ -183,7 +143,7 @@ button:hover {
     transition: all 0.2s;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Verhindert Artefakte und erzwingt abgerundete Ecken */
+    overflow: hidden;
 }
 
 .smart-match-absolute:hover {
@@ -201,7 +161,7 @@ button:hover {
     transition: all 0.2s;
     height: 50%;
     flex: 1;
-    border-radius: 0; /* Teams sollen nicht eigene border-radius haben */
+    border-radius: 0;
 }
 
 .team:first-child {
@@ -265,10 +225,9 @@ button:hover {
     color: #888;
     font-style: italic;
     opacity: 0.2;
-    
 }
 
-/* Freilos-Gewinner: Team das gegen Freilos spielt wird orange eingefärbt */
+/* Freilos-Gewinner */
 .smart-match-absolute:has(.team.freilos-team) .team:not(.freilos-team) {
     background-color: #ff6b00;
     color: #000;
@@ -297,86 +256,54 @@ button:hover {
     border: 1px solid #6a2f2f;
 }
 
-.info-box {
-    background-color: #1e3a5f;
-    color: #a8c5e0;
-    padding: 12px 16px;
-    border-radius: 4px;
-    font-size: 12px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.info-box::before {
-    content: "ℹ️";
-    font-size: 16px;
-}
-
-.debug-info {
-    background-color: #1f2a3a;
-    color: #a8c5e0;
-    padding: 15px;
-    border-radius: 4px;
-    margin: 20px 0;
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    white-space: pre-line;
-    border: 1px solid #3a4a5a;
-}
-
 .team-name.long-name {
     font-size: 10px;
     word-break: break-word;
 }
 
-/* EXAKT wie brackets.css - Responsive Design */
+/* Responsive Design - angepasst für neue Struktur */
 @media (max-width: 1400px) {
-    .bracket-headers {
+    .smart-bracket {
         transform: scale(0.85);
         transform-origin: top left;
     }
     
-    .smart-bracket {
-        transform: scale(0.85);
-        transform-origin: top left;
+    .container {
+        min-width: 700px;
     }
 }
 
 @media (max-width: 1200px) {
-    .bracket-headers {
+    .smart-bracket {
         transform: scale(0.7);
         transform-origin: top left;
     }
     
-    .smart-bracket {
-        transform: scale(0.7);
-        transform-origin: top left;
+    .container {
+        min-width: 600px;
     }
 }
 
 @media (max-width: 1000px) {
-    .bracket-headers {
+    .smart-bracket {
         transform: scale(0.6);
         transform-origin: top left;
     }
     
-    .smart-bracket {
-        transform: scale(0.6);
-        transform-origin: top left;
+    .container {
+        min-width: 500px;
     }
 }
 
 @media (max-width: 800px) {
-    .bracket-headers {
+    .smart-bracket {
         transform: scale(0.5);
         transform-origin: top left;
     }
     
-    .smart-bracket {
-        transform: scale(0.5);
-        transform-origin: top left;
+    .container {
+        min-width: 400px;
+        padding: 10px;
     }
     
     .bracket-container {
@@ -386,6 +313,7 @@ button:hover {
     .bracket-controls {
         flex-direction: column;
         align-items: stretch;
+        gap: 15px;
     }
     
     .control-group {
@@ -394,7 +322,8 @@ button:hover {
         gap: 10px;
     }
     
-    .control-group label {
-        min-width: 80px;
+    select, button {
+        min-width: 150px;
+        height: 35px;
     }
 }

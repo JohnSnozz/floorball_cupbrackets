@@ -1,3 +1,28 @@
+// Am Anfang der smart-match-link.js hinzufügen
+let smartLinksInitialized = false;
+
+function initializeSmartMatchLinks() {
+    // Verhindere mehrfache Initialisierung
+    if (smartLinksInitialized) {
+        console.log('🔗 Smart match links bereits initialisiert, überspringe...');
+        return;
+    }
+    
+    console.log('🔗 Initialisiere Smart Match Links...');
+    
+    // Dein bestehender Code hier...
+    
+    // Markiere als initialisiert
+    smartLinksInitialized = true;
+}
+
+// Reset-Funktion für neues Bracket
+function resetSmartMatchLinks() {
+    smartLinksInitialized = false;
+}
+
+
+
 function initializeConnectorHoverEvents() {
     console.log('🎯 Initializing connector hover events...');
     

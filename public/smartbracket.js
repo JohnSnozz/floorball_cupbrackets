@@ -1,4 +1,4 @@
-// Smart Bracket - EXAKT wie brackets.js Struktur
+// Smart Bracket - Updated with dynamic data loading
 let currentGames = [];
 let currentRounds = [];
 let debugData = {};
@@ -26,14 +26,73 @@ function isFreilosGame(game) {
     return isFreilos(game.team1) || isFreilos(game.team2);
 }
 
+async function loadAvailableOptions() {
+    try {
+        // Lade verfügbare Seasons aus DB
+        const seasonsResponse = await fetch('/api/seasons');
+        if (seasonsResponse.ok) {
+            const seasons = await seasonsResponse.json();
+            const seasonSelect = document.getElementById('seasonSelect');
+            seasonSelect.innerHTML = '';
+            seasons.forEach(season => {
+                const option = document.createElement('option');
+                option.value = season;
+                option.textContent = season;
+                if (season === '2025/26') option.selected = true;
+                seasonSelect.appendChild(option);
+            });
+        } else {
+            throw new Error('Seasons API not available');
+        }
+
+        // Lade verfügbare Cups aus DB  
+        const cupsResponse = await fetch('/api/cups');
+        if (cupsResponse.ok) {
+            const cups = await cupsResponse.json();
+            const cupSelect = document.getElementById('cupSelect');
+            cupSelect.innerHTML = '';
+            cups.forEach(cup => {
+                const option = document.createElement('option');
+                option.value = cup.id;
+                option.textContent = cup.name;
+                cupSelect.appendChild(option);
+            });
+        } else {
+            throw new Error('Cups API not available');
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Optionen:', error);
+        // Fallback zu hardcoded Optionen
+        loadFallbackOptions();
+    }
+}
+
+function loadFallbackOptions() {
+    const cupSelect = document.getElementById('cupSelect');
+    const seasonSelect = document.getElementById('seasonSelect');
+    
+    cupSelect.innerHTML = `
+        <option value="herren_grossfeld">Mobiliar Cup Herren Grossfeld</option>
+        <option value="damen_grossfeld">Mobiliar Cup Damen Grossfeld</option>
+        <option value="herren_kleinfeld">Liga Cup Herren Kleinfeld</option>
+        <option value="damen_kleinfeld">Liga Cup Damen Kleinfeld</option>
+    `;
+    
+    seasonSelect.innerHTML = `
+        <option value="2025/26" selected>2025/26</option>
+        <option value="2024/25">2024/25</option>
+        <option value="2023/24">2023/24</option>
+        <option value="2022/23">2022/23</option>
+    `;
+}
+
 async function loadSmartBracket() {
     const cupType = document.getElementById('cupSelect').value;
     const season = document.getElementById('seasonSelect').value;
     const bracketContent = document.getElementById('bracketContent');
-    const infoBox = document.getElementById('infoBox');
     
+    console.log(`🏒 Loading Smart Bracket: ${cupType} - ${season}`);
     bracketContent.innerHTML = '<div class="loading">⏳ Lade Smart Bracket...</div>';
-    infoBox.style.display = 'none';
     
     try {
         const response = await fetch(`/games?cup=${cupType}&season=${season}&limit=1000`);
@@ -56,15 +115,32 @@ async function loadSmartBracket() {
         const smartRounds = processSmartBracket(games);
         currentRounds = smartRounds;
         
-        const nonFreilos = games.filter(g => !isFreilosGame(g)).length;
-        infoBox.innerHTML = `📊 ${games.length} total • ${nonFreilos} real • ${smartRounds.length} rounds`;
-        infoBox.style.display = 'flex';
+        // Reset Link-Initialisierung für neues Bracket (HIER!)
+        if (typeof resetSmartMatchLinks === 'function') {
+            resetSmartMatchLinks();
+            console.log('🔄 Smart match links reset for new bracket');
+        }
         
         renderSmartBracket();
         
     } catch (error) {
         bracketContent.innerHTML = `<div class="error">Error: ${error.message}</div>`;
     }
+}
+
+function adjustContainerWidth() {
+    // Verzögerung um sicherzustellen, dass das Bracket vollständig gerendert ist
+    setTimeout(() => {
+        const container = document.querySelector('.container');
+        const bracket = document.querySelector('.smart-bracket');
+        
+        if (bracket && container) {
+            const bracketWidth = bracket.scrollWidth;
+            const padding = 60; // 30px auf jeder Seite
+            container.style.width = `${bracketWidth + padding}px`;
+            console.log(`📏 Container-Breite angepasst: ${bracketWidth + padding}px`);
+        }
+    }, 200);
 }
 
 function processSmartBracket(games) {
@@ -99,7 +175,6 @@ function processSmartPositioning(rounds) {
     let maxGameCount = 0;
     let maxGameRoundIndex = -1;
     
-    // Finde die Runde mit den meisten Spielen
     rounds.forEach(([roundName, roundGames], index) => {
         if (roundGames.length > maxGameCount) {
             maxGameCount = roundGames.length;
@@ -116,7 +191,6 @@ function processSmartPositioning(rounds) {
         let gamePositions;
         
         if (i === maxGameRoundIndex) {
-            // Max Game Round - gleichmäßig verteilt
             gamePositions = roundGames.map((game, idx) => ({
                 game, 
                 x: roundX, 
@@ -132,7 +206,6 @@ function processSmartPositioning(rounds) {
                 roundX
             });
         } else if (i < maxGameRoundIndex) {
-            // Vor Max Game Round - verteilt über gesamte Höhe
             if (roundGames.length === 1) {
                 const y = (maxBracketHeight - MATCH_HEIGHT) / 2;
                 gamePositions = [{
@@ -160,7 +233,6 @@ function processSmartPositioning(rounds) {
                 roundX
             });
         } else {
-            // Nach Max Game Round - basierend auf Vorgängern
             const previousRound = smartRounds[i - 1];
             gamePositions = calculatePostMaxRound(roundGames, previousRound, roundX);
             smartRounds.push({
@@ -184,7 +256,6 @@ function calculatePostMaxRound(currentGames, previousRound, roundX) {
     return currentGames.map((game, index) => {
         const currentSortOrder = parseInt(game.bracketSortOrder);
         
-        // Finde Vorgänger basierend auf bracketSortOrder
         const pred1SortOrder = (currentSortOrder * 2) - 1;
         const pred2SortOrder = currentSortOrder * 2;
         
@@ -197,14 +268,12 @@ function calculatePostMaxRound(currentGames, previousRound, roundX) {
         
         let y;
         if (pred1 && pred2) {
-            // Mittelwert der beiden Vorgänger
             y = (pred1.y + pred2.y) / 2;
         } else if (pred1) {
             y = pred1.y;
         } else if (pred2) {
             y = pred2.y;
         } else {
-            // Fallback
             y = index * (MATCH_HEIGHT + 20);
         }
         
@@ -226,14 +295,12 @@ function renderAbsoluteMatch(position) {
     let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericGameId || ''}" data-bracket-sort="${game.bracketSortOrder}">`;
     
     if (!hasResult) {
-        // TBD Teams
         const team1Classes = getTeamClasses(game, game.team1, hasResult);
         const team2Classes = getTeamClasses(game, game.team2, hasResult);
         
         html += `<div class="team ${team1Classes}"><span class="team-name">${game.team1 || 'TBD'}</span></div>`;
         html += `<div class="team ${team2Classes}"><span class="team-name">${game.team2 || 'TBD'}</span></div>`;
     } else {
-        // Finished Games
         const scores = parseScore(game.result);
         const team1Classes = getTeamClasses(game, game.team1, hasResult);
         const team2Classes = getTeamClasses(game, game.team2, hasResult);
@@ -249,18 +316,14 @@ function renderAbsoluteMatch(position) {
 function getTeamClasses(game, teamName, hasResult) {
     let classes = [];
     
-    // Freilos-Klasse
     if (isFreilos(teamName)) {
         classes.push('freilos-team');
     } else {
-        // Winner-Klasse für reguläre und Freilos-Spiele
         if (hasResult && isWinner(game, teamName)) {
             classes.push('winner');
         } else if (isFreilosGame(game) && !isFreilos(teamName)) {
-            // Team gegen Freilos wird auch als winner markiert
             classes.push('winner');
         } else if (!hasResult && !isFreilosGame(game)) {
-            // TBD für noch nicht gespielte, normale Spiele
             classes.push('tbd');
         }
     }
@@ -275,12 +338,10 @@ function renderSmartBracket() {
         return;
     }
     
-    // Berechne die Smart-Positionierung
     const smartRounds = processSmartPositioning(currentRounds);
     const totalWidth = smartRounds.length * TOTAL_ROUND_SPACING;
     const totalHeight = debugData.maxBracketHeight || 400;
     
-    // Nur Smart Bracket ohne Headers
     let html = `<div class="smart-bracket" style="position: relative; width: ${totalWidth}px; height: ${totalHeight}px; margin: 0 auto;">`;
     
     smartRounds.forEach(round => {
@@ -294,92 +355,22 @@ function renderSmartBracket() {
     bracketContent.innerHTML = html;
     
     setTimeout(() => {
-            adjustLongTeamNames();
-            if (typeof initializeTeamHighlighting === 'function') initializeTeamHighlighting();
-            if (typeof initializeSmartMatchLinks === 'function') initializeSmartMatchLinks();
-            if (typeof initializeSmartConnectors === 'function') initializeSmartConnectors(smartRounds);
-        }, 100);
-}
-
-function renderMatch(game, gameIndex, roundIndex) {
-    const team1Winner = isWinner(game, game.team1);
-    const team2Winner = isWinner(game, game.team2);
-    const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
-    const isFreilos = game.team1 === 'Freilos' || game.team2 === 'Freilos';
-    
-    let matchClasses = 'smart-match';
-    if (isFreilos) matchClasses += ' freilos';
-    
-    const bracketInfo = `data-bracket-sort="${game.bracketSortOrder}"`;
-    const sortOrderInfo = `data-sort-order="${gameIndex + 1}"`;
-    const gameIdInfo = `data-game-id="${game.numericGameId || ''}"`;
-    
-    let html = `<div class="${matchClasses}" ${bracketInfo} ${sortOrderInfo} ${gameIdInfo}>`;
-    
-    if (!hasResult && !isFreilos) {
-        html += renderTBDMatch(game);
-    } else if (isFreilos) {
-        html += renderFreilosMatch(game);
-    } else {
-        html += renderFinishedMatch(game, team1Winner, team2Winner);
-    }
-    
-    html += '</div>';
-    return html;
-}
-
-function renderTBDMatch(game) {
-    return `
-        <div class="team tbd">
-            <span class="team-name">${game.team1 || 'TBD'}</span>
-        </div>
-        <div class="team tbd">
-            <span class="team-name">${game.team2 || 'TBD'}</span>
-        </div>
-    `;
-}
-
-function renderFreilosMatch(game) {
-    const team1IsFreilos = game.team1 === 'Freilos';
-    const team2IsFreilos = game.team2 === 'Freilos';
-    
-    if (team1IsFreilos && team2IsFreilos) {
-        return `
-            <div class="team freilos-team">
-                <span class="team-name">Freilos</span>
-            </div>
-            <div class="team freilos-team">
-                <span class="team-name">Freilos</span>
-            </div>
-        `;
-    }
-    
-    let html = '';
-    
-    if (team1IsFreilos) {
-        html += `<div class="team freilos-team"><span class="team-name">Freilos</span></div>`;
-        html += `<div class="team winner"><span class="team-name">${game.team2}</span></div>`;
-    } else {
-        html += `<div class="team winner"><span class="team-name">${game.team1}</span></div>`;
-        html += `<div class="team freilos-team"><span class="team-name">Freilos</span></div>`;
-    }
-    
-    return html;
-}
-
-function renderFinishedMatch(game, team1Winner, team2Winner) {
-    const scores = parseScore(game.result);
-    
-    return `
-        <div class="team ${team1Winner ? 'winner' : ''}">
-            <span class="team-name">${game.team1}</span>
-            <span class="team-score">${scores.team1}</span>
-        </div>
-        <div class="team ${team2Winner ? 'winner' : ''}">
-            <span class="team-name">${game.team2}</span>
-            <span class="team-score">${scores.team2}</span>
-        </div>
-    `;
+        adjustLongTeamNames();
+        
+        // Prüfe ob die Funktionen existieren bevor sie aufgerufen werden
+        if (typeof initializeTeamHighlighting === 'function') {
+            initializeTeamHighlighting();
+        }
+        if (typeof initializeSmartMatchLinks === 'function') {
+            initializeSmartMatchLinks();
+        }
+        if (typeof initializeSmartConnectors === 'function') {
+            initializeSmartConnectors(smartRounds);
+        }
+        
+        // Container-Breite nach allem anderen anpassen
+        adjustContainerWidth();
+    }, 150);
 }
 
 function isWinner(game, teamName) {
@@ -406,44 +397,34 @@ function adjustLongTeamNames() {
     });
 }
 
-function showDebugInfo() {
-    if (!debugData) {
-        alert('Keine Debug-Daten verfügbar');
-        return;
-    }
-    
-    const existing = document.querySelector('.debug-info');
-    if (existing) existing.remove();
-    
-    const debugDiv = document.createElement('div');
-    debugDiv.className = 'debug-info';
-    debugDiv.textContent = `Smart Bracket Debug:\nRunden: ${debugData.smartRounds}\nMax Games: ${debugData.maxGameCount}`;
-    
-    const infoBox = document.getElementById('infoBox');
-    infoBox.parentNode.insertBefore(debugDiv, infoBox.nextSibling);
-}
-
-function debugSmartBracket() {
-    console.log('Smart Bracket Debug:', currentRounds);
-}
-
 // Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-load disabled
+    loadAvailableOptions();
+    
+    // Verhindere excessive Processing bei Dropdown-Changes
+    let loadTimeout;
+    
+    // Dropdown Change Events mit Debouncing
+    document.getElementById('cupSelect').addEventListener('change', function() {
+        clearTimeout(loadTimeout);
+        console.log('🔄 Cup selection changed');
+    });
+    
+    document.getElementById('seasonSelect').addEventListener('change', function() {
+        clearTimeout(loadTimeout);
+        console.log('🔄 Season selection changed');
+    });
 });
 
+// Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
     if (e.key === 'r' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
+        console.log('🔄 Keyboard shortcut: Reload bracket');
         loadSmartBracket();
-    }
-    if (e.key === 'd' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        showDebugInfo();
     }
 });
 
 // Global functions
 window.loadSmartBracket = loadSmartBracket;
-window.showDebugInfo = showDebugInfo;
-window.debugSmartBracket = debugSmartBracket;
+window.loadAvailableOptions = loadAvailableOptions;
