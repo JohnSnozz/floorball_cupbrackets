@@ -1,4 +1,4 @@
-/* Smart Brackets CSS - Dynamische Berechnung ohne Freilos */
+/* Smart Brackets CSS - EXAKT wie brackets.css Struktur */
 
 * {
     box-sizing: border-box;
@@ -116,11 +116,49 @@ button:hover {
     background-color: #2d2d2d;
     border-radius: 6px;
     padding: 15px;
-    overflow-x: auto;
+    overflow: hidden;
     min-height: calc(100vh - 200px);
     position: relative;
 }
 
+/* EXAKT wie brackets.css - Bracket Headers Container */
+.bracket-headers {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 15px;
+    padding: 0 15px;
+    position: sticky;
+    top: 0;
+    background-color: #2d2d2d;
+    z-index: 10;
+}
+
+.bracket-headers .round-header {
+    text-align: center;
+    font-weight: 600;
+    color: #ff6b00;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 14px;
+    padding: 8px;
+    background-color: #333;
+    border-radius: 4px;
+    position: relative;
+    min-width: 180px;
+    width: 180px;
+}
+
+.bracket-headers .round-count {
+    display: block;
+    font-size: 10px;
+    color: #bbb;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 3px;
+}
+
+/* Smart Bracket Container mit absoluter Positionierung */
 .smart-bracket {
     display: flex;
     gap: 40px;
@@ -132,60 +170,22 @@ button:hover {
         linear-gradient(to bottom, rgba(255, 107, 0, 0.1) 1px, transparent 1px);
     background-size: 20px 20px;
     background-position: 0 0;
-    padding: 15px;
+    padding: 0 15px 15px 15px;
     width: 100%;
     max-width: none;
 }
 
-.smart-round {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    position: relative;
-    min-width: 180px;
-    width: 180px;
-    flex-shrink: 0;
-}
-
-.smart-round-header {
-    text-align: center;
-    font-weight: 600;
-    color: #ff6b00;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 14px;
-    margin-bottom: 15px;
-    padding: 8px;
+/* Absolute positioned smart match */
+.smart-match-absolute {
     background-color: #333;
     border-radius: 4px;
-    position: relative;
-}
-
-.smart-round-count {
-    display: block;
-    font-size: 10px;
-    color: #bbb;
-    font-weight: 400;
-    text-transform: none;
-    letter-spacing: 0;
-    margin-top: 3px;
-}
-
-.smart-match {
-    background-color: #333;
-    border-radius: 4px;
-    overflow: hidden;
     border: 1px solid #444;
     transition: all 0.2s;
-    position: relative;
-    height: 62px;
     display: flex;
     flex-direction: column;
-    min-height: 62px;
-    flex-shrink: 0;
 }
 
-.smart-match:hover {
+.smart-match-absolute:hover {
     border-color: #555;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -247,14 +247,14 @@ button:hover {
 }
 
 .team.tbd .team-name {
-    text-align: center;
-    justify-content: center;
+    text-align: left;
+    justify-content: flex-start;
 }
 
-.smart-round-matches {
-    display: flex;
-    flex-direction: column;
-    position: relative;
+.team.freilos-team {
+    background-color: #3a3a3a;
+    color: #888;
+    font-style: italic;
 }
 
 .loading {
@@ -307,8 +307,13 @@ button:hover {
     word-break: break-word;
 }
 
-/* Responsive Design */
+/* EXAKT wie brackets.css - Responsive Design */
 @media (max-width: 1400px) {
+    .bracket-headers {
+        transform: scale(0.85);
+        transform-origin: top left;
+    }
+    
     .smart-bracket {
         transform: scale(0.85);
         transform-origin: top left;
@@ -316,6 +321,11 @@ button:hover {
 }
 
 @media (max-width: 1200px) {
+    .bracket-headers {
+        transform: scale(0.7);
+        transform-origin: top left;
+    }
+    
     .smart-bracket {
         transform: scale(0.7);
         transform-origin: top left;
@@ -323,6 +333,11 @@ button:hover {
 }
 
 @media (max-width: 1000px) {
+    .bracket-headers {
+        transform: scale(0.6);
+        transform-origin: top left;
+    }
+    
     .smart-bracket {
         transform: scale(0.6);
         transform-origin: top left;
@@ -330,6 +345,11 @@ button:hover {
 }
 
 @media (max-width: 800px) {
+    .bracket-headers {
+        transform: scale(0.5);
+        transform-origin: top left;
+    }
+    
     .smart-bracket {
         transform: scale(0.5);
         transform-origin: top left;

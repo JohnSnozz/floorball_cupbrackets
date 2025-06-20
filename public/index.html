@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🏒 Swiss Cup Crawler</title>
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
@@ -22,7 +23,16 @@
                     <div class="tool-icon">🏆</div>
                     <h3>Bracket Viewer</h3>
                     <p>Interaktive Darstellung der Tournament-Brackets mit Team-Highlighting und Verbindungslinien</p>
-                    <a href="/bracket.html" class="btn btn-primary">
+                    <a href="/Alt/bracket.html" class="btn btn-primary">
+                        🎯 Bracket öffnen
+                    </a>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon">🏆</div>
+                    <h3>Smart Bracket Viewer</h3>
+                    <p>Interaktive Darstellung der Tournament-Brackets mit Team-Highlighting und Verbindungslinien</p>
+                    <a href="/smartbracket.html" class="btn btn-primary">
                         🎯 Bracket öffnen
                     </a>
                 </div>
@@ -31,9 +41,79 @@
                     <div class="tool-icon">📊</div>
                     <h3>Datenbank Review</h3>
                     <p>Detaillierte Übersicht aller gecrawlten Spiele mit Statistiken und Exportfunktionen</p>
-                    <a href="/dbreview.html" class="btn btn-success">
+                    <a href="/dev/dbreview.html" class="btn btn-success">
                         📋 DB Review öffnen
                     </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backend Interface Section -->
+        <div class="backend-interface-section">
+            <h2>⚙️ Backend Interface</h2>
+            
+            <div class="alert alert-info">
+                <strong>Info:</strong> Hier können Sie Funktionen nachträglich ausführen, die beim Server-Start übersprungen wurden.
+            </div>
+            
+            <div class="backend-grid">
+                <div class="backend-card">
+                    <div class="backend-icon">🏒</div>
+                    <h3>Quick Update</h3>
+                    <p>Aktuelle Saison crawlen + Bracket-Sortierung + Prognose-Spiele für alle 4 Cups</p>
+                    <button class="btn btn-warning" onclick="executeQuickUpdate()">
+                        ⚡ Quick Update starten
+                    </button>
+                    <div class="backend-status" id="quickUpdateStatus"></div>
+                </div>
+                
+                <div class="backend-card">
+                    <div class="backend-icon">📥</div>
+                    <h3>Cup-Daten Crawling</h3>
+                    <p>Crawle Cup-Daten für gewählte Saison</p>
+                    <select class="season-select" id="crawlSeasonSelect">
+                        <option value="2025/26">2025/26 (Aktuell)</option>
+                        <option value="all">Alle Saisons</option>
+                        <option value="2024/25">2024/25</option>
+                        <option value="2023/24">2023/24</option>
+                        <option value="2022/23">2022/23</option>
+                    </select>
+                    <button class="btn btn-info" onclick="executeCrawling()">
+                        📡 Crawling starten
+                    </button>
+                    <div class="backend-status" id="crawlingStatus"></div>
+                </div>
+                
+                <div class="backend-card">
+                    <div class="backend-icon">🎯</div>
+                    <h3>Bracket-Sortierung</h3>
+                    <p>Berechne Tournament-Bracket Sortierung</p>
+                    <select class="season-select" id="bracketSeasonSelect">
+                        <option value="2025/26">2025/26 (Aktuell)</option>
+                        <option value="all">Alle Saisons</option>
+                        <option value="2024/25">2024/25</option>
+                        <option value="2023/24">2023/24</option>
+                        <option value="2022/23">2022/23</option>
+                    </select>
+                    <button class="btn btn-success" onclick="executeBracketSorting()">
+                        🔢 Berechnung starten
+                    </button>
+                    <div class="backend-status" id="bracketStatus"></div>
+                </div>
+                
+                <div class="backend-card">
+                    <div class="backend-icon">🔮</div>
+                    <h3>Prognose-Spiele</h3>
+                    <p>Generiere Prognose-Spiele für aktuelle Saison</p>
+                    <div class="prognose-actions">
+                        <button class="btn btn-danger btn-small" onclick="executePrognoseCleanup()">
+                            🗑️ Cleanup
+                        </button>
+                        <button class="btn btn-primary btn-small" onclick="executePrognoseGenerate()">
+                            ⚡ Generieren
+                        </button>
+                    </div>
+                    <div class="backend-status" id="prognoseStatus"></div>
                 </div>
             </div>
         </div>
@@ -83,10 +163,128 @@
     </div>
 
     <script>
-        // Status-Updates laden
+        // Backend Interface Functions
+        async function executeQuickUpdate() {
+            updateBackendStatus('quickUpdateStatus', '⏳ Quick Update wird ausgeführt...', 'loading');
+            
+            try {
+                const response = await fetch('/api/backend/quick-update', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('quickUpdateStatus', '✅ Quick Update erfolgreich abgeschlossen', 'success');
+                } else {
+                    updateBackendStatus('quickUpdateStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('quickUpdateStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
+        async function executeCrawling() {
+            const season = document.getElementById('crawlSeasonSelect').value;
+            updateBackendStatus('crawlingStatus', `⏳ Crawling ${season} wird ausgeführt...`, 'loading');
+            
+            try {
+                const endpoint = season === 'all' ? '/api/backend/crawl-all' : '/api/backend/crawl-season';
+                const body = season === 'all' ? {} : { season };
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('crawlingStatus', `✅ Crawling abgeschlossen: ${result.summary}`, 'success');
+                } else {
+                    updateBackendStatus('crawlingStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('crawlingStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
+        async function executeBracketSorting() {
+            const season = document.getElementById('bracketSeasonSelect').value;
+            updateBackendStatus('bracketStatus', `⏳ Bracket-Sortierung ${season} wird berechnet...`, 'loading');
+            
+            try {
+                const endpoint = season === 'all' ? '/api/backend/bracket-all' : '/api/backend/bracket-season';
+                const body = season === 'all' ? {} : { season };
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('bracketStatus', '✅ Bracket-Sortierung erfolgreich berechnet', 'success');
+                } else {
+                    updateBackendStatus('bracketStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('bracketStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
+        async function executePrognoseCleanup() {
+            updateBackendStatus('prognoseStatus', '⏳ Prognose-Spiele werden gelöscht...', 'loading');
+            
+            try {
+                const response = await fetch('/api/backend/prognose-cleanup', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('prognoseStatus', `✅ Cleanup abgeschlossen: ${result.deleted} Spiele gelöscht`, 'success');
+                } else {
+                    updateBackendStatus('prognoseStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('prognoseStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
+        async function executePrognoseGenerate() {
+            updateBackendStatus('prognoseStatus', '⏳ Prognose-Spiele werden generiert...', 'loading');
+            
+            try {
+                const response = await fetch('/api/backend/prognose-generate', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('prognoseStatus', `✅ Generierung abgeschlossen: ${result.generated} Spiele`, 'success');
+                } else {
+                    updateBackendStatus('prognoseStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('prognoseStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateBackendStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `backend-status ${type}`;
+        }
+        
+        // Existing status update functions
         async function updateStatus() {
             try {
-                // Lade Spiel-Statistiken
                 const statsResponse = await fetch('/stats');
                 const stats = await statsResponse.json();
                 
@@ -96,7 +294,6 @@
                     document.getElementById('lastUpdate').textContent = new Date().toLocaleString('de-CH');
                 }
                 
-                // Lade Bracket-Sortierung Status
                 const bracketResponse = await fetch('/bracket-sorting-status');
                 const bracketStats = await bracketResponse.json();
                 
@@ -105,7 +302,6 @@
                     document.getElementById('bracketSorted').textContent = totalSorted.toLocaleString();
                 }
                 
-                // Auto-Crawl Status (vereinfacht)
                 document.getElementById('autoCrawlStatus').innerHTML = '✅ Abgeschlossen';
                 document.getElementById('autoCrawlStatus').className = 'status-value status-active';
                 
@@ -116,13 +312,11 @@
             }
         }
         
-        // Status beim Laden und alle 30 Sekunden aktualisieren
         document.addEventListener('DOMContentLoaded', function() {
             updateStatus();
             setInterval(updateStatus, 30000);
         });
         
-        // Health Check
         setInterval(async () => {
             try {
                 const response = await fetch('/health');

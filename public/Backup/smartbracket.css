@@ -121,6 +121,44 @@ button:hover {
     position: relative;
 }
 
+/* Header Container - Synchronisiert mit brackets.css */
+.bracket-headers {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 15px;
+    padding: 0 15px;
+    position: sticky;
+    top: 0;
+    background-color: #2d2d2d;
+    z-index: 10;
+}
+
+.bracket-headers .round-header {
+    text-align: center;
+    font-weight: 600;
+    color: #ff6b00;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 14px;
+    padding: 8px;
+    background-color: #333;
+    border-radius: 4px;
+    position: relative;
+    min-width: 180px;
+    width: 180px;
+}
+
+.bracket-headers .round-count {
+    display: block;
+    font-size: 10px;
+    color: #bbb;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 3px;
+}
+
+/* Smart Bracket Container */
 .smart-bracket {
     display: flex;
     gap: 40px;
@@ -241,14 +279,41 @@ button:hover {
     flex-shrink: 0;
 }
 
-.team.tbd {
-    color: #888;
-    font-style: italic;
+/* CSS für Freilos-Spiele mit weiterkommenden Teams */
+.team-freilos-advance {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background-color: #ff6b00;
+    color: #000;
+    font-weight: 600;
+    border-radius: 4px;
+    height: 50%;
+    flex: 1;
+    margin: auto 0;
 }
 
+.team-freilos-advance .team-name {
+    flex: 1;
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    justify-content: flex-start;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Angepasste TBD Team-Namen für linksbündige Ausrichtung */
 .team.tbd .team-name {
-    text-align: center;
-    justify-content: center;
+    text-align: left;
+    justify-content: flex-start;
+    color: #888;
+    font-style: italic;
 }
 
 .smart-round-matches {
@@ -307,30 +372,79 @@ button:hover {
     word-break: break-word;
 }
 
-/* Responsive Design */
+/* Absolute positioned smart bracket */
+.smart-bracket-absolute {
+    background-image: 
+        linear-gradient(to right, rgba(255, 107, 0, 0.1) 1px, transparent 1px), 
+        linear-gradient(to bottom, rgba(255, 107, 0, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    padding: 15px;
+}
+
+.smart-match-absolute {
+    background-color: #333;
+    border-radius: 4px;
+    border: 1px solid #444;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+}
+
+.smart-match-absolute:hover {
+    border-color: #555;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Container für Header und Bracket zusammen */
+.bracket-with-headers {
+    position: relative;
+    overflow-x: auto;
+}
+
+/* Responsive Design - EXAKT wie brackets.css */
 @media (max-width: 1400px) {
-    .smart-bracket {
+    .bracket-headers {
+        transform: scale(0.85);
+        transform-origin: top left;
+    }
+    
+    .smart-bracket-absolute {
         transform: scale(0.85);
         transform-origin: top left;
     }
 }
 
 @media (max-width: 1200px) {
-    .smart-bracket {
+    .bracket-headers {
+        transform: scale(0.7);
+        transform-origin: top left;
+    }
+    
+    .smart-bracket-absolute {
         transform: scale(0.7);
         transform-origin: top left;
     }
 }
 
 @media (max-width: 1000px) {
-    .smart-bracket {
+    .bracket-headers {
+        transform: scale(0.6);
+        transform-origin: top left;
+    }
+    
+    .smart-bracket-absolute {
         transform: scale(0.6);
         transform-origin: top left;
     }
 }
 
 @media (max-width: 800px) {
-    .smart-bracket {
+    .bracket-headers {
+        transform: scale(0.5);
+        transform-origin: top left;
+    }
+    
+    .smart-bracket-absolute {
         transform: scale(0.5);
         transform-origin: top left;
     }
