@@ -1,0 +1,128 @@
+/* Smart Connector CSS für Swiss Cup Brackets */
+
+.smart-connector {
+    position: absolute;
+    background-color: #ffffff;
+    z-index: 1; /* Unter den Matches aber über dem Hintergrund */
+    pointer-events: none; /* Linien sollen nicht klickbar sein */
+    transition: background-color 0.2s ease;
+    opacity: 0.7;
+}
+
+/* Horizontale Verbindungslinien */
+.smart-connector.horizontal {
+    height: 2px;
+}
+
+/* Vertikale Verbindungslinien */
+.smart-connector.vertical {
+    width: 2px;
+}
+
+/* Hover-Effekt nur für spezifisch verbundene Matches - wird über JS gesteuert */
+.smart-connector.highlight-path {
+    background-color: #888;
+    opacity: 0.8;
+}
+
+/* Entferne den globalen Hover-Effekt */
+
+/* Highlight-Effekt wenn Team gehighlightet wird */
+.smart-match-absolute .team.highlight ~ .smart-connector {
+    background-color: #ff6b00;
+    opacity: 0.8;
+}
+
+/* Verschiedene Connector-Typen */
+.smart-connector.out-line {
+    background-color: #666;
+}
+
+.smart-connector.in-line {
+    background-color: #666;
+}
+
+.smart-connector.vertical-bridge {
+    background-color: #666;
+}
+
+.smart-connector.freilos-line {
+    background-color: #555;
+    opacity: 0.5;
+}
+
+/* Debug-Modus */
+.debug-smart-connectors .smart-connector {
+    border: 1px dashed rgba(255, 0, 0, 0.3);
+}
+
+.debug-smart-connectors .smart-connector.horizontal {
+    border-top: 1px solid rgba(255, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(255, 0, 0, 0.5);
+}
+
+.debug-smart-connectors .smart-connector.vertical {
+    border-left: 1px solid rgba(255, 0, 0, 0.5);
+    border-right: 1px solid rgba(255, 0, 0, 0.5);
+}
+
+/* Responsive Design - Connector skalieren mit dem Bracket */
+@media (max-width: 1400px) {
+    .smart-connector.horizontal {
+        height: 1.7px;
+    }
+    
+    .smart-connector.vertical {
+        width: 1.7px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .smart-connector.horizontal {
+        height: 1.4px;
+    }
+    
+    .smart-connector.vertical {
+        width: 1.4px;
+    }
+}
+
+@media (max-width: 1000px) {
+    .smart-connector.horizontal {
+        height: 1.2px;
+    }
+    
+    .smart-connector.vertical {
+        width: 1.2px;
+    }
+}
+
+@media (max-width: 800px) {
+    .smart-connector.horizontal {
+        height: 1px;
+    }
+    
+    .smart-connector.vertical {
+        width: 1px;
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .smart-connector {
+        transition: none;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .smart-connector {
+        background-color: #888;
+        border: 1px solid #ffffff;
+    }
+    
+    .smart-connector.freilos-line {
+        background-color: #555;
+        border-color: #ffffff;
+    }
+}

@@ -1,5 +1,5 @@
 // Smart Match Links für Swiss Cup Smart Brackets
-// Speziell für .smart-match Elemente
+// Speziell für .smart-match-absolute Elemente (nicht Prognose, nicht Freilos)
 
 function initializeSmartMatchLinks() {
     console.log('🔗 Initializing smart match links...');
@@ -7,8 +7,8 @@ function initializeSmartMatchLinks() {
     // Entferne alle existierenden Smart Match-Links
     removeSmartMatchLinks();
     
-    // Finde alle Smart Match-Container
-    const smartMatches = document.querySelectorAll('.smart-match');
+    // Finde alle Smart Match-Container (.smart-match-absolute für absolut positionierte Matches)
+    const smartMatches = document.querySelectorAll('.smart-match-absolute');
     let linkCount = 0;
     
     smartMatches.forEach(matchElement => {
@@ -27,7 +27,7 @@ function initializeSmartMatchLinks() {
 function getNumericGameIdFromSmartMatch(matchElement) {
     // Versuche numericGameId aus data-Attributen zu holen
     const dataGameId = matchElement.getAttribute('data-game-id');
-    if (dataGameId && dataGameId !== '') {
+    if (dataGameId && dataGameId !== '' && dataGameId !== 'null' && dataGameId !== 'undefined') {
         return dataGameId;
     }
     
@@ -49,11 +49,20 @@ function getNumericGameIdFromSmartMatch(matchElement) {
 function shouldCreateSmartMatchLink(matchElement, numericGameId) {
     // Debug-Ausgabe
     const title = matchElement.getAttribute('title');
-    console.log(`🔍 Checking smart match: title="${title}", gameId="${numericGameId}"`);
+    const team1Text = getTeamText(matchElement, 0);
+    const team2Text = getTeamText(matchElement, 1);
+    
+    console.log(`🔍 Checking smart match: team1="${team1Text}", team2="${team2Text}", gameId="${numericGameId}"`);
     
     // Kein Link ohne numericGameId
     if (!numericGameId) {
         console.log('❌ No numericGameId found');
+        return false;
+    }
+    
+    // Kein Link für Prognose-Spiele (prüfe beide Teams auf "TBD" oder Prognose-Pattern)
+    if (isSmartPrognoseMatch(matchElement)) {
+        console.log('❌ Skipping Prognose match');
         return false;
     }
     
@@ -73,21 +82,52 @@ function shouldCreateSmartMatchLink(matchElement, numericGameId) {
     return true;
 }
 
-function isSmartFreilosMatch(matchElement) {
-    // Prüfe Team-Namen auf "Freilos"
-    const teamNames = matchElement.querySelectorAll('.team-name');
-    for (let teamName of teamNames) {
-        const text = teamName.textContent.trim().toLowerCase();
-        if (text === 'freilos') {
-            return true;
-        }
+function getTeamText(matchElement, teamIndex) {
+    const teams = matchElement.querySelectorAll('.team');
+    if (teams[teamIndex]) {
+        const teamName = teams[teamIndex].querySelector('.team-name');
+        return teamName ? teamName.textContent.trim() : '';
+    }
+    return '';
+}
+
+function isSmartPrognoseMatch(matchElement) {
+    // Prüfe ob beide Teams TBD sind (typisch für Prognose-Spiele)
+    const team1Text = getTeamText(matchElement, 0);
+    const team2Text = getTeamText(matchElement, 1);
+    
+    // Beide Teams sind TBD
+    if (team1Text === 'TBD' && team2Text === 'TBD') {
+        return true;
+    }
+    
+    // Ein Team ist TBD und das andere ist nicht Freilos (typisch für Prognose)
+    if ((team1Text === 'TBD' && team2Text !== 'Freilos') || 
+        (team2Text === 'TBD' && team1Text !== 'Freilos')) {
+        return true;
+    }
+    
+    // Team-Namen enthalten Prognose-Pattern wie "Team1 / Team2"
+    if (team1Text.includes(' / ') || team2Text.includes(' / ')) {
+        return true;
     }
     
     return false;
 }
 
+function isSmartFreilosMatch(matchElement) {
+    // Prüfe Team-Namen auf "Freilos"
+    const team1Text = getTeamText(matchElement, 0);
+    const team2Text = getTeamText(matchElement, 1);
+    
+    const team1IsFreilos = team1Text.toLowerCase() === 'freilos';
+    const team2IsFreilos = team2Text.toLowerCase() === 'freilos';
+    
+    return team1IsFreilos || team2IsFreilos;
+}
+
 function isSmartTBDMatch(matchElement) {
-    // Prüfe ob alle Teams TBD sind
+    // Prüfe ob alle Teams TBD-Klasse haben
     const teams = matchElement.querySelectorAll('.team');
     if (teams.length === 0) return true;
     
@@ -116,6 +156,9 @@ function createSmartMatchLink(matchElement, numericGameId) {
     link.title = `Spiel-Details ansehen (Game ID: ${numericGameId})`;
     link.setAttribute('data-game-id', numericGameId);
     
+    // Link-Content (leer für CSS styling)
+    link.innerHTML = '';
+    
     // Event-Handler für Link
     link.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -124,7 +167,11 @@ function createSmartMatchLink(matchElement, numericGameId) {
     
     // Link zum Match hinzufügen
     matchElement.appendChild(link);
-    matchElement.style.position = 'relative'; // Für absolute Positionierung des Links
+    
+    // Stelle sicher dass Match relative Positionierung hat
+    if (getComputedStyle(matchElement).position === 'static') {
+        matchElement.style.position = 'relative';
+    }
 }
 
 function removeSmartMatchLinks() {
@@ -143,23 +190,29 @@ function refreshSmartMatchLinks() {
 
 function debugSmartMatchLinks() {
     console.log('\n🔍 DEBUG: Smart Match Links');
-    const smartMatches = document.querySelectorAll('.smart-match');
+    const smartMatches = document.querySelectorAll('.smart-match-absolute');
     console.log(`Found ${smartMatches.length} smart match elements`);
     
     smartMatches.forEach((match, index) => {
         const gameId = getNumericGameIdFromSmartMatch(match);
         const title = match.getAttribute('title');
         const dataGameId = match.getAttribute('data-game-id');
+        const team1Text = getTeamText(match, 0);
+        const team2Text = getTeamText(match, 1);
         const isFreilos = isSmartFreilosMatch(match);
         const isTBD = isSmartTBDMatch(match);
+        const isPrognose = isSmartPrognoseMatch(match);
         
         console.log(`${index + 1}. Smart Match:`, {
             element: match.className,
+            team1: team1Text,
+            team2: team2Text,
             gameId: gameId,
             dataGameId: dataGameId,
             title: title,
             isFreilos: isFreilos,
             isTBD: isTBD,
+            isPrognose: isPrognose,
             shouldCreateLink: shouldCreateSmartMatchLink(match, gameId)
         });
     });
@@ -170,11 +223,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Observer für Smart Bracket-Änderungen
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
-            if (mutation.type === 'childList' && 
-                mutation.target.classList && 
-                (mutation.target.classList.contains('smart-bracket') ||
-                 mutation.target.classList.contains('bracket-container'))) {
-                setTimeout(initializeSmartMatchLinks, 300);
+            if (mutation.type === 'childList') {
+                // Prüfe ob Smart Bracket Container geändert wurde
+                const target = mutation.target;
+                if (target.classList && 
+                    (target.classList.contains('smart-bracket') ||
+                     target.classList.contains('bracket-container') ||
+                     target.id === 'bracketContent')) {
+                    setTimeout(initializeSmartMatchLinks, 300);
+                }
+                
+                // Prüfe auch hinzugefügte Nodes
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === 1 && node.classList) { // Element node
+                        if (node.classList.contains('smart-bracket') ||
+                            node.classList.contains('smart-match-absolute')) {
+                            setTimeout(initializeSmartMatchLinks, 300);
+                        }
+                    }
+                });
             }
         });
     });
@@ -182,7 +249,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Beobachte Bracket-Container
     const bracketContainer = document.querySelector('.bracket-container');
     if (bracketContainer) {
-        observer.observe(bracketContainer, { childList: true, subtree: true });
+        observer.observe(bracketContainer, { 
+            childList: true, 
+            subtree: true,
+            attributes: false,
+            characterData: false
+        });
+    }
+});
+
+// Keyboard shortcuts für Debug
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'l' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        debugSmartMatchLinks();
+    }
+    
+    if (e.key === 'Escape') {
+        debugSmartMatchLinks();
     }
 });
 

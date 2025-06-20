@@ -226,19 +226,46 @@ function renderAbsoluteMatch(position) {
     let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericGameId || ''}" data-bracket-sort="${game.bracketSortOrder}">`;
     
     if (!hasResult) {
-        html += `<div class="team tbd"><span class="team-name">${game.team1 || 'TBD'}</span></div>`;
-        html += `<div class="team tbd"><span class="team-name">${game.team2 || 'TBD'}</span></div>`;
-    } else {
-        const scores = parseScore(game.result);
-        const team1Winner = isWinner(game, game.team1);
-        const team2Winner = isWinner(game, game.team2);
+        // TBD Teams
+        const team1Classes = getTeamClasses(game, game.team1, hasResult);
+        const team2Classes = getTeamClasses(game, game.team2, hasResult);
         
-        html += `<div class="team ${team1Winner ? 'winner' : ''}"><span class="team-name">${game.team1}</span><span class="team-score">${scores.team1}</span></div>`;
-        html += `<div class="team ${team2Winner ? 'winner' : ''}"><span class="team-name">${game.team2}</span><span class="team-score">${scores.team2}</span></div>`;
+        html += `<div class="team ${team1Classes}"><span class="team-name">${game.team1 || 'TBD'}</span></div>`;
+        html += `<div class="team ${team2Classes}"><span class="team-name">${game.team2 || 'TBD'}</span></div>`;
+    } else {
+        // Finished Games
+        const scores = parseScore(game.result);
+        const team1Classes = getTeamClasses(game, game.team1, hasResult);
+        const team2Classes = getTeamClasses(game, game.team2, hasResult);
+        
+        html += `<div class="team ${team1Classes}"><span class="team-name">${game.team1}</span><span class="team-score">${scores.team1}</span></div>`;
+        html += `<div class="team ${team2Classes}"><span class="team-name">${game.team2}</span><span class="team-score">${scores.team2}</span></div>`;
     }
     
     html += '</div>';
     return html;
+}
+
+function getTeamClasses(game, teamName, hasResult) {
+    let classes = [];
+    
+    // Freilos-Klasse
+    if (isFreilos(teamName)) {
+        classes.push('freilos-team');
+    } else {
+        // Winner-Klasse für reguläre und Freilos-Spiele
+        if (hasResult && isWinner(game, teamName)) {
+            classes.push('winner');
+        } else if (isFreilosGame(game) && !isFreilos(teamName)) {
+            // Team gegen Freilos wird auch als winner markiert
+            classes.push('winner');
+        } else if (!hasResult && !isFreilosGame(game)) {
+            // TBD für noch nicht gespielte, normale Spiele
+            classes.push('tbd');
+        }
+    }
+    
+    return classes.join(' ');
 }
 
 function renderSmartBracket() {
@@ -267,10 +294,11 @@ function renderSmartBracket() {
     bracketContent.innerHTML = html;
     
     setTimeout(() => {
-        adjustLongTeamNames();
-        if (typeof initializeTeamHighlighting === 'function') initializeTeamHighlighting();
-        if (typeof initializeSmartMatchLinks === 'function') initializeSmartMatchLinks();
-    }, 100);
+            adjustLongTeamNames();
+            if (typeof initializeTeamHighlighting === 'function') initializeTeamHighlighting();
+            if (typeof initializeSmartMatchLinks === 'function') initializeSmartMatchLinks();
+            if (typeof initializeSmartConnectors === 'function') initializeSmartConnectors(smartRounds);
+        }, 100);
 }
 
 function renderMatch(game, gameIndex, roundIndex) {
@@ -330,14 +358,10 @@ function renderFreilosMatch(game) {
     
     if (team1IsFreilos) {
         html += `<div class="team freilos-team"><span class="team-name">Freilos</span></div>`;
+        html += `<div class="team winner"><span class="team-name">${game.team2}</span></div>`;
     } else {
         html += `<div class="team winner"><span class="team-name">${game.team1}</span></div>`;
-    }
-    
-    if (team2IsFreilos) {
         html += `<div class="team freilos-team"><span class="team-name">Freilos</span></div>`;
-    } else {
-        html += `<div class="team winner"><span class="team-name">${game.team2}</span></div>`;
     }
     
     return html;

@@ -8,10 +8,15 @@
     width: 6px;
     background-color: #007bff;
     cursor: pointer;
-    z-index: 2;
+    z-index: 3;
     transition: all 0.2s ease;
     border-radius: 0 4px 4px 0;
     opacity: 0.8;
+    text-decoration: none;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
 }
 
 .smart-match-link:hover {
@@ -19,13 +24,116 @@
     opacity: 1;
     width: 8px;
     box-shadow: 0 0 4px rgba(0, 123, 255, 0.4);
+    text-decoration: none;
 }
 
 .smart-match-link:active {
     background-color: #004085;
+    text-decoration: none;
+}
+
+.smart-match-link:focus {
+    outline: none;
+    background-color: #0056b3;
+    box-shadow: 0 0 4px rgba(0, 123, 255, 0.6);
 }
 
 /* Sicherstellen dass Smart Matches relative Positionierung haben */
-.smart-match {
-    position: relative;
+.smart-match-absolute {
+    position: absolute !important; /* Smart Matches sind bereits absolut positioniert */
+}
+
+/* Hover-Effekt für das gesamte Match wenn Link gehovered wird */
+.smart-match-absolute:hover .smart-match-link {
+    opacity: 1;
+    width: 8px;
+}
+
+/* Spezielle Behandlung für verschiedene Match-Typen */
+
+/* Keine Links für Freilos-Spiele */
+.smart-match-absolute .team.freilos-team ~ .smart-match-link {
+    display: none;
+}
+
+/* Keine Links für TBD-Spiele */
+.smart-match-absolute .team.tbd ~ .smart-match-link {
+    display: none;
+}
+
+/* Visual feedback für aktive Links */
+.smart-match-absolute:has(.smart-match-link) {
+    border-right: 2px solid transparent;
+    transition: border-color 0.2s ease;
+}
+
+.smart-match-absolute:has(.smart-match-link):hover {
+    border-right-color: rgba(0, 123, 255, 0.3);
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    .smart-match-link {
+        transition: none;
+    }
+    
+    .smart-match-absolute {
+        transition: none;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .smart-match-link {
+        background-color: #0056b3;
+        border: 1px solid #ffffff;
+        opacity: 1;
+    }
+    
+    .smart-match-link:hover {
+        background-color: #004085;
+        border-color: #ffffff;
+    }
+}
+
+/* Dark mode optimizations (falls aktiviert) */
+@media (prefers-color-scheme: dark) {
+    .smart-match-link {
+        background-color: #1e90ff;
+    }
+    
+    .smart-match-link:hover {
+        background-color: #4169e1;
+        box-shadow: 0 0 4px rgba(30, 144, 255, 0.4);
+    }
+}
+
+/* Debug-Modus für Entwicklung */
+.debug-smart-links .smart-match-absolute {
+    border: 1px dashed rgba(255, 0, 0, 0.3);
+}
+
+.debug-smart-links .smart-match-absolute[data-game-id]:not([data-game-id=""]) {
+    border-color: rgba(0, 255, 0, 0.5);
+}
+
+.debug-smart-links .smart-match-link::before {
+    content: attr(data-game-id);
+    position: absolute;
+    left: -40px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 2px 4px;
+    font-size: 10px;
+    border-radius: 2px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+
+.debug-smart-links .smart-match-link:hover::before {
+    opacity: 1;
 }
