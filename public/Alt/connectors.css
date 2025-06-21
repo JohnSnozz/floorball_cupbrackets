@@ -1,0 +1,72 @@
+/* Verbindungslinien zwischen Bracket-Runden */
+
+.round {
+    position: relative;
+}
+
+/* Container für alle Verbindungslinien einer Runde */
+.round-connections {
+    position: absolute;
+    top: 0;
+    right: -20px;
+    width: 40px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Einzelne Verbindungslinie */
+.connection-line {
+    position: absolute;
+    border: 1px solid #555;
+    pointer-events: none;
+}
+
+/* Horizontale Linie (von Match zur Mitte) */
+.connection-line.horizontal {
+    border-top: 1px solid #555;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+    width: 20px;
+    height: 1px;
+}
+
+/* Vertikale Linie (verbindet zwei horizontale Linien) */
+.connection-line.vertical {
+    border-left: 1px solid #555;
+    border-right: none;
+    border-top: none;
+    border-bottom: none;
+    width: 1px;
+}
+
+/* Horizontale Linie zur nächsten Runde */
+.connection-line.to-next {
+    border-top: 1px solid #555;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+    width: 20px;
+    height: 1px;
+}
+
+/* Spezifische Positionen für Runde 1 zu Runde 2 */
+.round.round-1 .connection-line.horizontal {
+    left: 180px;
+}
+
+.round.round-1 .connection-line.vertical {
+    left: 200px;
+}
+
+.round.round-1 .connection-line.to-next {
+    left: 200px;
+}
+
+/* Hover-Effekt für Verbindungslinien */
+.match:hover ~ .round-connections .connection-line,
+.match:hover + .match ~ .round-connections .connection-line {
+    border-color: #ff6b00;
+    transition: border-color 0.2s;
+}

@@ -20,6 +20,8 @@ const bracketRoutes = require('./modules/bracket-routes');
 const prognoseGames = require('./modules/prognose-games');
 const backendApi = require('./modules/backend-api');
 const apiRoutes = require('./modules/api-routes');
+const gameDetails  = require('./modules/game-details');
+
 
 
 // Auto-Crawl Modul nur laden wenn verfügbar
@@ -56,6 +58,8 @@ bracketRoutes.register(app, db);
 prognoseGames.register(app, db);
 backendApi.register(app, db);
 apiRoutes.register(app, db);
+gameDetails.register(app, db);
+
 
 // Error-Handling (muss am Ende stehen)
 middleware.errorHandling(app);

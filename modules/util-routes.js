@@ -49,6 +49,16 @@ function register(app, db) {
     res.sendFile(path.join(__dirname, '..', 'public', 'dbreview.html'));
   });
 
+  // GET /dev/dbreview.html - Datenbank-Review-Seite (dev pfad)
+  app.get('/dev/dbreview.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'dbreview.html'));
+  });
+
+  // GET /dev/gamedetails.html - GameDetails-Review-Seite
+  app.get('/dev/gamedetails.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'gamedetails.html'));
+  });
+
   console.log('✅ Utility-Routen registriert');
 }
 

@@ -1,46 +1,89 @@
 /* Smart Match Links für Swiss Cup Smart Brackets */
+/* Erweitert um Farb-Zustände basierend auf Spiel-Status und Datum */
 
 .smart-match-link {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 6px;
-    background-color: #007bff;
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 6px !important;
+    min-height: 60px !important; /* Force minimum height */
+    background-color: #6c757d !important; /* Default: Grau für scheduled */
     cursor: pointer;
     z-index: 3;
     transition: all 0.2s ease;
     border-radius: 0 4px 4px 0;
-    opacity: 0.8;
+    opacity: 1 !important; /* Force visible */
     text-decoration: none;
     border-top-right-radius: 4px;
     border-bottom-right-radius: 4px;
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
+    display: block !important; /* Force display */
 }
 
+/* Status-spezifische Farben */
+
+/* Gespielt (Standard) - Blau */
+.smart-match-link.played {
+    background-color: #007bff !important;
+}
+
+.smart-match-link.played:hover {
+    background-color: #0056b3 !important;
+    box-shadow: 0 0 4px rgba(0, 123, 255, 0.4);
+}
+
+/* Nicht gespielt (Scheduled) - Helles Grau */
+.smart-match-link.scheduled {
+    background-color: #6c757d !important; /* Bootstrap secondary gray */
+}
+
+.smart-match-link.scheduled:hover {
+    background-color: #545b62 !important;
+    box-shadow: 0 0 4px rgba(108, 117, 125, 0.4);
+}
+
+/* Morgen - Gelb */
+.smart-match-link.tomorrow {
+    background-color: #ffc107 !important; /* Bootstrap warning yellow */
+}
+
+.smart-match-link.tomorrow:hover {
+    background-color: #e0a800 !important;
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.4);
+}
+
+/* Heute - Rot */
+.smart-match-link.today {
+    background-color: #dc3545 !important; /* Bootstrap danger red */
+}
+
+.smart-match-link.today:hover {
+    background-color: #c82333 !important;
+    box-shadow: 0 0 4px rgba(220, 53, 69, 0.4);
+}
+
+/* Gemeinsame Hover-Effekte */
 .smart-match-link:hover {
-    background-color: #0056b3;
     opacity: 1;
     width: 8px;
-    box-shadow: 0 0 4px rgba(0, 123, 255, 0.4);
     text-decoration: none;
 }
 
 .smart-match-link:active {
-    background-color: #004085;
+    opacity: 0.9;
     text-decoration: none;
 }
 
 .smart-match-link:focus {
     outline: none;
-    background-color: #0056b3;
     box-shadow: 0 0 4px rgba(0, 123, 255, 0.6);
 }
 
 /* Sicherstellen dass Smart Matches relative Positionierung haben */
 .smart-match-absolute {
-    position: absolute !important; /* Smart Matches sind bereits absolut positioniert */
+    position: absolute !important;
 }
 
 /* Hover-Effekt für das gesamte Match wenn Link gehovered wird */
@@ -71,6 +114,18 @@
     border-right-color: rgba(0, 123, 255, 0.3);
 }
 
+.smart-match-absolute:has(.smart-match-link.scheduled):hover {
+    border-right-color: rgba(108, 117, 125, 0.3);
+}
+
+.smart-match-absolute:has(.smart-match-link.tomorrow):hover {
+    border-right-color: rgba(255, 193, 7, 0.3);
+}
+
+.smart-match-absolute:has(.smart-match-link.today):hover {
+    border-right-color: rgba(220, 53, 69, 0.3);
+}
+
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
     .smart-match-link {
@@ -85,26 +140,48 @@
 /* High contrast mode */
 @media (prefers-contrast: high) {
     .smart-match-link {
-        background-color: #0056b3;
         border: 1px solid #ffffff;
         opacity: 1;
     }
     
+    .smart-match-link.played {
+        background-color: #0056b3;
+    }
+    
+    .smart-match-link.scheduled {
+        background-color: #495057;
+    }
+    
+    .smart-match-link.tomorrow {
+        background-color: #e0a800;
+    }
+    
+    .smart-match-link.today {
+        background-color: #c82333;
+    }
+    
     .smart-match-link:hover {
-        background-color: #004085;
         border-color: #ffffff;
     }
 }
 
-/* Dark mode optimizations (falls aktiviert) */
+/* Dark mode optimizations */
 @media (prefers-color-scheme: dark) {
-    .smart-match-link {
+    .smart-match-link.played {
         background-color: #1e90ff;
     }
     
-    .smart-match-link:hover {
+    .smart-match-link.played:hover {
         background-color: #4169e1;
         box-shadow: 0 0 4px rgba(30, 144, 255, 0.4);
+    }
+    
+    .smart-match-link.scheduled {
+        background-color: #8a8a8a;
+    }
+    
+    .smart-match-link.scheduled:hover {
+        background-color: #6a6a6a;
     }
 }
 
@@ -135,5 +212,27 @@
 }
 
 .debug-smart-links .smart-match-link:hover::before {
+    opacity: 1;
+}
+
+/* Zusätzliche Debug-Info für Status */
+.debug-smart-links .smart-match-link::after {
+    content: attr(data-status);
+    position: absolute;
+    left: -60px;
+    top: calc(50% - 20px);
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 1px 3px;
+    font-size: 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+
+.debug-smart-links .smart-match-link:hover::after {
     opacity: 1;
 }

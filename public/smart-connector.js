@@ -1,146 +1,4 @@
-// Am Anfang der smart-match-link.js hinzufügen
-let smartLinksInitialized = false;
-
-function initializeSmartMatchLinks() {
-    // Verhindere mehrfache Initialisierung
-    if (smartLinksInitialized) {
-        console.log('🔗 Smart match links bereits initialisiert, überspringe...');
-        return;
-    }
-    
-    console.log('🔗 Initialisiere Smart Match Links...');
-    
-    // Dein bestehender Code hier...
-    
-    // Markiere als initialisiert
-    smartLinksInitialized = true;
-}
-
-// Reset-Funktion für neues Bracket
-function resetSmartMatchLinks() {
-    smartLinksInitialized = false;
-}
-
-
-
-function initializeConnectorHoverEvents() {
-    console.log('🎯 Initializing connector hover events...');
-    
-    // NICHT die bestehenden Events entfernen - sie könnten von anderen Modulen stammen
-    // removeConnectorHoverEvents();
-    
-    // Finde alle Smart Matches
-    const smartMatches = document.querySelectorAll('.smart-match-absolute');
-    
-    smartMatches.forEach(matchElement => {
-        const gameId = matchElement.getAttribute('data-bracket-sort');
-        if (!gameId) return;
-        
-        // Prüfe ob bereits Connector-Events existieren
-        if (matchElement.hasAttribute('data-connector-events')) return;
-        
-        // Markiere als initialisiert
-        matchElement.setAttribute('data-connector-events', 'true');
-        
-        // Speichere ursprüngliche Event-Handler falls vorhanden
-        const originalMouseEnter = matchElement.onmouseenter;
-        const originalMouseLeave = matchElement.onmouseleave;
-        
-        // Kombiniere Events
-        matchElement.addEventListener('mouseenter', function(e) {
-            // Führe ursprüngliche Events aus (Team-Highlighting)
-            if (originalMouseEnter) originalMouseEnter.call(this, e);
-            
-            // Füge Connector-Highlighting hinzu
-            highlightConnectorPath(gameId);
-        });
-        
-        matchElement.addEventListener('mouseleave', function(e) {
-            // Führe ursprüngliche Events aus
-            if (originalMouseLeave) originalMouseLeave.call(this, e);
-            
-            // Entferne Connector-Highlighting
-            removeConnectorHighlight();
-        });
-    });
-    
-    console.log(`✅ Connector hover events initialized for ${smartMatches.length} matches`);
-}
-
-function highlightConnectorPath(gameId) {
-    if (!currentSmartRounds) return;
-    
-    // Finde alle Connector die zu diesem Spiel führen (rückwärts)
-    const pathGameIds = findPathToGame(gameId);
-    
-    // Entferne vorherige Highlights
-    removeConnectorHighlight();
-    
-    // Highlighte alle Connector die Teil des Pfads sind
-    pathGameIds.forEach(pathGameId => {
-        const connectors = document.querySelectorAll(`[data-target-game="${pathGameId}"]`);
-        connectors.forEach(connector => {
-            connector.classList.add('highlight-path');
-        });
-    });
-}
-
-function findPathToGame(targetGameId) {
-    const pathGameIds = [targetGameId];
-    const targetSortOrder = parseInt(targetGameId);
-    
-    // Arbeite rückwärts durch die Runden
-    for (let roundIndex = currentSmartRounds.length - 1; roundIndex >= 0; roundIndex--) {
-        const currentRound = currentSmartRounds[roundIndex];
-        
-        // Prüfe ob das aktuelle Ziel in dieser Runde ist
-        const gameInRound = currentRound.gamePositions.find(pos => 
-            parseInt(pos.game.bracketSortOrder) === targetSortOrder
-        );
-        
-        if (gameInRound) {
-            // Finde Vorgänger für dieses Spiel
-            const pred1SortOrder = (targetSortOrder * 2) - 1;
-            const pred2SortOrder = targetSortOrder * 2;
-            
-            // Prüfe vorherige Runde für Vorgänger
-            if (roundIndex > 0) {
-                const prevRound = currentSmartRounds[roundIndex - 1];
-                
-                const pred1 = prevRound.gamePositions.find(pos => 
-                    parseInt(pos.game.bracketSortOrder) === pred1SortOrder
-                );
-                const pred2 = prevRound.gamePositions.find(pos => 
-                    parseInt(pos.game.bracketSortOrder) === pred2SortOrder
-                );
-                
-                if (pred1) pathGameIds.push(pred1.game.bracketSortOrder);
-                if (pred2) pathGameIds.push(pred2.game.bracketSortOrder);
-            }
-            break;
-        }
-    }
-    
-    return pathGameIds;
-}
-
-function removeConnectorHighlight() {
-    const highlightedConnectors = document.querySelectorAll('.smart-connector.highlight-path');
-    highlightedConnectors.forEach(connector => {
-        connector.classList.remove('highlight-path');
-    });
-}
-
-function removeConnectorHoverEvents() {
-    // Entferne nur die Connector-spezifischen Attribute und Highlights
-    const smartMatches = document.querySelectorAll('.smart-match-absolute[data-connector-events]');
-    smartMatches.forEach(element => {
-        element.removeAttribute('data-connector-events');
-    });
-    
-    // Entferne alle aktiven Connector-Highlights
-    removeConnectorHighlight();
-}// Smart Connector - Verbindungslinien für Swiss Cup Smart Brackets
+// Smart Connector - Verbindungslinien für Swiss Cup Smart Brackets
 
 let connectorDebugMode = false;
 let currentSmartRounds = null; // Speichere die Runden für Hover-Funktionalität
@@ -183,7 +41,7 @@ function initializeSmartConnectors(smartRounds) {
     }
     
     // Initialisiere Hover-Events nach Connector-Erstellung
-    initializeConnectorHoverEvents();
+    setTimeout(() => initializeConnectorHoverEvents(), 50);
     
     console.log(`✅ Created ${connectorCount} smart connectors`);
 }
@@ -343,6 +201,96 @@ function addConnectorToDOM(connector) {
     smartBracket.appendChild(connectorElement);
 }
 
+function initializeConnectorHoverEvents() {
+    console.log('🎯 Initializing connector hover events...');
+    
+    // Finde alle Smart Matches
+    const smartMatches = document.querySelectorAll('.smart-match-absolute');
+    
+    smartMatches.forEach(matchElement => {
+        const gameId = matchElement.getAttribute('data-bracket-sort');
+        if (!gameId) return;
+        
+        // Prüfe ob bereits Connector-Events existieren
+        if (matchElement.hasAttribute('data-connector-events')) return;
+        
+        // Markiere als initialisiert
+        matchElement.setAttribute('data-connector-events', 'true');
+        
+        // Event-Handler hinzufügen ohne bestehende zu überschreiben
+        matchElement.addEventListener('mouseenter', function(e) {
+            highlightConnectorPath(gameId);
+        });
+        
+        matchElement.addEventListener('mouseleave', function(e) {
+            removeConnectorHighlight();
+        });
+    });
+    
+    console.log(`✅ Connector hover events initialized for ${smartMatches.length} matches`);
+}
+
+function highlightConnectorPath(gameId) {
+    if (!currentSmartRounds) return;
+    
+    // Finde alle Connector die zu diesem Spiel führen (rückwärts)
+    const pathGameIds = findPathToGame(gameId);
+    
+    // Entferne vorherige Highlights
+    removeConnectorHighlight();
+    
+    // Highlighte alle Connector die Teil des Pfads sind
+    pathGameIds.forEach(pathGameId => {
+        const connectors = document.querySelectorAll(`[data-target-game="${pathGameId}"]`);
+        connectors.forEach(connector => {
+            connector.classList.add('highlight-path');
+        });
+    });
+}
+
+function findPathToGame(targetGameId) {
+    const pathGameIds = [targetGameId];
+    let currentSortOrder = parseInt(targetGameId);
+    
+    // Arbeite rückwärts durch die Runden
+    for (let roundIndex = currentSmartRounds.length - 1; roundIndex >= 0; roundIndex--) {
+        const currentRound = currentSmartRounds[roundIndex];
+        
+        // Prüfe ob das aktuelle Ziel in dieser Runde ist
+        const gameInRound = currentRound.gamePositions.find(pos => 
+            parseInt(pos.game.bracketSortOrder) === currentSortOrder
+        );
+        
+        if (gameInRound && roundIndex > 0) {
+            // Finde Vorgänger für dieses Spiel
+            const pred1SortOrder = (currentSortOrder * 2) - 1;
+            const pred2SortOrder = currentSortOrder * 2;
+            
+            // Prüfe vorherige Runde für Vorgänger
+            const prevRound = currentSmartRounds[roundIndex - 1];
+            
+            const pred1 = prevRound.gamePositions.find(pos => 
+                parseInt(pos.game.bracketSortOrder) === pred1SortOrder
+            );
+            const pred2 = prevRound.gamePositions.find(pos => 
+                parseInt(pos.game.bracketSortOrder) === pred2SortOrder
+            );
+            
+            if (pred1) pathGameIds.push(pred1.game.bracketSortOrder);
+            if (pred2) pathGameIds.push(pred2.game.bracketSortOrder);
+        }
+    }
+    
+    return pathGameIds;
+}
+
+function removeConnectorHighlight() {
+    const highlightedConnectors = document.querySelectorAll('.smart-connector.highlight-path');
+    highlightedConnectors.forEach(connector => {
+        connector.classList.remove('highlight-path');
+    });
+}
+
 function removeSmartConnectors() {
     const existingConnectors = document.querySelectorAll('.smart-connector');
     existingConnectors.forEach(connector => {
@@ -351,6 +299,17 @@ function removeSmartConnectors() {
     
     // Entferne auch Hover Events
     removeConnectorHoverEvents();
+}
+
+function removeConnectorHoverEvents() {
+    // Entferne nur die Connector-spezifischen Attribute und Highlights
+    const smartMatches = document.querySelectorAll('.smart-match-absolute[data-connector-events]');
+    smartMatches.forEach(element => {
+        element.removeAttribute('data-connector-events');
+    });
+    
+    // Entferne alle aktiven Connector-Highlights
+    removeConnectorHighlight();
 }
 
 function refreshSmartConnectors(smartRounds) {
@@ -378,14 +337,13 @@ function debugSmartConnectors() {
     console.log(`Found ${connectors.length} connector elements`);
     
     connectors.forEach((connector, index) => {
-        const rect = connector.getBoundingClientRect();
         console.log(`${index + 1}. Connector:`, {
             className: connector.className,
             x: connector.style.left,
             y: connector.style.top,
             width: connector.style.width,
             height: connector.style.height,
-            title: connector.title
+            targetGame: connector.getAttribute('data-target-game')
         });
     });
 }

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Swiss Cup Crawler - GameDetails Review</title>
+    <link rel="stylesheet" href="dbreview.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Swiss Cup Crawler - GameDetails Review</h1>
+        
+        <div class="controls">
+            <div class="stats-info" id="statsInfo">📊 Klicke "Alle laden" um zu starten</div>
+            <div class="control-actions">
+                <button class="btn btn-primary" onclick="loadAllGameDetails()">🔄 Alle laden</button>
+                <button class="btn btn-secondary" onclick="refreshStats()">📊 Stats aktualisieren</button>
+                <button class="btn btn-success" onclick="crawlGameDetails()">🕷️ GameDetails crawlen</button>
+                <a href="../" class="btn btn-secondary">🏠 Zurück</a>
+            </div>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <!-- Stats Overview -->
+        <div class="table-container" style="margin-bottom: 20px;">
+            <div class="table-wrapper">
+                <table id="statsTable">
+                    <thead>
+                        <tr>
+                            <th>Statistik</th>
+                            <th>Wert</th>
+                        </tr>
+                    </thead>
+                    <tbody id="statsTableBody">
+                        <tr>
+                            <td>Total GameDetails</td>
+                            <td id="statTotalGames">-</td>
+                        </tr>
+                        <tr>
+                            <td>Total Events</td>
+                            <td id="statTotalEvents">-</td>
+                        </tr>
+                        <tr>
+                            <td>Durchschnitt Tore/Spiel</td>
+                            <td id="statAvgGoals">-</td>
+                        </tr>
+                        <tr>
+                            <td>Durchschnitt Strafen/Spiel</td>
+                            <td id="statAvgPenalties">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table id="gameDetailsTable">
+                    <thead id="tableHead">
+                        <tr id="filterRow">
+                            <th><input oninput="filterTable()" placeholder="id"></th>
+                            <th><input oninput="filterTable()" placeholder="numericGameId"></th>
+                            <th><input oninput="filterTable()" placeholder="totalEvents"></th>
+                            <th><input oninput="filterTable()" placeholder="homeGoals"></th>
+                            <th><input oninput="filterTable()" placeholder="awayGoals"></th>
+                            <th><input oninput="filterTable()" placeholder="penalties"></th>
+                            <th><input oninput="filterTable()" placeholder="lastUpdated"></th>
+                            <th></th>
+                        </tr>
+                        <tr>
+                            <th onclick="sortTable('id')">ID <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('numericGameId')">numericGameId <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('totalEvents')">totalEvents <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('homeGoals')">homeGoals <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('awayGoals')">awayGoals <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('penalties')">penalties <span class="sort-icon">↕</span></th>
+                            <th onclick="sortTable('lastUpdated')">lastUpdated <span class="sort-icon">↕</span></th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gameDetailsTableBody">
+                        <tr>
+                            <td colspan="8" class="loading">Klicke "Alle laden" um die GameDetails zu laden</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Game Detail Modal -->
+        <div id="gameDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #2d2d2d; border-radius: 8px; max-width: 90%; max-height: 90%; overflow: auto; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="color: #fff; margin: 0;">Game Events Details</h3>
+                    <button onclick="closeModal()" style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Schließen</button>
+                </div>
+                <div id="gameDetailContent" style="color: #e0e0e0; max-height: 60vh; overflow: auto;">
+                    <!-- Content wird hier eingefügt -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="gamedetailviewer.js"></script>
+</body>
+</html>
