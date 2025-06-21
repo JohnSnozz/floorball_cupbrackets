@@ -14,7 +14,7 @@ const ROUND_HIERARCHY = [
     '1/128 Final'
 ];
 
-// Mapping für nächste Runde (nur bis 1/8 Final)
+// Mapping für nächste Runde (bis 1/8 Final)
 const NEXT_ROUND_MAP = {
     '1/128': '1/64',
     '1/64': '1/32', 
@@ -395,6 +395,9 @@ async function generateTBDRoundGames(db, cupType, season, currentRound, nextRoun
             const game1 = currentRoundGames[i];
             const game2 = currentRoundGames[i + 1];
             
+            // 🔧 KORREKTE bracketSortOrder: Erste Spiel-Position / 2 GERUNDET NACH OBEN
+            const newSortOrder = Math.ceil((game1.bracketSortOrder || 1) / 2);
+            
             if (game2) {
                 // Zwei Spiele -> TBD Paar (außer bei Freilos-Automatik)
                 const team1 = determineTBDOrAdvancer(game1);
@@ -408,7 +411,7 @@ async function generateTBDRoundGames(db, cupType, season, currentRound, nextRoun
                 nextRoundPairs.push({
                     team1: team1,
                     team2: team2,
-                    sortOrder: Math.min(game1.bracketSortOrder || 999999, game2.bracketSortOrder || 999999)
+                    sortOrder: newSortOrder
                 });
             } else {
                 // Nur ein Spiel -> automatischer Aufsteiger
@@ -418,7 +421,7 @@ async function generateTBDRoundGames(db, cupType, season, currentRound, nextRoun
                     nextRoundPairs.push({
                         team1: team1,
                         team2: 'Freilos',
-                        sortOrder: game1.bracketSortOrder || 999999
+                        sortOrder: newSortOrder
                     });
                 }
             }
@@ -520,6 +523,7 @@ async function getPrognoseGamesForRound(db, cupType, season, roundName) {
         });
     });
 }
+
 function determineWinnerOrAdvancer(game) {
     // Wenn ein Team Freilos ist, steigt das andere automatisch auf
     if (game.team1 === 'Freilos') {

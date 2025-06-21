@@ -49,7 +49,7 @@
                 <div class="tool-card">
                     <div class="tool-icon">🎮</div>
                     <h3>GameDetails Review</h3>
-                    <p>Detaillierte Ansicht aller Game-Events, Tore, Strafen und Spielstatistiken</p>
+                    <p>Detaillierte Ansicht aller Game-Events, Tore, Strafen und Spielstatistiken mit Season-Management</p>
                     <a href="/dev/gamedetails.html" class="btn btn-success">
                         🎮 GameDetails öffnen
                     </a>
@@ -124,6 +124,28 @@
                     </div>
                     <div class="backend-status" id="prognoseStatus"></div>
                 </div>
+                
+                <div class="backend-card">
+                    <div class="backend-icon">🎮</div>
+                    <h3>Game Details Crawling</h3>
+                    <p>Crawle detaillierte Spielinformationen von Swiss Unihockey API für gewählte Saison</p>
+                    <select class="season-select" id="gameDetailsSeasonSelect">
+                        <option value="2025/26">2025/26 (Aktuell)</option>
+                        <option value="all">Alle verfügbaren Seasons</option>
+                        <option value="2024/25">2024/25</option>
+                        <option value="2023/24">2023/24</option>
+                        <option value="2022/23">2022/23</option>
+                    </select>
+                    <div class="game-details-actions" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-info btn-small" onclick="executeGameDetailsCrawling()">
+                            🎯 Season crawlen
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="executeGameDetailsAllCrawling()">
+                            🌐 Legacy Crawl (alle)
+                        </button>
+                    </div>
+                    <div class="backend-status" id="gameDetailsStatus"></div>
+                </div>
             </div>
         </div>
         
@@ -153,6 +175,10 @@
             <div class="stat-card">
                 <span class="stat-value" id="totalEvents">-</span>
                 <span class="stat-label">Events</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="gameDetailsCount">-</span>
+                <span class="stat-label">Game Details</span>
             </div>
             <div class="stat-card">
                 <span class="stat-value" id="bracketSorted">-</span>
@@ -285,6 +311,94 @@
             }
         }
         
+        // Game Details Crawling - Season-spezifisch
+        async function executeGameDetailsCrawling() {
+            const season = document.getElementById('gameDetailsSeasonSelect').value;
+            
+            if (season === 'all') {
+                updateBackendStatus('gameDetailsStatus', '⏳ Game Details für alle verfügbaren Seasons werden gecrawlt...', 'loading');
+                
+                try {
+                    // Erst verfügbare Seasons laden
+                    const seasonsResponse = await fetch('/api/game-details/seasons');
+                    const seasons = await seasonsResponse.json();
+                    
+                    if (!Array.isArray(seasons) || seasons.length === 0) {
+                        updateBackendStatus('gameDetailsStatus', '❌ Keine verfügbaren Seasons gefunden', 'error');
+                        return;
+                    }
+                    
+                    let totalSuccess = 0;
+                    let totalErrors = 0;
+                    
+                    // Jede Season einzeln crawlen
+                    for (const seasonToCrawl of seasons) {
+                        updateBackendStatus('gameDetailsStatus', `⏳ Crawle Season ${seasonToCrawl}... (${seasons.indexOf(seasonToCrawl) + 1}/${seasons.length})`, 'loading');
+                        
+                        const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(seasonToCrawl)}`, {
+                            method: 'POST'
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success !== undefined) {
+                            totalSuccess += result.success;
+                            totalErrors += result.errors;
+                        }
+                        
+                        // Kurze Pause zwischen Seasons
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                    
+                    updateBackendStatus('gameDetailsStatus', `✅ Alle Seasons gecrawlt: ${totalSuccess} erfolgreich, ${totalErrors} Fehler`, 'success');
+                    
+                } catch (error) {
+                    updateBackendStatus('gameDetailsStatus', `❌ Fehler beim Crawlen aller Seasons: ${error.message}`, 'error');
+                }
+                
+            } else {
+                // Einzelne Season crawlen
+                updateBackendStatus('gameDetailsStatus', `⏳ Game Details für Season ${season} werden gecrawlt...`, 'loading');
+                
+                try {
+                    const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(season)}`, {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success !== undefined) {
+                        updateBackendStatus('gameDetailsStatus', `✅ Season ${season} gecrawlt: ${result.success} erfolgreich, ${result.errors} Fehler`, 'success');
+                    } else {
+                        updateBackendStatus('gameDetailsStatus', `❌ Fehler: ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Legacy Game Details Crawling (alte Methode)
+        async function executeGameDetailsAllCrawling() {
+            updateBackendStatus('gameDetailsStatus', '⏳ Legacy Game Details Crawling (alle Cup-Spiele)...', 'loading');
+            
+            try {
+                const response = await fetch('/api/crawl-game-details', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success !== undefined) {
+                    updateBackendStatus('gameDetailsStatus', `✅ Legacy Crawling abgeschlossen: ${result.success} erfolgreich, ${result.errors} Fehler`, 'success');
+                } else {
+                    updateBackendStatus('gameDetailsStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
         function updateBackendStatus(elementId, message, type) {
             const element = document.getElementById(elementId);
             element.textContent = message;
@@ -301,6 +415,18 @@
                     document.getElementById('totalGames').textContent = stats.totalGames.toLocaleString();
                     document.getElementById('totalEvents').textContent = stats.totalTournaments || '-';
                     document.getElementById('lastUpdate').textContent = new Date().toLocaleString('de-CH');
+                }
+                
+                // Game Details Stats laden
+                try {
+                    const gameDetailsResponse = await fetch('/api/game-details/stats');
+                    const gameDetailsStats = await gameDetailsResponse.json();
+                    
+                    if (gameDetailsStats.totalGames !== undefined) {
+                        document.getElementById('gameDetailsCount').textContent = gameDetailsStats.totalGames.toLocaleString();
+                    }
+                } catch (error) {
+                    document.getElementById('gameDetailsCount').textContent = '0';
                 }
                 
                 const bracketResponse = await fetch('/bracket-sorting-status');

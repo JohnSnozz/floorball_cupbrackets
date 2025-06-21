@@ -1,30 +1,304 @@
-// gamedetailviewer.js - GameDetails Frontend Logic
+// gamedetailviewer.js - GameDetails Frontend mit Season-Management
 
 let allGameDetails = [];
 let filteredGameDetails = [];
-let currentSort = { column: 'id', direction: 'asc' };
+let currentSort = { column: null, direction: 'asc' };
+let availableSeasons = [];
+let seasonStats = [];
+let currentSeasonFilter = '';
+let pendingDeleteSeason = null;
 
-// Main loading function
+// Alle Spalten aus der gameDetails Tabelle inkl. season
+const ALL_COLUMNS = [
+    'id',
+    'numericGameId',
+    'season',
+    'home_name',
+    'away_name',
+    'home_logo',
+    'away_logo',
+    'result',
+    'date',
+    'time',
+    'location',
+    'location_x',
+    'location_y',
+    'first_referee',
+    'second_referee',
+    'spectators',
+    'title',
+    'subtitle',
+    'lastUpdated'
+];
+
+// Load stats and seasons on page load
+async function loadStats() {
+    try {
+        showAlert('🔄 Lade Statistiken und Seasons...', 'info');
+        
+        // Load general stats
+        await refreshStats();
+        
+        // Load available seasons
+        await loadAvailableSeasons();
+        
+        // Load season-specific stats
+        await loadSeasonStats();
+        
+        showAlert('✅ Stats und Seasons geladen', 'success');
+        
+    } catch (error) {
+        console.error('Error loading stats:', error);
+        showAlert(`❌ Fehler beim Laden der Stats: ${error.message}`, 'error');
+    }
+}
+
+// Load available seasons
+async function loadAvailableSeasons() {
+    try {
+        const response = await fetch('/api/game-details/seasons');
+        if (!response.ok) {
+            throw new Error(`Seasons API Error: ${response.status}`);
+        }
+        
+        availableSeasons = await response.json();
+        console.log('Available seasons:', availableSeasons);
+        
+        // Update season filter dropdown
+        updateSeasonFilter();
+        
+    } catch (error) {
+        console.error('Error loading seasons:', error);
+        availableSeasons = [];
+    }
+}
+
+// Load season-specific statistics
+async function loadSeasonStats() {
+    try {
+        const response = await fetch('/api/game-details/season-stats');
+        if (!response.ok) {
+            throw new Error(`Season Stats API Error: ${response.status}`);
+        }
+        
+        seasonStats = await response.json();
+        console.log('Season stats:', seasonStats);
+        
+        // Update season management UI
+        updateSeasonManagement();
+        
+    } catch (error) {
+        console.error('Error loading season stats:', error);
+        seasonStats = [];
+        updateSeasonManagement();
+    }
+}
+
+// Update season filter dropdown
+function updateSeasonFilter() {
+    const select = document.getElementById('seasonFilter');
+    if (!select) return;
+    
+    // Clear existing options except "Alle Seasons"
+    select.innerHTML = '<option value="">Alle Seasons</option>';
+    
+    // Add season options
+    availableSeasons.forEach(season => {
+        const option = document.createElement('option');
+        option.value = season;
+        option.textContent = season;
+        if (season === currentSeasonFilter) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+}
+
+// Update season management grid
+function updateSeasonManagement() {
+    const grid = document.getElementById('seasonGrid');
+    if (!grid) return;
+    
+    if (seasonStats.length === 0) {
+        grid.innerHTML = `
+            <div class="season-card">
+                <h4>Keine Season-Daten</h4>
+                <p class="season-stats">Keine GameDetails-Seasons in der Datenbank gefunden</p>
+                <div class="season-actions">
+                    <button class="btn btn-info btn-small" onclick="loadAvailableSeasons()">🔄 Neu laden</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    grid.innerHTML = '';
+    
+    seasonStats.forEach(stat => {
+        const card = document.createElement('div');
+        card.className = 'season-card';
+        
+        const lastUpdate = stat.lastUpdate ? 
+            new Date(stat.lastUpdate).toLocaleDateString('de-CH') : 'Nie';
+            
+        card.innerHTML = `
+            <h4>Season ${stat.season}</h4>
+            <div class="season-stats">
+                📊 ${stat.totalGames} Spiele total<br>
+                ✅ ${stat.gamesWithResults} mit Resultat<br>
+                🕐 Letztes Update: ${lastUpdate}
+            </div>
+            <div class="season-actions">
+                <button class="btn btn-success btn-small" onclick="crawlSeason('${stat.season}')">
+                    🕷️ Crawlen
+                </button>
+                <button class="btn btn-info btn-small" onclick="filterBySeason('${stat.season}')">
+                    👁️ Anzeigen
+                </button>
+                <button class="btn btn-danger btn-small" onclick="showDeleteConfirm('${stat.season}')">
+                    🗑️ Löschen
+                </button>
+            </div>
+        `;
+        
+        grid.appendChild(card);
+    });
+    
+    // Add cards for seasons without GameDetails
+    availableSeasons.forEach(season => {
+        const hasStats = seasonStats.some(stat => stat.season === season);
+        if (!hasStats) {
+            const card = document.createElement('div');
+            card.className = 'season-card';
+            card.style.borderLeftColor = '#6c757d';
+            
+            card.innerHTML = `
+                <h4>Season ${season}</h4>
+                <div class="season-stats">
+                    🚫 Keine GameDetails vorhanden<br>
+                    💡 Season kann gecrawlt werden
+                </div>
+                <div class="season-actions">
+                    <button class="btn btn-warning btn-small" onclick="crawlSeason('${season}')">
+                        🕷️ Crawlen
+                    </button>
+                </div>
+            `;
+            
+            grid.appendChild(card);
+        }
+    });
+}
+
+// Filter by season
+function filterBySeason(season = null) {
+    if (season === null) {
+        // Called from dropdown
+        const select = document.getElementById('seasonFilter');
+        season = select ? select.value : '';
+    } else {
+        // Called from season card
+        const select = document.getElementById('seasonFilter');
+        if (select) {
+            select.value = season;
+        }
+    }
+    
+    currentSeasonFilter = season;
+    
+    if (season) {
+        showAlert(`🔄 Lade GameDetails für Season ${season}...`, 'info');
+        loadGameDetailsForSeason(season);
+    } else {
+        showAlert('🔄 Lade alle GameDetails...', 'info');
+        loadAllGameDetails();
+    }
+    
+    // Update filter info
+    const filterInfo = document.getElementById('filterInfo');
+    if (filterInfo) {
+        if (season) {
+            const stat = seasonStats.find(s => s.season === season);
+            if (stat) {
+                filterInfo.textContent = `${stat.totalGames} Spiele in Season ${season}`;
+            } else {
+                filterInfo.textContent = `Filter: Season ${season}`;
+            }
+        } else {
+            filterInfo.textContent = 'Alle Seasons angezeigt';
+        }
+    }
+}
+
+// Load GameDetails for specific season
+async function loadGameDetailsForSeason(season) {
+    try {
+        showLoading();
+        
+        const response = await fetch(`/api/game-details?season=${encodeURIComponent(season)}`);
+        if (!response.ok) {
+            throw new Error(`GameDetails API Error: ${response.status}`);
+        }
+        
+        const gameDetails = await response.json();
+        console.log(`Season ${season} GameDetails:`, gameDetails);
+        
+        if (!Array.isArray(gameDetails)) {
+            throw new Error('GameDetails API gab kein Array zurück');
+        }
+        
+        allGameDetails = gameDetails;
+        filteredGameDetails = allGameDetails;
+        
+        createTableHeaders();
+        displayGameDetails(filteredGameDetails);
+        updateStatsFromData();
+        showAlert(`✅ ${allGameDetails.length} GameDetails für Season ${season} geladen`, 'success');
+        
+    } catch (error) {
+        console.error('Error loading season game details:', error);
+        showAlert(`❌ Fehler: ${error.message}`, 'error');
+        showNoData();
+    }
+}
+
+// Main loading function - loads all data
 async function loadAllGameDetails() {
     try {
         showLoading();
-        showAlert('🔄 Lade GameDetails...', 'info');
+        showAlert('🔄 Lade alle GameDetails...', 'info');
         
-        // Versuche zuerst die GameDetails API
-        try {
-            const response = await fetch('/api/game-details/all');
-            if (response.ok) {
-                const gameDetails = await response.json();
-                console.log('API Response Type:', typeof gameDetails, 'Is Array:', Array.isArray(gameDetails));
-                await loadWithGameDetailsAPI(gameDetails);
-                return;
-            }
-        } catch (apiError) {
-            console.log('GameDetails API nicht verfügbar, verwende Alternative:', apiError.message);
+        // Clear season filter
+        currentSeasonFilter = '';
+        const select = document.getElementById('seasonFilter');
+        if (select) select.value = '';
+        
+        // Load ALL data without limit
+        const response = await fetch('/api/game-details');
+        if (!response.ok) {
+            throw new Error(`GameDetails API Error: ${response.status}`);
         }
         
-        // Fallback: Nur Games anzeigen ohne Details
-        await loadGamesOnly();
+        const gameDetails = await response.json();
+        console.log('All GameDetails API Response:', gameDetails);
+        
+        if (!Array.isArray(gameDetails)) {
+            throw new Error('GameDetails API gab kein Array zurück');
+        }
+        
+        allGameDetails = gameDetails;
+        filteredGameDetails = allGameDetails;
+        
+        createTableHeaders();
+        displayGameDetails(filteredGameDetails);
+        updateStatsFromData();
+        showAlert(`✅ ${allGameDetails.length} GameDetails erfolgreich geladen`, 'success');
+        
+        // Update filter info
+        const filterInfo = document.getElementById('filterInfo');
+        if (filterInfo) {
+            filterInfo.textContent = 'Alle Seasons angezeigt';
+        }
         
     } catch (error) {
         console.error('Error loading game details:', error);
@@ -33,148 +307,12 @@ async function loadAllGameDetails() {
     }
 }
 
-// Load with GameDetails API
-async function loadWithGameDetailsAPI(gameDetails) {
+// Crawl GameDetails for specific season
+async function crawlSeason(season) {
     try {
-        // Debug: Prüfe was die API zurückgibt
-        console.log('GameDetails API Response:', gameDetails);
+        showAlert(`🕷️ Starte Crawling für Season ${season}...`, 'info');
         
-        // Stelle sicher, dass gameDetails ein Array ist
-        if (!Array.isArray(gameDetails)) {
-            console.warn('GameDetails ist kein Array:', typeof gameDetails);
-            // Fallback zu Games-Only Modus
-            await loadGamesOnly();
-            return;
-        }
-        
-        // Lade Game-Infos für Verknüpfung
-        const gamesResponse = await fetch('/games/all');
-        const allGames = gamesResponse.ok ? await gamesResponse.json() : [];
-        
-        // Verknüpfe GameDetails mit Game-Infos
-        allGameDetails = gameDetails.map(detail => {
-            const gameInfo = allGames.find(game => game.numericGameId === detail.numericGameId);
-            return {
-                ...detail,
-                gameInfo: gameInfo || {}
-            };
-        });
-        
-        filteredGameDetails = allGameDetails;
-        displayGameDetails(filteredGameDetails);
-        updateStats();
-        showAlert(`✅ ${allGameDetails.length} GameDetails erfolgreich geladen`, 'success');
-    } catch (error) {
-        console.error('Error in loadWithGameDetailsAPI:', error);
-        showAlert(`❌ Fehler beim Verknüpfen: ${error.message}`, 'error');
-        // Fallback zu Games-Only Modus
-        await loadGamesOnly();
-    }
-}
-
-// Fallback: Load games only
-async function loadGamesOnly() {
-    try {
-        // Zeige nur Games mit numericGameId (ohne DetailStats)
-        const response = await fetch('/games/all');
-        if (!response.ok) throw new Error(`Games Error: ${response.status}`);
-        
-        const allGames = await response.json();
-        const gamesWithNumericId = allGames.filter(game => 
-            game.numericGameId && 
-            game.numericGameId !== '' &&
-            game.team1.toLowerCase() !== 'freilos' &&
-            game.team2.toLowerCase() !== 'freilos'
-        );
-        
-        // Erstelle Pseudo-GameDetails nur mit verfügbaren Daten
-        allGameDetails = gamesWithNumericId.map((game, index) => ({
-            id: index + 1,
-            numericGameId: game.numericGameId,
-            totalEvents: '-',
-            homeGoals: '-',
-            awayGoals: '-', 
-            penalties: '-',
-            lastUpdated: 'N/A',
-            eventData: null,
-            gameInfo: game
-        }));
-        
-        filteredGameDetails = allGameDetails;
-        displayGameDetails(filteredGameDetails);
-        updateStats();
-        showAlert(`⚠️ ${allGameDetails.length} Games geladen (GameDetails API nicht verfügbar)`, 'info');
-    } catch (error) {
-        console.error('Error in loadGamesOnly:', error);
-        throw error;
-    }
-}
-
-// Refresh stats function
-async function refreshStats() {
-    try {
-        showAlert('🔄 Aktualisiere Statistiken...', 'info');
-        
-        const response = await fetch('/api/game-details/stats');
-        if (!response.ok) {
-            // Fallback: Berechne Stats aus geladenen Daten
-            updateStatsFromData();
-            showAlert('⚠️ Stats aus geladenen Daten berechnet (API nicht verfügbar)', 'info');
-            return;
-        }
-        
-        const stats = await response.json();
-        
-        document.getElementById('statTotalGames').textContent = stats.totalGames || 0;
-        document.getElementById('statTotalEvents').textContent = stats.totalEvents || 0;
-        document.getElementById('statAvgGoals').textContent = stats.avgGoalsPerGame ? stats.avgGoalsPerGame.toFixed(2) : '0.00';
-        document.getElementById('statAvgPenalties').textContent = stats.avgPenaltiesPerGame ? stats.avgPenaltiesPerGame.toFixed(2) : '0.00';
-        
-        showAlert('✅ Statistiken aktualisiert', 'success');
-        
-    } catch (error) {
-        console.error('Error refreshing stats:', error);
-        updateStatsFromData();
-        showAlert(`⚠️ Stats-Fehler, Fallback verwendet: ${error.message}`, 'info');
-    }
-}
-
-// Fallback stats calculation
-function updateStatsFromData() {
-    const total = allGameDetails.length;
-    const totalEvents = allGameDetails.reduce((sum, detail) => {
-        const events = detail.totalEvents;
-        return sum + (typeof events === 'number' ? events : 0);
-    }, 0);
-    
-    const totalGoals = allGameDetails.reduce((sum, detail) => {
-        const home = detail.homeGoals;
-        const away = detail.awayGoals;
-        const homeNum = typeof home === 'number' ? home : 0;
-        const awayNum = typeof away === 'number' ? away : 0;
-        return sum + homeNum + awayNum;
-    }, 0);
-    
-    const totalPenalties = allGameDetails.reduce((sum, detail) => {
-        const penalties = detail.penalties;
-        return sum + (typeof penalties === 'number' ? penalties : 0);
-    }, 0);
-    
-    const avgGoals = total > 0 ? totalGoals / total : 0;
-    const avgPenalties = total > 0 ? totalPenalties / total : 0;
-    
-    document.getElementById('statTotalGames').textContent = total;
-    document.getElementById('statTotalEvents').textContent = totalEvents;
-    document.getElementById('statAvgGoals').textContent = avgGoals.toFixed(2);
-    document.getElementById('statAvgPenalties').textContent = avgPenalties.toFixed(2);
-}
-
-// Crawl GameDetails function
-async function crawlGameDetails() {
-    try {
-        showAlert('🕷️ Starte GameDetails Crawling...', 'info');
-        
-        const response = await fetch('/api/crawl-game-details', {
+        const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(season)}`, {
             method: 'POST'
         });
         
@@ -182,17 +320,113 @@ async function crawlGameDetails() {
         
         const result = await response.json();
         
-        showAlert(`✅ Crawling abgeschlossen: ${result.success} erfolgreich, ${result.errors} Fehler`, 'success');
+        showAlert(`✅ Season ${season} Crawling: ${result.success} erfolgreich, ${result.errors} Fehler`, 'success');
         
-        // Nach dem Crawling automatisch neu laden
-        setTimeout(() => {
-            loadAllGameDetails();
+        // Reload stats and current view
+        setTimeout(async () => {
+            await loadSeasonStats();
+            if (currentSeasonFilter === season) {
+                loadGameDetailsForSeason(season);
+            }
         }, 2000);
         
     } catch (error) {
-        console.error('Error crawling game details:', error);
-        showAlert(`❌ Crawling-Fehler: ${error.message}`, 'error');
+        console.error('Error crawling season:', error);
+        showAlert(`❌ Crawling-Fehler für Season ${season}: ${error.message}`, 'error');
     }
+}
+
+// Show delete confirmation
+function showDeleteConfirm(season) {
+    pendingDeleteSeason = season;
+    
+    const stat = seasonStats.find(s => s.season === season);
+    const gameCount = stat ? stat.totalGames : 0;
+    
+    document.getElementById('deleteConfirmText').innerHTML = `
+        Möchtest du wirklich alle <strong>${gameCount} GameDetails</strong> für <strong>Season ${season}</strong> löschen?<br>
+        <small style="color: #999;">Diese Aktion kann nicht rückgängig gemacht werden.</small>
+    `;
+    
+    document.getElementById('confirmDeleteModal').style.display = 'block';
+}
+
+// Close delete modal
+function closeDeleteModal() {
+    document.getElementById('confirmDeleteModal').style.display = 'none';
+    pendingDeleteSeason = null;
+}
+
+// Confirm delete
+async function confirmDelete() {
+    if (!pendingDeleteSeason) return;
+    
+    try {
+        showAlert(`🗑️ Lösche Season ${pendingDeleteSeason}...`, 'info');
+        
+        const response = await fetch(`/api/game-details/season/${encodeURIComponent(pendingDeleteSeason)}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error(`Delete Error: ${response.status}`);
+        
+        const result = await response.json();
+        
+        showAlert(`✅ ${result.deleted} GameDetails für Season ${pendingDeleteSeason} gelöscht`, 'success');
+        
+        // Close modal
+        closeDeleteModal();
+        
+        // Reload stats and clear current view if showing deleted season
+        setTimeout(async () => {
+            await loadSeasonStats();
+            if (currentSeasonFilter === pendingDeleteSeason) {
+                currentSeasonFilter = '';
+                const select = document.getElementById('seasonFilter');
+                if (select) select.value = '';
+                showNoData();
+            }
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error deleting season:', error);
+        showAlert(`❌ Lösch-Fehler: ${error.message}`, 'error');
+    }
+}
+
+// Create table headers - now includes season column
+function createTableHeaders() {
+    const thead = document.getElementById('tableHead');
+    thead.innerHTML = '';
+    
+    // Filter row
+    const filterRow = document.createElement('tr');
+    filterRow.id = 'filterRow';
+    ALL_COLUMNS.forEach(col => {
+        const th = document.createElement('th');
+        th.innerHTML = `<input type="text" placeholder="${col}" oninput="filterTable()" style="width: 100%; background: #444; border: 1px solid #666; color: #fff; padding: 4px; border-radius: 2px;">`;
+        filterRow.appendChild(th);
+    });
+    // Actions column
+    const actionsFilterTh = document.createElement('th');
+    actionsFilterTh.innerHTML = '<span>Actions</span>';
+    filterRow.appendChild(actionsFilterTh);
+    
+    // Header row
+    const headerRow = document.createElement('tr');
+    ALL_COLUMNS.forEach(col => {
+        const th = document.createElement('th');
+        th.onclick = () => sortTable(col);
+        th.innerHTML = `${col} <span class="sort-icon">↕</span>`;
+        headerRow.appendChild(th);
+    });
+    // Actions column
+    const actionsTh = document.createElement('th');
+    actionsTh.textContent = 'Actions';
+    headerRow.appendChild(actionsTh);
+    
+    thead.appendChild(filterRow);
+    thead.appendChild(headerRow);
 }
 
 // Display GameDetails in table
@@ -208,40 +442,201 @@ function displayGameDetails(gameDetails) {
     
     displayDetails.forEach(detail => {
         const row = document.createElement('tr');
-        const gameInfo = detail.gameInfo || {};
         
-        row.innerHTML = `
-            <td>${detail.id || ''}</td>
-            <td title="${detail.numericGameId || ''}">${truncate(detail.numericGameId || '', 15)}</td>
-            <td>${detail.totalEvents || '-'}</td>
-            <td class="result">${detail.homeGoals || '-'}</td>
-            <td class="result">${detail.awayGoals || '-'}</td>
-            <td>${detail.penalties || '-'}</td>
-            <td>${detail.lastUpdated && detail.lastUpdated !== 'N/A' ? new Date(detail.lastUpdated).toLocaleString('de-CH') : 'Invalid Date'}</td>
-            <td>
-                <button class="btn btn-info btn-small" onclick="showGameDetail('${detail.numericGameId}')">
-                    👁️ Details
-                </button>
-            </td>
+        ALL_COLUMNS.forEach(col => {
+            const td = document.createElement('td');
+            let value = detail[col];
+            
+            // Format specific columns
+            if (col === 'date' && value) {
+                try {
+                    const date = new Date(value);
+                    value = date.toLocaleDateString('de-CH');
+                } catch (e) {
+                    // Keep original value
+                }
+            } else if (col === 'lastUpdated' && value) {
+                try {
+                    const date = new Date(value);
+                    value = date.toLocaleString('de-CH');
+                } catch (e) {
+                    // Keep original value
+                }
+            } else if ((col === 'location_x' || col === 'location_y') && value !== null && value !== undefined) {
+                value = parseFloat(value).toFixed(6);
+            } else if ((col === 'home_logo' || col === 'away_logo') && value && value.length > 30) {
+                // Truncate long URLs for table display
+                value = value.substring(0, 30) + '...';
+            }
+            
+            td.textContent = value !== null && value !== undefined && value !== '' ? value : '-';
+            td.title = detail[col] || ''; // Full value in tooltip
+            
+            // Special styling
+            if (col === 'result' && value && value !== '-') {
+                td.className = 'result';
+            } else if (col === 'season' && value) {
+                td.style.fontWeight = '600';
+                td.style.color = '#ff6b00';
+            }
+            
+            row.appendChild(td);
+        });
+        
+        // Actions column
+        const actionsTd = document.createElement('td');
+        actionsTd.innerHTML = `
+            <button class="btn btn-info btn-small" onclick="showGameDetail('${detail.numericGameId}')">
+                👁️ Details
+            </button>
         `;
-        
-        // Tooltip mit Game-Info
-        row.title = `${gameInfo.team1 || 'N/A'} vs ${gameInfo.team2 || 'N/A'} (${gameInfo.season || 'N/A'})`;
+        row.appendChild(actionsTd);
         
         tbody.appendChild(row);
     });
     
     if (gameDetails.length > 500) {
         const infoRow = document.createElement('tr');
-        infoRow.innerHTML = `<td colspan="8" class="info-message">Zeige ersten 500 von ${gameDetails.length} GameDetails (Performance-Optimierung)</td>`;
+        infoRow.innerHTML = `<td colspan="${ALL_COLUMNS.length + 1}" class="info-message">Zeige ersten 500 von ${gameDetails.length} GameDetails (Performance-Optimierung)</td>`;
         tbody.appendChild(infoRow);
     }
 }
 
-// Show game detail modal
+// Enhanced CSV Export function
+async function exportToCSV() {
+    if (!allGameDetails || allGameDetails.length === 0) {
+        showAlert('❌ Keine Daten zum Exportieren vorhanden', 'error');
+        return;
+    }
+    
+    try {
+        const exportData = filteredGameDetails.length > 0 ? filteredGameDetails : allGameDetails;
+        showAlert(`🔄 Exportiere ${exportData.length} GameDetails als CSV...`, 'info');
+        
+        // Include all columns for export
+        const exportColumns = [...ALL_COLUMNS];
+        
+        // Create CSV header
+        const csvHeaders = exportColumns.join(',');
+        
+        // Process data in chunks
+        const chunkSize = 1000;
+        let csvRows = [];
+        
+        for (let i = 0; i < exportData.length; i += chunkSize) {
+            const chunk = exportData.slice(i, i + chunkSize);
+            const chunkRows = chunk.map(detail => {
+                return exportColumns.map(col => {
+                    let value = detail[col];
+                    
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+                    
+                    value = String(value);
+                    value = value.replace(/"/g, '""');
+                    
+                    if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes(';')) {
+                        value = `"${value}"`;
+                    }
+                    
+                    return value;
+                }).join(',');
+            });
+            
+            csvRows = csvRows.concat(chunkRows);
+            
+            // Show progress for large exports
+            if (exportData.length > 5000 && i % (chunkSize * 5) === 0) {
+                const progress = Math.round((i / exportData.length) * 100);
+                showAlert(`🔄 Export Fortschritt: ${progress}%`, 'info');
+                setTimeout(() => {}, 10);
+            }
+        }
+        
+        // Combine header and rows
+        const csvContent = [csvHeaders, ...csvRows].join('\n');
+        const BOM = '\uFEFF';
+        const csvWithBOM = BOM + csvContent;
+        
+        // Create and download file
+        const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        
+        // Generate filename with timestamp and filter info
+        const timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
+        const seasonSuffix = currentSeasonFilter ? `_${currentSeasonFilter}` : '';
+        link.setAttribute('download', `gamedetails_export${seasonSuffix}_${exportData.length}_${timestamp}.csv`);
+        
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        const filterText = currentSeasonFilter ? ` (Season ${currentSeasonFilter})` : '';
+        showAlert(`✅ CSV mit ${exportData.length} Einträgen${filterText} erfolgreich exportiert`, 'success');
+        
+    } catch (error) {
+        console.error('CSV Export Error:', error);
+        showAlert(`❌ CSV Export Fehler: ${error.message}`, 'error');
+    }
+}
+
+// Refresh stats function
+async function refreshStats() {
+    try {
+        const response = await fetch('/api/game-details/stats');
+        if (!response.ok) {
+            throw new Error(`Stats API Error: ${response.status}`);
+        }
+        
+        const stats = await response.json();
+        console.log('Stats API Response:', stats);
+        
+        document.getElementById('statTotalGames').textContent = stats.totalGames || 0;
+        document.getElementById('statGamesWithResults').textContent = stats.gamesWithResults || 0;
+        document.getElementById('statGamesWithSpectators').textContent = stats.gamesWithSpectators || 0;
+        document.getElementById('statAvgSpectators').textContent = 
+            stats.avgSpectators ? stats.avgSpectators.toFixed(0) : '0';
+        document.getElementById('statGamesWithReferees').textContent = stats.gamesWithReferees || 0;
+        
+    } catch (error) {
+        console.error('Error refreshing stats:', error);
+        updateStatsFromData();
+    }
+}
+
+// Fallback stats calculation
+function updateStatsFromData() {
+    const total = allGameDetails.length;
+    const withResults = allGameDetails.filter(d => d.result && d.result.trim() !== '').length;
+    const withSpectators = allGameDetails.filter(d => d.spectators && d.spectators > 0).length;
+    const withReferees = allGameDetails.filter(d => d.first_referee && d.first_referee.trim() !== '').length;
+    
+    const totalSpectators = allGameDetails.reduce((sum, d) => {
+        return sum + (d.spectators || 0);
+    }, 0);
+    
+    const avgSpectators = withSpectators > 0 ? totalSpectators / withSpectators : 0;
+    
+    document.getElementById('statTotalGames').textContent = total;
+    document.getElementById('statGamesWithResults').textContent = withResults;
+    document.getElementById('statGamesWithSpectators').textContent = withSpectators;
+    document.getElementById('statAvgSpectators').textContent = avgSpectators.toFixed(0);
+    document.getElementById('statGamesWithReferees').textContent = withReferees;
+    
+    // Update stats info
+    const seasonText = currentSeasonFilter ? ` (Season ${currentSeasonFilter})` : '';
+    document.getElementById('statsInfo').innerHTML = 
+        `📊 ${total} GameDetails${seasonText} | ${withResults} mit Resultat | ${withSpectators} mit Zuschauern`;
+}
+
+// Show game detail modal - includes season info
 async function showGameDetail(numericGameId) {
     try {
-        // Versuche Details aus der bereits geladenen Liste zu finden
         const detail = allGameDetails.find(d => d.numericGameId === numericGameId);
         
         if (!detail) {
@@ -249,42 +644,62 @@ async function showGameDetail(numericGameId) {
             return;
         }
         
-        const gameInfo = detail.gameInfo || {};
-        
         let content = `
             <div style="margin-bottom: 20px; padding: 15px; background: #333; border-radius: 6px;">
-                <h4 style="color: #ff6b00; margin: 0 0 10px 0;">Game Information</h4>
-                <p><strong>Teams:</strong> ${gameInfo.team1 || 'N/A'} vs ${gameInfo.team2 || 'N/A'}</p>
-                <p><strong>Saison:</strong> ${gameInfo.season || 'N/A'}</p>
-                <p><strong>Cup:</strong> ${gameInfo.cupType || 'N/A'}</p>
-                <p><strong>Runde:</strong> ${gameInfo.roundName || 'N/A'}</p>
-                <p><strong>Resultat:</strong> ${gameInfo.result || 'TBD'}</p>
-                <p><strong>Numeric Game ID:</strong> ${numericGameId}</p>
-                <p><strong>Database ID:</strong> ${detail.id || 'N/A'}</p>
-            </div>
+                <h4 style="color: #ff6b00; margin: 0 0 15px 0;">Game Information</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        `;
+        
+        // Display all columns
+        ALL_COLUMNS.forEach(col => {
+            let value = detail[col];
             
-            <div style="margin-bottom: 20px; padding: 15px; background: #333; border-radius: 6px;">
-                <h4 style="color: #ff6b00; margin: 0 0 10px 0;">Event Statistics</h4>
-                <p><strong>Total Events:</strong> ${detail.totalEvents || 'N/A'}</p>
-                <p><strong>Home Goals:</strong> ${detail.homeGoals || 'N/A'}</p>
-                <p><strong>Away Goals:</strong> ${detail.awayGoals || 'N/A'}</p>
-                <p><strong>Penalties:</strong> ${detail.penalties || 'N/A'}</p>
-                <p><strong>Last Updated:</strong> ${detail.lastUpdated || 'N/A'}</p>
+            // Format specific values for display
+            if (col === 'date' && value) {
+                try {
+                    value = new Date(value).toLocaleDateString('de-CH');
+                } catch (e) {}
+            } else if (col === 'lastUpdated' && value) {
+                try {
+                    value = new Date(value).toLocaleString('de-CH');
+                } catch (e) {}
+            } else if ((col === 'location_x' || col === 'location_y') && value !== null && value !== undefined) {
+                value = parseFloat(value).toFixed(6);
+            }
+            
+            const displayValue = value !== null && value !== undefined && value !== '' ? value : 'N/A';
+            
+            // Special handling for logo URLs
+            if ((col === 'home_logo' || col === 'away_logo') && value && value !== 'N/A') {
+                content += `
+                    <div>
+                        <p><strong>${col}:</strong></p>
+                        <img src="${value}" alt="${col}" style="max-width: 60px; max-height: 60px; border-radius: 4px; margin-top: 5px;"
+                             onerror="this.style.display='none'; this.nextSibling.style.display='block';">
+                        <div style="display:none; padding: 5px; background: #555; border-radius: 4px; color: #999; font-size: 10px;">${value}</div>
+                    </div>
+                `;
+            } else {
+                // Highlight season
+                const style = col === 'season' ? 'color: #ff6b00; font-weight: 600;' : '';
+                content += `<p><strong style="${style}">${col}:</strong> <span style="${style}">${displayValue}</span></p>`;
+            }
+        });
+        
+        content += `
+                </div>
             </div>
         `;
         
-        // Nur versuchen EventData zu laden wenn nicht bereits vorhanden
-        if (detail.eventData && detail.eventData !== null) {
-            // Event Data bereits geladen
-            content += renderEventData(detail.eventData);
-        } else {
-            // Versuche Event Data von API zu laden
+        // Raw Data if available
+        if (detail.rawData) {
             content += `
-                <div style="padding: 15px; background: #333; border-radius: 6px; text-align: center;">
-                    <p style="color: #999; margin-bottom: 15px;">Event-Details können geladen werden...</p>
-                    <button onclick="loadSingleGameDetail('${numericGameId}')" class="btn btn-info btn-small">
-                        🔄 Event-Details laden
-                    </button>
+                <div style="padding: 15px; background: #333; border-radius: 6px;">
+                    <h4 style="color: #ff6b00; margin: 0 0 10px 0;">Raw API Data</h4>
+                    <details>
+                        <summary style="cursor: pointer; color: #ff6b00;">API Raw Data anzeigen</summary>
+                        <pre style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 4px; font-size: 10px; overflow: auto; max-height: 300px;">${detail.rawData}</pre>
+                    </details>
                 </div>
             `;
         }
@@ -296,113 +711,6 @@ async function showGameDetail(numericGameId) {
         console.error('Error showing game detail:', error);
         showAlert(`❌ Detail-Fehler: ${error.message}`, 'error');
     }
-}
-
-// Load single game detail
-async function loadSingleGameDetail(numericGameId) {
-    try {
-        showAlert('🔄 Lade Event-Details...', 'info');
-        
-        const response = await fetch(`/api/game-details/${numericGameId}`);
-        if (!response.ok) {
-            throw new Error(`GameDetails API nicht verfügbar (${response.status})`);
-        }
-        
-        const detail = await response.json();
-        
-        if (detail.error) {
-            showAlert(`⚠️ ${detail.error}`, 'info');
-            return;
-        }
-        
-        // Update des Modal-Inhalts mit echten Event-Details
-        const eventDataHtml = renderEventData(detail.eventData);
-        const modalContent = document.getElementById('gameDetailContent');
-        const lastDiv = modalContent.lastElementChild;
-        if (lastDiv) {
-            lastDiv.innerHTML = eventDataHtml;
-        }
-        
-        showAlert('✅ Event-Details geladen', 'success');
-        
-    } catch (error) {
-        console.error('Error loading single game detail:', error);
-        showAlert(`❌ Fehler beim Laden: ${error.message}`, 'error');
-        
-        // Zeige Fehlermeldung im Modal
-        const modalContent = document.getElementById('gameDetailContent');
-        const lastDiv = modalContent.lastElementChild;
-        if (lastDiv) {
-            lastDiv.innerHTML = `
-                <div style="padding: 15px; background: #333; border-radius: 6px; text-align: center; color: #999;">
-                    <p>❌ Event-Details konnten nicht geladen werden</p>
-                    <p style="font-size: 11px; margin-top: 5px;">${error.message}</p>
-                    <p style="font-size: 10px; margin-top: 10px; color: #666;">
-                        Mögliche Ursachen: API nicht verfügbar, Game noch nicht gecrawlt, oder Netzwerkfehler
-                    </p>
-                </div>
-            `;
-        }
-    }
-}
-
-// Render event data
-function renderEventData(eventData) {
-    if (!eventData) {
-        return `<div style="padding: 15px; background: #333; border-radius: 6px; text-align: center; color: #999;">
-            <p>Keine Event-Details verfügbar</p>
-        </div>`;
-    }
-    
-    let parsedEventData;
-    try {
-        parsedEventData = typeof eventData === 'string' ? JSON.parse(eventData) : eventData;
-    } catch (e) {
-        return `<div style="padding: 15px; background: #333; border-radius: 6px; text-align: center; color: #999;">
-            <p>Event-Daten vorhanden, aber nicht parsebar</p>
-            <details style="margin-top: 10px;">
-                <summary style="cursor: pointer; color: #ff6b00;">Raw Event Data anzeigen</summary>
-                <pre style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 4px; font-size: 10px; overflow: auto; max-height: 200px;">${JSON.stringify(eventData, null, 2)}</pre>
-            </details>
-        </div>`;
-    }
-    
-    if (parsedEventData && parsedEventData.data && parsedEventData.data.regions) {
-        let content = `
-            <div style="padding: 15px; background: #333; border-radius: 6px;">
-                <h4 style="color: #ff6b00; margin: 0 0 10px 0;">Event Details</h4>
-                <div style="max-height: 300px; overflow: auto; background: #1a1a1a; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px;">
-        `;
-        
-        parsedEventData.data.regions.forEach((region, regionIndex) => {
-            if (region.rows && region.rows.length > 0) {
-                content += `<div style="margin-bottom: 10px;"><strong style="color: #ff6b00;">Region ${regionIndex + 1}:</strong></div>`;
-                
-                region.rows.forEach((row, rowIndex) => {
-                    if (row.cells && row.cells.length >= 4) {
-                        const time = row.cells[0]?.text?.[0] || '';
-                        const event = row.cells[1]?.text?.[0] || '';
-                        const team = row.cells[2]?.text?.[0] || '';
-                        const player = row.cells[3]?.text?.[0] || '';
-                        
-                        content += `<div style="margin: 2px 0; padding: 4px; background: #2a2a2a; border-radius: 2px;">
-                            <span style="color: #a8c5e0;">${time}</span> | 
-                            <span style="color: #ffcc99;">${event}</span> | 
-                            <span style="color: #99ffcc;">${team}</span> | 
-                            <span style="color: #cccccc;">${player}</span>
-                        </div>`;
-                    }
-                });
-            }
-        });
-        
-        content += `</div></div>`;
-        return content;
-    }
-    
-    return `<div style="padding: 15px; background: #333; border-radius: 6px; text-align: center; color: #999;">
-        <p>Event-Daten in unbekanntem Format</p>
-    </div>`;
 }
 
 // Close modal
@@ -421,14 +729,14 @@ function sortTable(column, silent = false) {
         }
     }
 
-    const numericCols = ['id', 'numericGameId', 'totalEvents', 'homeGoals', 'awayGoals', 'penalties'];
+    const numericCols = ['id', 'spectators', 'location_x', 'location_y'];
     const sortedDetails = [...filteredGameDetails].sort((a, b) => {
         let valA = a[column] ?? '';
         let valB = b[column] ?? '';
 
         if (numericCols.includes(column)) {
-            valA = parseInt(valA) || 0;
-            valB = parseInt(valB) || 0;
+            valA = parseFloat(valA) || 0;
+            valB = parseFloat(valB) || 0;
         } else if (typeof valA === 'string') {
             valA = valA.toLowerCase();
             valB = valB.toLowerCase();
@@ -450,47 +758,16 @@ function updateSortHeaders() {
         icon.textContent = '↕';
         icon.parentElement.classList.remove('sort-asc', 'sort-desc');
     });
-    const currentHeader = document.querySelector(`th[onclick*="${currentSort.column}"]`);
-    if (currentHeader) {
-        const icon = currentHeader.querySelector('.sort-icon');
+    
+    const headers = document.querySelectorAll('thead tr:last-child th');
+    const columnIndex = ALL_COLUMNS.indexOf(currentSort.column);
+    if (columnIndex >= 0 && headers[columnIndex]) {
+        const icon = headers[columnIndex].querySelector('.sort-icon');
         if (icon) {
             icon.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
-            currentHeader.classList.add(`sort-${currentSort.direction}`);
+            headers[columnIndex].classList.add(`sort-${currentSort.direction}`);
         }
     }
-}
-
-// Update stats
-function updateStats() {
-    const total = allGameDetails.length;
-    const totalEvents = allGameDetails.reduce((sum, detail) => {
-        const events = detail.totalEvents;
-        return sum + (typeof events === 'number' ? events : 0);
-    }, 0);
-    
-    const totalGoals = allGameDetails.reduce((sum, detail) => {
-        const home = detail.homeGoals;
-        const away = detail.awayGoals;
-        const homeNum = typeof home === 'number' ? home : 0;
-        const awayNum = typeof away === 'number' ? away : 0;
-        return sum + homeNum + awayNum;
-    }, 0);
-    
-    const totalPenalties = allGameDetails.reduce((sum, detail) => {
-        const penalties = detail.penalties;
-        return sum + (typeof penalties === 'number' ? penalties : 0);
-    }, 0);
-    
-    const avgGoals = total > 0 ? totalGoals / total : 0;
-    const avgPenalties = total > 0 ? totalPenalties / total : 0;
-    
-    document.getElementById('statsInfo').innerHTML = `📊 ${total} GameDetails | ${totalEvents} Events | Ø ${avgGoals.toFixed(1)} Tore | Ø ${avgPenalties.toFixed(1)} Strafen`;
-    
-    // Update stats table
-    document.getElementById('statTotalGames').textContent = total;
-    document.getElementById('statTotalEvents').textContent = totalEvents;
-    document.getElementById('statAvgGoals').textContent = avgGoals.toFixed(2);
-    document.getElementById('statAvgPenalties').textContent = avgPenalties.toFixed(2);
 }
 
 // Filter table
@@ -499,39 +776,31 @@ function filterTable() {
     const filters = inputs.map(input => input.value.trim().toLowerCase());
 
     const filtered = allGameDetails.filter(detail => {
-        const values = [
-            detail.id,
-            detail.numericGameId,
-            detail.totalEvents,
-            detail.homeGoals,
-            detail.awayGoals,
-            detail.penalties,
-            detail.lastUpdated
-        ];
-
-        return values.every((value, index) => {
-            const text = (value ?? '').toString().toLowerCase();
-            return text.includes(filters[index]);
+        return ALL_COLUMNS.every((col, index) => {
+            const value = (detail[col] ?? '').toString().toLowerCase();
+            return value.includes(filters[index] || '');
         });
     });
     
     filteredGameDetails = filtered;
     displayGameDetails(filtered);
-    sortTable(currentSort.column, true);
+    if (currentSort.column) {
+        sortTable(currentSort.column, true);
+    }
 }
 
 // Utility functions
 const showLoading = () => {
     const tbody = document.getElementById('gameDetailsTableBody');
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="8" class="loading">📊 Lade alle GameDetails…</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${ALL_COLUMNS.length + 1}" class="loading">📊 Lade GameDetails…</td></tr>`;
     }
 };
 
 const showNoData = () => {
     const tbody = document.getElementById('gameDetailsTableBody');
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="8" class="no-data">🤷‍♂️ Keine GameDetails gefunden</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${ALL_COLUMNS.length + 1}" class="no-data">🤷‍♂️ Keine GameDetails gefunden</td></tr>`;
     }
 };
 
@@ -545,16 +814,15 @@ function showAlert(msg, type = 'info') {
     }
 }
 
-const truncate = (str, len) => (!str ? '' : str.length > len ? str.slice(0, len) + '…' : str);
-
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    refreshStats();
+    loadStats();
 });
 
-// ESC key to close modal
+// ESC key to close modals
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeModal();
+        closeDeleteModal();
     }
 });
