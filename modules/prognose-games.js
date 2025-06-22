@@ -20,12 +20,42 @@ const NEXT_ROUND_MAP = {
     '1/64': '1/32', 
     '1/32': '1/16',
     '1/16': '1/8',
+    '1/8': '1/4',
     // Auch mit "Final" Suffix unterstützen
     '1/128 Final': '1/64 Final',
     '1/64 Final': '1/32 Final', 
     '1/32 Final': '1/16 Final',
-    '1/16 Final': '1/8 Final'
+    '1/16 Final': '1/8 Final',
+    '1/8 Final': '1/4 Final'
 };
+
+/**
+ * Holt TeamShort aus der teamShorts Tabelle
+ */
+async function getTeamShort(db, teamName) {
+    return new Promise((resolve) => {
+        const sql = 'SELECT teamShort FROM teamShorts WHERE team = ?';
+        
+        db.get(sql, [teamName], (err, row) => {
+            if (err || !row) {
+                // Fallback: ursprünglicher Teamname
+                resolve(teamName);
+            } else {
+                resolve(row.teamShort);
+            }
+        });
+    });
+}
+
+/**
+ * Erstellt Team-Verknüpfung mit Kurznamen
+ */
+async function createTeamCombination(db, team1, team2) {
+    const team1Short = await getTeamShort(db, team1);
+    const team2Short = await getTeamShort(db, team2);
+    
+    return `${team1Short} / ${team2Short}`;
+}
 
 /**
  * Hauptfunktion: Generiert Prognose-Spiele für eine Saison/Cup
@@ -34,7 +64,7 @@ async function generatePrognoseGames(db, cupType, season) {
     try {
         console.log(`🔮 Generiere Prognose-Spiele für ${cupType} ${season}...`);
         
-        // Debug: Prüfe ob überhaupt Spiele in der DB sind
+        // 1. Prüfe ob überhaupt Spiele in der DB sind
         const totalGames = await new Promise((resolve) => {
             db.get('SELECT COUNT(*) as count FROM games WHERE cupType = ? AND season = ? AND source != ?', 
                   [cupType, season, 'prognose'], (err, row) => {
@@ -49,28 +79,11 @@ async function generatePrognoseGames(db, cupType, season) {
             return { generated: 0, updated: 0, error: 'Keine Spiele in DB gefunden' };
         }
         
-        // 1. Finde nächste nicht-existierende Runde
-        const roundInfo = await findNextNonExistentRound(db, cupType, season);
-        if (!roundInfo.lastExistingRound || !roundInfo.nextRound) {
-            console.log(`   ❌ Kann keine Prognose-Runde bestimmen für ${cupType} ${season}`);
-            return { generated: 0, updated: 0, error: 'Keine Prognose-Runde bestimmbar' };
-        }
-        
-        const lastExistingRound = roundInfo.lastExistingRound;
-        const nextRound = roundInfo.nextRound;
-        const nextNextRound = NEXT_ROUND_MAP[nextRound];
-        
-        console.log(`   🔍 Debug: nextRound = ${nextRound}, nextNextRound = ${nextNextRound}`);
-        
-        // 2. Prüfe ob Prognose möglich ist (bis 1/8 Final)
-        if (!nextRound || nextRound === '1/4' || nextRound === 'Halbfinal' || nextRound === 'Final') {
-            console.log(`   ✅ Prognose nicht mehr möglich (nächste Runde: ${nextRound || 'KEINE'}) - nach 1/8 Final gibt es eine Losung`);
-            return { generated: 0, updated: 0, error: 'Prognose nach 1/8 Final nicht möglich' };
-        }
-        
-        console.log(`   🎯 Generiere Runde: ${nextRound}`);
-        if (nextNextRound) {
-            console.log(`   🎯 Generiere Runde: ${nextNextRound} (TBD)`);
+        // 2. Finde letzte echte Runde (Startpunkt)
+        const lastRealRound = await findLastRealRound(db, cupType, season);
+        if (!lastRealRound) {
+            console.log(`   ❌ Keine echte Runde gefunden für ${cupType} ${season}`);
+            return { generated: 0, updated: 0, error: 'Keine echte Runde gefunden' };
         }
         
         // 3. Hole Tournament-Info
@@ -80,32 +93,67 @@ async function generatePrognoseGames(db, cupType, season) {
             return { generated: 0, updated: 0, error: 'Tournament-Info nicht gefunden' };
         }
         
-        console.log(`   🔍 Debug: Tournament-Info gefunden: ${tournamentInfo.tournamentName}`);
-        
         // 4. Lösche ALLE existierenden Prognose-Spiele für diesen Cup/Saison
         console.log(`   🧹 Lösche alle existierenden Prognose-Spiele...`);
-        const deletedCount = await deleteAllPrognoseGames(db, cupType, season);
+        await deleteAllPrognoseGames(db, cupType, season);
         
+        // 5. Iterative Prognose-Generierung
         let totalGenerated = 0;
+        let currentRound = lastRealRound;
+        const generatedRounds = [];
+        let iteration = 1;
         
-        // 5. Generiere nächste Runde (mit echten Teams)
-        console.log(`   🔧 Starte Generierung von ${nextRound}...`);
-        const nextRoundGames = await generateNextRoundGames(db, cupType, season, lastExistingRound, nextRound, tournamentInfo);
-        totalGenerated += nextRoundGames;
+        console.log(`   🔄 Starte iterative Generierung ab Runde: ${currentRound}`);
         
-        // 6. Generiere übernächste Runde (mit TBD, falls möglich)
-        if (nextNextRound) {
-            console.log(`   🔧 Starte Generierung von ${nextNextRound}...`);
-            const nextNextRoundGames = await generateTBDRoundGames(db, cupType, season, nextRound, nextNextRound, tournamentInfo);
-            totalGenerated += nextNextRoundGames;
+        while (true) {
+            console.log(`   \n🔄 Iteration ${iteration}: Aktuelle Runde = ${currentRound}`);
+            
+            // Bestimme nächste Runde ZUERST
+            const nextRound = NEXT_ROUND_MAP[currentRound];
+            console.log(`   🔍 Debug: NEXT_ROUND_MAP["${currentRound}"] = "${nextRound}"`);
+            
+            if (!nextRound) {
+                console.log(`   🛑 Keine nächste Runde für ${currentRound} gefunden (NEXT_ROUND_MAP fehlt)`);
+                break;
+            }
+            
+            // Prüfe ob die NÄCHSTE Runde eine Stopp-Runde ist
+            if (nextRound === '1/4' || nextRound === '1/2' || nextRound === '1/1') {
+                console.log(`   🛑 Stoppe vor Generierung von ${nextRound} - ab hier gibt es Losung`);
+                break;
+            }
+            
+            console.log(`   🎯 Generiere ${nextRound} basierend auf ${currentRound}...`);
+            
+            // Generiere nächste Runde
+            const generatedCount = await generatePrognoseRound(db, cupType, season, currentRound, nextRound, tournamentInfo);
+            console.log(`   📊 ${nextRound}: ${generatedCount} Spiele generiert`);
+            
+            if (generatedCount === 0) {
+                console.log(`   ⚠️ Keine Spiele für ${nextRound} generiert - stoppe`);
+                break;
+            }
+            
+            totalGenerated += generatedCount;
+            generatedRounds.push(nextRound);
+            
+            // Setze currentRound für nächste Iteration
+            console.log(`   ➡️ Setze currentRound von "${currentRound}" auf "${nextRound}"`);
+            currentRound = nextRound;
+            iteration++;
+            
+            // Sicherheits-Break nach 10 Iterationen
+            if (iteration > 10) {
+                console.log(`   🛑 Sicherheits-Break nach ${iteration} Iterationen`);
+                break;
+            }
         }
         
-        console.log(`   ✅ ${totalGenerated} Prognose-Spiele generiert`);
+        console.log(`   ✅ ${totalGenerated} Prognose-Spiele in ${generatedRounds.length} Runden generiert: ${generatedRounds.join(', ')}`);
         
         return { 
-            generated: totalGenerated, 
-            nextRound: nextRound,
-            nextNextRound: nextNextRound
+            generated: totalGenerated,
+            rounds: generatedRounds
         };
         
     } catch (error) {
@@ -116,13 +164,12 @@ async function generatePrognoseGames(db, cupType, season) {
 }
 
 /**
- * Findet die nächste Runde die NICHT existiert (für Prognose)
+ * Findet die letzte echte Runde (nicht Prognose) als Startpunkt
  */
-async function findNextNonExistentRound(db, cupType, season) {
+async function findLastRealRound(db, cupType, season) {
     return new Promise((resolve, reject) => {
         const sql = `
             SELECT DISTINCT roundName, COUNT(*) as gameCount,
-                   COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as playedCount,
                    COUNT(CASE WHEN source = 'prognose' THEN 1 END) as prognoseCount
             FROM games 
             WHERE cupType = ? AND season = ?
@@ -135,8 +182,8 @@ async function findNextNonExistentRound(db, cupType, season) {
                     WHEN '1/16' THEN 4
                     WHEN '1/8' THEN 5
                     WHEN '1/4' THEN 6
-                    WHEN 'Halbfinal' THEN 7
-                    WHEN 'Final' THEN 8
+                    WHEN '1/2' THEN 7
+                    WHEN '1/1' THEN 8
                     ELSE 9
                 END ASC
         `;
@@ -147,42 +194,185 @@ async function findNextNonExistentRound(db, cupType, season) {
             } else {
                 console.log(`   🔍 Debug: Alle Runden für ${cupType} ${season}:`);
                 
-                if (!rows || rows.length === 0) {
-                    console.log(`   ⚠️ Keine Runden gefunden`);
-                    resolve({ lastExistingRound: null, nextRound: null });
-                    return;
-                }
+                let lastRealRound = null;
                 
-                let lastExistingRound = null;
-                let nextRound = null;
-                
-                // Zeige alle Runden mit Status
                 for (const row of rows) {
-                    const playedPercent = Math.round((row.playedCount / row.gameCount) * 100);
-                    const hasPrognose = row.prognoseCount > 0;
-                    const status = hasPrognose ? '🔮 PROGNOSE' : (playedPercent > 0 ? '✅ ECHT' : '❓ LEER');
+                    const realGames = row.gameCount - row.prognoseCount;
+                    const status = row.prognoseCount > 0 ? '🔮 PROGNOSE' : (realGames > 0 ? '✅ ECHT' : '❓ LEER');
                     
-                    console.log(`     📊 ${row.roundName}: ${row.playedCount}/${row.gameCount} gespielt (${playedPercent}%) - ${status}`);
+                    console.log(`     📊 ${row.roundName}: ${realGames} echt + ${row.prognoseCount} prognose = ${row.gameCount} total - ${status}`);
                     
-                    // Nur echte Spiele (nicht Prognose) zählen als "existierende Runde"
-                    if (row.gameCount > row.prognoseCount) {
-                        lastExistingRound = row.roundName;
+                    // Nur echte Spiele zählen als "letzte reale Runde"
+                    if (realGames > 0) {
+                        lastRealRound = row.roundName;
                     }
                 }
                 
-                // Bestimme nächste Runde nach der letzten existierenden
-                if (lastExistingRound) {
-                    nextRound = NEXT_ROUND_MAP[lastExistingRound];
-                    console.log(`   📍 Letzte existierende Runde: ${lastExistingRound}`);
-                    console.log(`   🎯 Nächste zu generierende Runde: ${nextRound || 'KEINE (Turnier Ende)'}`);
-                } else {
-                    console.log(`   ⚠️ Keine existierende Runde gefunden`);
-                }
+                console.log(`   📍 Letzte echte Runde: ${lastRealRound}`);
+                resolve(lastRealRound);
+            }
+        });
+    });
+}
+
+/**
+ * Generiert eine Prognose-Runde basierend auf der Vorrunde
+ */
+async function generatePrognoseRound(db, cupType, season, currentRound, nextRound, tournamentInfo) {
+    try {
+        // Hole alle Spiele der aktuellen Runde (echte + bereits generierte Prognose)
+        const currentRoundGames = await getAllGamesForRound(db, cupType, season, currentRound);
+        
+        if (currentRoundGames.length === 0) {
+            console.log(`   ⚠️ Keine Spiele in ${currentRound} gefunden`);
+            return 0;
+        }
+        
+        console.log(`   📊 ${currentRoundGames.length} Spiele in ${currentRound} gefunden`);
+        
+        // Gruppiere Spiele paarweise für nächste Runde
+        const nextRoundPairs = [];
+        
+        for (let i = 0; i < currentRoundGames.length; i += 2) {
+            const game1 = currentRoundGames[i];
+            const game2 = currentRoundGames[i + 1];
+            
+            const newSortOrder = Math.ceil((game1.bracketSortOrder || 1) / 2);
+            
+            if (game2) {
+                // Zwei Spiele -> bestimme beide Teams nach Ihren Regeln
+                const team1 = await determineAdvancerFromGame(db, game1);
+                const team2 = await determineAdvancerFromGame(db, game2);
                 
-                resolve({ 
-                    lastExistingRound: lastExistingRound,
-                    nextRound: nextRound 
+                nextRoundPairs.push({
+                    team1: team1,
+                    team2: team2,
+                    sortOrder: newSortOrder
                 });
+            } else {
+                // Nur ein Spiel -> automatischer Aufsteiger mit Freilos
+                const team1 = await determineAdvancerFromGame(db, game1);
+                
+                nextRoundPairs.push({
+                    team1: team1,
+                    team2: 'Freilos',
+                    sortOrder: newSortOrder
+                });
+            }
+        }
+        
+        // Sortiere Paare nach sortOrder
+        nextRoundPairs.sort((a, b) => a.sortOrder - b.sortOrder);
+        
+        console.log(`   🔍 Debug: ${nextRoundPairs.length} Paare für ${nextRound} erstellt`);
+        
+        // Generiere Spiele für nächste Runde
+        let generatedCount = 0;
+        
+        for (let i = 0; i < nextRoundPairs.length; i++) {
+            const pair = nextRoundPairs[i];
+            
+            const gameData = {
+                gameId: await generateUniquePrognoseId(db),
+                team1: pair.team1,
+                team2: pair.team2,
+                roundName: nextRound,
+                roundId: await getNextRoundId(db, cupType, season),
+                tournamentId: tournamentInfo.tournamentId,
+                tournamentName: tournamentInfo.tournamentName,
+                season: season,
+                cupType: cupType,
+                gender: tournamentInfo.gender,
+                fieldType: tournamentInfo.fieldType,
+                gameDate: '',
+                gameTime: '',
+                venue: '',
+                status: 'prognose',
+                result: 'TBD',
+                source: 'prognose',
+                apiEndpoint: '',
+                link: '',
+                homeTeamScore: null,
+                awayTeamScore: null,
+                gameLocation: null,
+                referees: null,
+                spectators: null,
+                notes: 'Automatisch generierte Prognose',
+                numericGameId: null,
+                bracketSortOrder: pair.sortOrder
+            };
+            
+            try {
+                await savePrognoseGame(db, gameData);
+                generatedCount++;
+                console.log(`   ✅ ${pair.team1} vs ${pair.team2} (${nextRound}) - ID: ${gameData.gameId}`);
+            } catch (saveError) {
+                console.error(`   ❌ Fehler beim Speichern: ${saveError.message}`);
+            }
+        }
+        
+        console.log(`   📊 ${generatedCount} Spiele für ${nextRound} generiert`);
+        return generatedCount;
+        
+    } catch (error) {
+        console.error(`❌ Fehler bei ${nextRound} Generierung: ${error.message}`);
+        return 0;
+    }
+}
+
+/**
+ * Bestimmt den Aufsteiger nach Ihren 5 Regeln (mit teamShorts Integration)
+ */
+async function determineAdvancerFromGame(db, game) {
+    const team1 = game.team1;
+    const team2 = game.team2;
+    
+    // Fall 4: Freilos vs Freilos --> Freilos
+    if (team1 === 'Freilos' && team2 === 'Freilos') {
+        return 'Freilos';
+    }
+    
+    // Fall 3: Team A vs Freilos --> Team A
+    if (team1 === 'Freilos') {
+        return team2;
+    }
+    if (team2 === 'Freilos') {
+        return team1;
+    }
+    
+    // Fall 5: Team A / Team B (noch offen) --> TBA
+    if (team1.includes(' / ') || team2.includes(' / ') || team1 === 'TBA' || team2 === 'TBA' || team1 === 'TBD' || team2 === 'TBD') {
+        return 'TBA';
+    }
+    
+    // Fall 2: Bereits gespielt --> Sieger
+    if (game.result && game.result.trim() !== '' && game.result !== 'TBD' && game.result !== 'TBA') {
+        const winner = determineWinnerFromResult(game.result, team1, team2);
+        if (winner) {
+            return winner;
+        }
+    }
+    
+    // Fall 1: Nicht gespielt --> Team A / Team B (mit Kurznamen)
+    return await createTeamCombination(db, team1, team2);
+}
+
+/**
+ * Holt alle Spiele einer Runde (echte + Prognose)
+ */
+async function getAllGamesForRound(db, cupType, season, roundName) {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            SELECT * FROM games 
+            WHERE cupType = ? AND season = ? AND roundName = ?
+            ORDER BY bracketSortOrder ASC, gameId ASC
+        `;
+        
+        db.all(sql, [cupType, season, roundName], (err, rows) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(rows || []);
             }
         });
     });
@@ -262,8 +452,8 @@ async function generateNextRoundGames(db, cupType, season, lastRound, nextRound,
             
             if (game2) {
                 // Zwei Spiele -> bestimme beide Teams
-                const team1 = determineWinnerOrAdvancer(game1);
-                const team2 = determineWinnerOrAdvancer(game2);
+                const team1 = await determineWinnerOrAdvancer(db, game1);
+                const team2 = await determineWinnerOrAdvancer(db, game2);
                 
                 // 🔧 FREILOS-LOGIC: Falls ein Team Freilos hat, kombiniere mit dem anderen Spiel
                 if (team1 === 'Freilos' && team2 !== 'Freilos') {
@@ -294,7 +484,7 @@ async function generateNextRoundGames(db, cupType, season, lastRound, nextRound,
                 
             } else {
                 // Nur ein Spiel -> automatischer Aufsteiger mit Freilos
-                const team1 = determineWinnerOrAdvancer(game1);
+                const team1 = await determineWinnerOrAdvancer(db, game1);
                 
                 if (team1 !== 'Freilos') {
                     nextRoundPairs.push({
@@ -403,7 +593,7 @@ async function generateTBDRoundGames(db, cupType, season, currentRound, nextRoun
                 const team1 = determineTBDOrAdvancer(game1);
                 const team2 = determineTBDOrAdvancer(game2);
                 
-                // Skip wenn beide Freilos
+                // Skip nur wenn beide explizit Freilos sind
                 if (team1 === 'Freilos' && team2 === 'Freilos') {
                     continue;
                 }
@@ -438,6 +628,7 @@ async function generateTBDRoundGames(db, cupType, season, currentRound, nextRoun
         for (let i = 0; i < nextRoundPairs.length; i++) {
             const pair = nextRoundPairs[i];
             
+            // Generiere auch TBD vs TBD Spiele
             const tbdGameData = {
                 gameId: await generateUniquePrognoseId(db),
                 team1: pair.team1,
@@ -498,6 +689,11 @@ function determineTBDOrAdvancer(game) {
         return game.team1;
     }
     
+    // Wenn beide Teams TBD/TBA sind, bleibt es TBD
+    if ((game.team1 === 'TBD' || game.team1 === 'TBA') && (game.team2 === 'TBD' || game.team2 === 'TBA')) {
+        return 'TBD';
+    }
+    
     // Für alle anderen Fälle: TBD
     return 'TBD';
 }
@@ -524,7 +720,7 @@ async function getPrognoseGamesForRound(db, cupType, season, roundName) {
     });
 }
 
-function determineWinnerOrAdvancer(game) {
+async function determineWinnerOrAdvancer(db, game) {
     // Wenn ein Team Freilos ist, steigt das andere automatisch auf
     if (game.team1 === 'Freilos') {
         return game.team2;
@@ -541,8 +737,8 @@ function determineWinnerOrAdvancer(game) {
         }
     }
     
-    // Fallback: Team1 / Team2 Format für unentschiedene Spiele
-    return `${game.team1} / ${game.team2}`;
+    // Fallback: Team1 / Team2 Format für unentschiedene Spiele (mit Kurznamen)
+    return await createTeamCombination(db, game.team1, game.team2);
 }
 
 /**

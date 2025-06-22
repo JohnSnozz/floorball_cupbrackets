@@ -26,6 +26,19 @@ function isFreilosGame(game) {
     return isFreilos(game.team1) || isFreilos(game.team2);
 }
 
+function getCurrentSeason() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // JavaScript months are 0-indexed
+    
+    // Saison wechselt im Juli (Monat 7)
+    if (month >= 5) {
+        return `${year}/${String(year + 1).slice(-2)}`;
+    } else {
+        return `${year - 1}/${String(year).slice(-2)}`;
+    }
+}
+
 async function loadAvailableOptions() {
     try {
         // Lade verfügbare Seasons aus DB
@@ -34,11 +47,13 @@ async function loadAvailableOptions() {
             const seasons = await seasonsResponse.json();
             const seasonSelect = document.getElementById('seasonSelect');
             seasonSelect.innerHTML = '';
+            const currentSeason = getCurrentSeason();
+            
             seasons.forEach(season => {
                 const option = document.createElement('option');
                 option.value = season;
                 option.textContent = season;
-                if (season === '2025/26') option.selected = true;
+                if (season === currentSeason) option.selected = true;
                 seasonSelect.appendChild(option);
             });
         } else {
@@ -51,10 +66,29 @@ async function loadAvailableOptions() {
             const cups = await cupsResponse.json();
             const cupSelect = document.getElementById('cupSelect');
             cupSelect.innerHTML = '';
-            cups.forEach(cup => {
+            
+            // Definierte Reihenfolge
+            const cupOrder = [
+                'herren_grossfeld',
+                'damen_grossfeld', 
+                'herren_kleinfeld',
+                'damen_kleinfeld'
+            ];
+            
+            // Sortiere Cups nach gewünschter Reihenfolge
+            const sortedCups = cups.sort((a, b) => {
+                const indexA = cupOrder.indexOf(a.id);
+                const indexB = cupOrder.indexOf(b.id);
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+            
+            sortedCups.forEach((cup, index) => {
                 const option = document.createElement('option');
                 option.value = cup.id;
                 option.textContent = cup.name;
+                if (index === 0) option.selected = true; // Erster = Herren Grossfeld
                 cupSelect.appendChild(option);
             });
         } else {
@@ -70,16 +104,18 @@ async function loadAvailableOptions() {
 function loadFallbackOptions() {
     const cupSelect = document.getElementById('cupSelect');
     const seasonSelect = document.getElementById('seasonSelect');
+    const currentSeason = getCurrentSeason();
     
+    // Cups in gewünschter Reihenfolge
     cupSelect.innerHTML = `
-        <option value="herren_grossfeld">Mobiliar Cup Herren Grossfeld</option>
+        <option value="herren_grossfeld" selected>Mobiliar Cup Herren Grossfeld</option>
         <option value="damen_grossfeld">Mobiliar Cup Damen Grossfeld</option>
         <option value="herren_kleinfeld">Liga Cup Herren Kleinfeld</option>
         <option value="damen_kleinfeld">Liga Cup Damen Kleinfeld</option>
     `;
     
     seasonSelect.innerHTML = `
-        <option value="2025/26" selected>2025/26</option>
+        <option value="${currentSeason}" selected>${currentSeason}</option>
         <option value="2024/25">2024/25</option>
         <option value="2023/24">2023/24</option>
         <option value="2022/23">2022/23</option>
@@ -399,7 +435,17 @@ function adjustLongTeamNames() {
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
-    loadAvailableOptions();
+    console.log('🚀 Initializing Smart Bracket');
+    
+    // Lade Optionen und dann automatisch das Bracket
+    loadAvailableOptions().then(() => {
+        console.log('✅ Options loaded, auto-loading bracket');
+        loadSmartBracket();
+    }).catch(error => {
+        console.error('❌ Error loading options:', error);
+        // Auch bei Fehler versuchen das Bracket zu laden
+        loadSmartBracket();
+    });
     
     // Verhindere excessive Processing bei Dropdown-Changes
     let loadTimeout;

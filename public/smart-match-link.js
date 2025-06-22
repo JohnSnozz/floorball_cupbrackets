@@ -85,10 +85,19 @@ function createCustomSmartLinks() {
     
     const smartMatches = document.querySelectorAll('.smart-match-absolute');
     let createdLinks = 0;
+    let skippedNoGameId = 0;
     
     smartMatches.forEach((match) => {
         // Prüfe ob bereits ein Link existiert
         if (match.querySelector('.smart-match-link')) return;
+        
+        // Prüfe numericGameId - NEUE PRÜFUNG
+        const gameId = match.getAttribute('data-game-id');
+        if (!gameId || gameId === '' || gameId === 'null' || gameId === 'undefined') {
+            skippedNoGameId++;
+            console.log(`⏭️ Überspringe Match ohne gültige gameId: "${gameId}"`);
+            return;
+        }
         
         const teams = match.querySelectorAll('.team-name');
         const team1 = teams[0] ? teams[0].textContent.trim() : '';
@@ -114,18 +123,12 @@ function createCustomSmartLinks() {
         const link = document.createElement('a');
         link.className = `smart-match-link ${status}`;
         
-        // URL und Attribute
-        const gameId = match.getAttribute('data-game-id');
-        if (gameId && gameId !== '' && gameId !== 'null') {
-            link.href = `https://www.swissunihockey.ch/de/game-detail?game_id=${gameId}`;
-            link.target = '_blank';
-        } else {
-            link.href = '#';
-            link.addEventListener('click', e => e.preventDefault());
-        }
+        // URL und Attribute - gameId ist hier garantiert gültig
+        link.href = `https://www.swissunihockey.ch/de/game-detail?game_id=${gameId}`;
+        link.target = '_blank';
         
         link.setAttribute('data-status', status);
-        if (gameId) link.setAttribute('data-game-id', gameId);
+        link.setAttribute('data-game-id', gameId);
         link.title = `${team1} vs ${team2}`;
         
         // Position sicherstellen
@@ -139,11 +142,14 @@ function createCustomSmartLinks() {
     });
     
     console.log(`✅ ${createdLinks} Custom Smart Links erstellt`);
+    if (skippedNoGameId > 0) {
+        console.log(`⏭️ ${skippedNoGameId} Matches ohne gültige gameId übersprungen`);
+    }
     
-    // Nach kurzer Verzögerung versuche Upgrade mit gameDetails
+    // Nach kurzer Verzögerung versuche Upgrade mit Datums-Detection
     setTimeout(() => {
         if (createdLinks > 0) {
-            tryUpgradeWithGameDetails();
+            upgradeLinksWithDateDetection();
         }
     }, 1000);
 }
@@ -165,65 +171,15 @@ function analyzeAndUpgradeLinks() {
     
     // Falls kein heute/morgen, versuche Upgrade
     if (!statusCount.today && !statusCount.tomorrow && statusCount.scheduled > 0) {
-        console.log('🔄 Versuche Upgrade mit gameDetails...');
-        tryUpgradeWithGameDetails();
+        console.log('🔄 Versuche Upgrade mit Datums-Detection...');
+        upgradeLinksWithDateDetection();
     }
 }
 
-function tryUpgradeWithGameDetails() {
-    console.log('\n📊 Teste gameDetails API...');
+function upgradeLinksWithDateDetection() {
+    console.log('\n🎯 UPGRADE LINKS MIT DATUMS-DETECTION...');
     
-    fetch('/api/game-details?limit=3')
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return response.json();
-        })
-        .then(testData => {
-            console.log(`✅ gameDetails API verfügbar: ${testData.length} Test-Einträge`);
-            
-            if (testData.length > 0) {
-                console.log('📋 Sample Data:');
-                testData.forEach((item, i) => {
-                    console.log(`  ${i+1}. GameID ${item.numericGameId}: ${item.home_name} vs ${item.away_name} | Datum: ${item.date}`);
-                });
-                
-                // Lade vollständige Daten
-                loadGameDetailsAndUpgrade();
-            }
-        })
-        .catch(error => {
-            console.log('❌ gameDetails API nicht verfügbar:', error.message);
-            console.log('💡 Verwende Basic Links ohne Datum-Features');
-        });
-}
-
-function loadGameDetailsAndUpgrade() {
-    console.log('\n🔄 Lade gameDetails für Upgrade...');
-    
-    fetch('/api/game-details?limit=1000')
-        .then(response => response.json())
-        .then(gameDetails => {
-            console.log(`📋 ${gameDetails.length} gameDetails geladen`);
-            
-            upgradeLinksWithDates(gameDetails);
-        })
-        .catch(error => {
-            console.log('❌ Fehler beim Laden der gameDetails:', error);
-        });
-}
-
-function upgradeLinksWithDates(gameDetails) {
-    console.log('\n🎯 UPGRADE LINKS MIT DATUM-LOGIC...');
-    
-    // Cache erstellen
-    const gameCache = new Map();
-    gameDetails.forEach(detail => {
-        gameCache.set(detail.numericGameId, detail);
-    });
-    
-    console.log(`🗂️ Cache erstellt mit ${gameCache.size} Einträgen`);
-    
-    // Heutige und morgige Daten (Schweizer Zeit)
+    // Hole aktuelle Datum-Referenzen (Schweizer Zeit)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -232,6 +188,162 @@ function upgradeLinksWithDates(gameDetails) {
     
     console.log(`📅 Heute: ${today.toLocaleDateString('de-CH')}`);
     console.log(`📅 Morgen: ${tomorrow.toLocaleDateString('de-CH')}`);
+    
+    // Erst versuche API-basiertes Upgrade
+    fetch('/api/game-details?limit=3')
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(testData => {
+            console.log(`✅ gameDetails API verfügbar: ${testData.length} Test-Einträge`);
+            if (testData.length > 0) {
+                loadGameDetailsAndUpgrade(today, tomorrow);
+            } else {
+                throw new Error('Keine Test-Daten verfügbar');
+            }
+        })
+        .catch(error => {
+            console.log('❌ gameDetails API nicht verfügbar:', error.message);
+            console.log('🔄 Fallback: DOM-basierte Datums-Detection...');
+            upgradeLinksByDOMDetection(today, tomorrow);
+        });
+}
+
+function loadGameDetailsAndUpgrade(today, tomorrow) {
+    console.log('\n🔄 Lade gameDetails für API-basiertes Upgrade...');
+    
+    fetch('/api/game-details?limit=1000')
+        .then(response => response.json())
+        .then(gameDetails => {
+            console.log(`📋 ${gameDetails.length} gameDetails geladen`);
+            upgradeLinksWithAPIData(gameDetails, today, tomorrow);
+        })
+        .catch(error => {
+            console.log('❌ Fehler beim Laden der gameDetails:', error);
+            console.log('🔄 Fallback zu DOM-Detection...');
+            upgradeLinksByDOMDetection(today, tomorrow);
+        });
+}
+
+function upgradeLinksWithAPIData(gameDetails, today, tomorrow) {
+    console.log('\n🎯 API-BASIERTES UPGRADE...');
+    
+    // Cache erstellen
+    const gameCache = new Map();
+    gameDetails.forEach(detail => {
+        gameCache.set(detail.numericGameId, detail);
+    });
+    
+    console.log(`🗂️ API Cache erstellt mit ${gameCache.size} Einträgen`);
+    
+    upgradeLinksWithCache(gameCache, today, tomorrow, 'API');
+}
+
+function upgradeLinksByDOMDetection(today, tomorrow) {
+    console.log('\n🎯 DOM-BASIERTE DATUMS-DETECTION...');
+    
+    // Sammle alle Datum-Informationen aus dem DOM
+    const gameCache = new Map();
+    
+    // Suche nach Datums-Pattern im gesamten DOM
+    const allTextNodes = getAllTextNodes(document.body);
+    const datePattern = /(\d{1,2})\.(\d{1,2})\.(\d{4})/g;
+    
+    let detectedDates = [];
+    
+    allTextNodes.forEach(node => {
+        const text = node.textContent;
+        let match;
+        while ((match = datePattern.exec(text)) !== null) {
+            detectedDates.push({
+                dateStr: match[0],
+                day: parseInt(match[1]),
+                month: parseInt(match[2]) - 1,
+                year: parseInt(match[3]),
+                element: node.parentElement
+            });
+        }
+    });
+    
+    console.log(`🔍 ${detectedDates.length} Datum-Pattern gefunden`);
+    
+    // Versuche Datums-Zuordnung zu Matches
+    const smartMatches = document.querySelectorAll('.smart-match-absolute');
+    
+    smartMatches.forEach(match => {
+        const gameId = match.getAttribute('data-game-id');
+        if (!gameId) return;
+        
+        // Suche nahegelegene Datumsangaben
+        const nearbyDate = findNearbyDate(match, detectedDates);
+        if (nearbyDate) {
+            gameCache.set(gameId, {
+                numericGameId: gameId,
+                date: nearbyDate.dateStr,
+                parsedDate: new Date(nearbyDate.year, nearbyDate.month, nearbyDate.day)
+            });
+        }
+    });
+    
+    console.log(`🗂️ DOM Cache erstellt mit ${gameCache.size} Einträgen`);
+    
+    upgradeLinksWithCache(gameCache, today, tomorrow, 'DOM');
+}
+
+function getAllTextNodes(element) {
+    const textNodes = [];
+    const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+    );
+    
+    let node;
+    while (node = walker.nextNode()) {
+        if (node.textContent.trim()) {
+            textNodes.push(node);
+        }
+    }
+    
+    return textNodes;
+}
+
+function findNearbyDate(matchElement, detectedDates) {
+    // Finde das nächstgelegene Datum zu diesem Match
+    let bestDate = null;
+    let minDistance = Infinity;
+    
+    const matchRect = matchElement.getBoundingClientRect();
+    const matchCenter = {
+        x: matchRect.left + matchRect.width / 2,
+        y: matchRect.top + matchRect.height / 2
+    };
+    
+    detectedDates.forEach(dateInfo => {
+        const dateRect = dateInfo.element.getBoundingClientRect();
+        const dateCenter = {
+            x: dateRect.left + dateRect.width / 2,
+            y: dateRect.top + dateRect.height / 2
+        };
+        
+        const distance = Math.sqrt(
+            Math.pow(matchCenter.x - dateCenter.x, 2) + 
+            Math.pow(matchCenter.y - dateCenter.y, 2)
+        );
+        
+        if (distance < minDistance) {
+            minDistance = distance;
+            bestDate = dateInfo;
+        }
+    });
+    
+    return bestDate;
+}
+
+function upgradeLinksWithCache(gameCache, today, tomorrow, source) {
+    console.log(`\n🎯 UPGRADE LINKS MIT ${source}-DATEN...`);
     
     const smartMatches = document.querySelectorAll('.smart-match-absolute');
     let upgradedCount = 0;
@@ -245,65 +357,110 @@ function upgradeLinksWithDates(gameDetails) {
         if (!gameId || !link || !gameCache.has(gameId)) return;
         
         const gameDetail = gameCache.get(gameId);
-        const dateStr = gameDetail.date;
+        let gameDate;
         
-        if (!dateStr || dateStr.trim() === '') return;
-        
-        // Parse DD.MM.YYYY Format
-        const dateMatch = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-        if (!dateMatch) {
-            console.log(`⚠️ Kann Datum nicht parsen: "${dateStr}"`);
-            return;
+        if (source === 'API') {
+            // API Daten: Parse YYYY-MM-DD oder DD.MM.YYYY Format
+            const dateStr = gameDetail.date;
+            if (!dateStr || dateStr.trim() === '') return;
+            
+            // Prüfe ISO Format (YYYY-MM-DD)
+            const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (isoMatch) {
+                const year = parseInt(isoMatch[1]);
+                const month = parseInt(isoMatch[2]) - 1; // JS Monate 0-basiert
+                const day = parseInt(isoMatch[3]);
+                gameDate = new Date(year, month, day);
+            } else {
+                // Fallback: Europäisches Format (DD.MM.YYYY)
+                const euMatch = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+                if (euMatch) {
+                    const day = parseInt(euMatch[1]);
+                    const month = parseInt(euMatch[2]) - 1;
+                    const year = parseInt(euMatch[3]);
+                    gameDate = new Date(year, month, day);
+                } else {
+                    // Spezielle Werte wie "gestern" etc.
+                    if (dateStr === 'gestern') {
+                        gameDate = new Date(today);
+                        gameDate.setDate(gameDate.getDate() - 1);
+                    } else {
+                        console.log(`⚠️ Kann API-Datum nicht parsen: "${dateStr}"`);
+                        return;
+                    }
+                }
+            }
+        } else {
+            // DOM Daten: Bereits geparst
+            gameDate = gameDetail.parsedDate;
         }
         
-        const day = parseInt(dateMatch[1]);
-        const month = parseInt(dateMatch[2]) - 1; // JS Monate sind 0-basiert
-        const year = parseInt(dateMatch[3]);
-        const gameDate = new Date(year, month, day);
         gameDate.setHours(0, 0, 0, 0);
         
         let newStatus = null;
         let statusEmoji = '';
+        let dateLabel = '';
         
         if (gameDate.getTime() === today.getTime()) {
-            newStatus = 'today';
-            statusEmoji = '🔴';
+            newStatus = 'scheduled'; // Bleibt grau, aber bekommt Label
+            dateLabel = 'heute';
+            statusEmoji = '📅';
             todayCount++;
         } else if (gameDate.getTime() === tomorrow.getTime()) {
-            newStatus = 'tomorrow';
-            statusEmoji = '🟡';
+            newStatus = 'scheduled'; // Bleibt grau, aber bekommt Label
+            dateLabel = 'morgen';
+            statusEmoji = '📅';
             tomorrowCount++;
         } else if (gameDate.getTime() < today.getTime()) {
             newStatus = 'played';
             statusEmoji = '🔵';
+        } else {
+            newStatus = 'scheduled'; // Alle zukünftigen Spiele grau
         }
-        // Zukunft bleibt 'scheduled'
         
         if (newStatus) {
-            // Update Link
+            // Update Link - alle außer gespielten sind grau
             link.classList.remove('played', 'scheduled', 'today', 'tomorrow');
             link.classList.add(newStatus);
             link.setAttribute('data-status', newStatus);
+            
+            // Entferne existierende Datum-Labels
+            const existingLabel = match.querySelector('.date-label');
+            if (existingLabel) {
+                existingLabel.remove();
+            }
+            
+            // Füge Datum-Label für heute/morgen hinzu
+            if (dateLabel) {
+                const label = document.createElement('div');
+                label.className = 'date-label';
+                label.textContent = dateLabel;
+                match.appendChild(label);
+            }
             
             // Update Title
             const teams = match.querySelectorAll('.team-name');
             const team1 = teams[0] ? teams[0].textContent.trim() : '';
             const team2 = teams[1] ? teams[1].textContent.trim() : '';
             
-            link.title = `${statusEmoji} ${team1} vs ${team2} | ${dateStr} ${gameDetail.time || ''} | Game ${gameId}`;
+            const dateStr = source === 'API' ? gameDetail.date : gameDetail.date;
+            const timeStr = gameDetail.time || '';
+            
+            let titlePrefix = dateLabel ? `${dateLabel.toUpperCase()} ` : '';
+            link.title = `${titlePrefix}${team1} vs ${team2} | ${dateStr} ${timeStr} | Game ${gameId}`;
             
             upgradedCount++;
             
-            if (newStatus === 'today' || newStatus === 'tomorrow') {
-                console.log(`  ${statusEmoji} ${team1} vs ${team2} - ${newStatus.toUpperCase()} (${dateStr})`);
+            if (dateLabel) {
+                console.log(`  📅 ${team1} vs ${team2} - ${dateLabel.toUpperCase()} (${dateStr})`);
             }
         }
     });
     
-    console.log(`\n✅ UPGRADE ABGESCHLOSSEN:`);
+    console.log(`\n✅ ${source} UPGRADE ABGESCHLOSSEN:`);
     console.log(`  🔄 ${upgradedCount} Links upgraded`);
-    console.log(`  🔴 ${todayCount} Spiele heute`);
-    console.log(`  🟡 ${tomorrowCount} Spiele morgen`);
+    console.log(`  📅 ${todayCount} Spiele heute (mit Label)`);
+    console.log(`  📅 ${tomorrowCount} Spiele morgen (mit Label)`);
     
     // Finale Statistik
     setTimeout(showFinalStats, 500);
@@ -321,13 +478,29 @@ function showFinalStats() {
     console.log('\n📊 FINALE SMART LINKS STATISTIK:');
     console.log('='.repeat(50));
     Object.entries(finalStats).forEach(([status, count]) => {
-        const emoji = { 'played': '🔵', 'scheduled': '⚪', 'today': '🔴', 'tomorrow': '🟡' }[status] || '❓';
+        const emoji = { 'played': '🔵', 'scheduled': '⚪' }[status] || '❓';
         console.log(`  ${emoji} ${status.toUpperCase()}: ${count} Links`);
     });
+    
+    // Zähle Datum-Labels
+    const todayLabels = document.querySelectorAll('.date-label').length;
+    if (todayLabels > 0) {
+        console.log(`  📅 HEUTE/MORGEN-LABELS: ${todayLabels}`);
+    }
+    
     console.log('\n✅ Smart Links Setup komplett!');
+}
+
+// Reset-Funktion für neues Bracket
+function resetSmartMatchLinks() {
+    lastSmartMatchCount = 0;
+    console.log('🔄 Smart Match Links reset');
 }
 
 // Starte Monitoring
 startBracketMonitoring();
+
+// Exportiere Reset-Funktion
+window.resetSmartMatchLinks = resetSmartMatchLinks;
 
 console.log('👁️ Smart Links Monitoring gestartet - wartet auf Bracket...');

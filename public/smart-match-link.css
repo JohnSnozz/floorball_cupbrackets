@@ -236,3 +236,60 @@
 .debug-smart-links .smart-match-link:hover::after {
     opacity: 1;
 }
+
+/* Datum-Labels für heute/morgen Spiele */
+.date-label {
+    position: absolute;
+    top: 50%;
+    left: 14%;
+    transform: translate(-50%, -50%);
+    font-size: 6px;
+    color: rgba(0, 0, 0, 0.8);
+    font-weight: 500;
+    pointer-events: none;
+    z-index: 4;
+    text-transform: lowercase;
+    letter-spacing: 0.3px;
+    background-color: #6c757d; /* Gleiche Farbe wie Team-Hintergrund */
+    padding: 2px 4px;
+    border-radius: 2px;
+    border: 1px solid #444; /* Haarfeiner Rand wie die Linie zwischen Teams */
+}
+
+/* Responsive Anpassungen für Datum-Labels */
+@media (max-width: 1400px) {
+    .date-label {
+        font-size: 8px;
+        padding: 1px 2px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .date-label {
+        font-size: 7px;
+        padding: 0px 2px;
+    }
+}
+
+@media (max-width: 1000px) {
+    .date-label {
+        font-size: 6px;
+        padding: 0px 1px;
+    }
+}
+
+@media (max-width: 800px) {
+    .date-label {
+        font-size: 5px;
+        padding: 0px 1px;
+    }
+}
+
+/* High contrast mode für Datum-Labels */
+@media (prefers-contrast: high) {
+    .date-label {
+        color: #dc3545;
+        background-color: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(220, 53, 69, 0.5);
+    }
+}

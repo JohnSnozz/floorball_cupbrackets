@@ -95,6 +95,26 @@ class GameDetailsManager {
       return null;
     }
 
+    // Neue Logik für "heute" und "morgen"
+    const today = new Date();
+    const lowerDateStr = dateStr.toLowerCase().trim();
+    
+    if (lowerDateStr === 'heute') {
+      const year = today.getFullYear();
+      const month = (today.getMonth() + 1).toString().padStart(2, '0');
+      const day = today.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    if (lowerDateStr === 'morgen') {
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      const year = tomorrow.getFullYear();
+      const month = (tomorrow.getMonth() + 1).toString().padStart(2, '0');
+      const day = tomorrow.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
     // Hauptformat der SwissUnihockey API: DD.MM.YYYY
     const dotFormat = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
     if (dotFormat) {
