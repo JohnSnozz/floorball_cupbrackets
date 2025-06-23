@@ -327,3 +327,328 @@ button:hover {
         height: 35px;
     }
 }
+
+
+/* Game Details CSS - Füge diesen Code am Ende von smart-match-link.css hinzu */
+
+/* Game Details Container */
+.game-details {
+    position: absolute !important;
+    z-index: 1000 !important;
+    background-color: #2d2d2d !important;
+    border: 1px solid #444 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+    padding: 0 !important;
+    display: none !important;
+    pointer-events: none !important;
+    max-width: 400px !important;
+    min-width: 350px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 13px !important;
+    color: #e0e0e0 !important;
+    opacity: 0 !important;
+    transform: translateY(10px) !important;
+    transition: opacity 0.2s ease, transform 0.2s ease !important;
+}
+
+/* Game Details Sichtbarkeit */
+.game-details.visible {
+    display: block !important;
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+}
+
+/* Game Details Team Container */
+.game-details .details-team {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    flex: 1 !important;
+    padding: 12px !important;
+    background-color: #333 !important;
+    border-radius: 6px !important;
+    border: 1px solid #444 !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Game Details Gewinner Team */
+.game-details .details-team.winner {
+    background-color: rgba(255, 107, 0, 0.1) !important;
+    border-color: #ff6b00 !important;
+}
+
+/* Game Details Team Logo */
+.game-details .details-team-logo {
+    width: 50px !important;
+    height: 50px !important;
+    object-fit: contain !important;
+    margin-bottom: 8px !important;
+    border-radius: 4px !important;
+    border: 1px solid #555 !important;
+    padding: 2px !important;
+    background-color: #2a2a2a !important;
+}
+
+/* Game Details Team Logo Placeholder */
+.game-details .details-team-logo-placeholder {
+    width: 50px !important;
+    height: 50px !important;
+    background-color: #555 !important;
+    border-radius: 4px !important;
+    margin-bottom: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #999 !important;
+    font-size: 16px !important;
+}
+
+/* Game Details Team Name */
+.game-details .details-team-name {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    color: #fff !important;
+    line-height: 1.2 !important;
+}
+
+/* Game Details VS */
+.game-details .details-vs {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #ff6b00 !important;
+    margin: 0 !important;
+}
+
+/* Game Details Subtitle */
+.game-details .details-subtitle {
+    text-align: center !important;
+    color: #ff6b00 !important;
+    margin-bottom: 15px !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+}
+
+/* Game Details Result Container */
+.game-details .details-result {
+    text-align: center !important;
+    margin-bottom: 15px !important;
+    padding: 15px !important;
+    background-color: #333 !important;
+    border-radius: 6px !important;
+    border: 1px solid #444 !important;
+}
+
+/* Game Details Score */
+.game-details .details-score {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #ff6b00 !important;
+    margin-bottom: 6px !important;
+}
+
+/* Game Details Periods */
+.game-details .details-periods {
+    font-size: 12px !important;
+    color: #bbb !important;
+}
+
+/* Game Details Info Container */
+.game-details .details-info {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 15px !important;
+    padding: 10px 12px !important;
+    background-color: #333 !important;
+    border-radius: 6px !important;
+    border: 1px solid #444 !important;
+    font-size: 10px !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+}
+
+/* Game Details Info Item */
+.game-details .details-info-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    white-space: nowrap !important;
+}
+
+/* Game Details Info Icon */
+.game-details .details-info-icon {
+    color: #ff6b00 !important;
+    font-size: 9px !important;
+}
+
+/* Game Details Info Label */
+.game-details .details-info-label {
+    color: #bbb !important;
+    font-weight: 500 !important;
+}
+
+/* Game Details Info Value */
+.game-details .details-info-value {
+    color: #fff !important;
+    font-weight: 600 !important;
+}
+
+/* Game Details Location Link */
+.game-details .details-location-link {
+    color: #007bff !important;
+    text-decoration: none !important;
+    font-weight: 600 !important;
+    transition: color 0.2s ease !important;
+}
+
+.game-details .details-location-link:hover {
+    color: #0056b3 !important;
+    text-decoration: underline !important;
+}
+
+/* Game Details Loading/Error States */
+.game-details .details-loading {
+    padding: 20px !important;
+    text-align: center !important;
+    color: #888 !important;
+    font-style: italic !important;
+}
+
+.game-details .details-error {
+    padding: 20px !important;
+    text-align: center !important;
+    color: #ff6666 !important;
+}
+
+.game-details .details-no-data {
+    padding: 15px !important;
+    text-align: center !important;
+    color: #888 !important;
+}
+
+/* Responsive Design für Game Details */
+@media (max-width: 480px) {
+    .game-details {
+        max-width: 320px !important;
+        min-width: 300px !important;
+        font-size: 12px !important;
+    }
+    
+    .game-details .details-team-logo,
+    .game-details .details-team-logo-placeholder {
+        width: 40px !important;
+        height: 40px !important;
+    }
+    
+    .game-details .details-team-name {
+        font-size: 11px !important;
+    }
+    
+    .game-details .details-vs {
+        font-size: 14px !important;
+    }
+    
+    .game-details .details-score {
+        font-size: 20px !important;
+    }
+    
+    .game-details .details-info {
+        font-size: 9px !important;
+        gap: 10px !important;
+        padding: 8px 10px !important;
+    }
+    
+    .game-details .details-info-icon {
+        font-size: 8px !important;
+    }
+}
+
+/* High contrast mode für Game Details */
+@media (prefers-contrast: high) {
+    .game-details {
+        border-width: 2px !important;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.8) !important;
+    }
+    
+    .game-details .details-team {
+        border-width: 2px !important;
+    }
+    
+    .game-details .details-team.winner {
+        border-color: #ff6b00 !important;
+        background-color: rgba(255, 107, 0, 0.2) !important;
+    }
+    
+    .game-details .details-result {
+        border-width: 2px !important;
+    }
+    
+    .game-details .details-info {
+        border-width: 2px !important;
+    }
+}
+
+/* Reduced motion für Game Details */
+@media (prefers-reduced-motion: reduce) {
+    .game-details {
+        transition: none !important;
+    }
+    
+    .game-details .details-team {
+        transition: none !important;
+    }
+    
+    .game-details .details-location-link {
+        transition: none !important;
+    }
+}
+
+/* Dark mode optimizations für Game Details */
+@media (prefers-color-scheme: dark) {
+    .game-details {
+        background-color: #1a1a1a !important;
+        border-color: #333 !important;
+    }
+    
+    .game-details .details-team {
+        background-color: #2a2a2a !important;
+        border-color: #333 !important;
+    }
+    
+    .game-details .details-result {
+        background-color: #2a2a2a !important;
+        border-color: #333 !important;
+    }
+    
+    .game-details .details-info {
+        background-color: #2a2a2a !important;
+        border-color: #333 !important;
+    }
+}
+
+/* Debug-Modus für Game Details */
+.debug-game-details .game-details {
+    border: 2px dashed rgba(255, 107, 0, 0.5) !important;
+    box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3) !important;
+}
+
+.debug-game-details .game-details::before {
+    content: "GAME DETAILS DEBUG" !important;
+    position: absolute !important;
+    top: -20px !important;
+    left: 0 !important;
+    background: rgba(255, 107, 0, 0.8) !important;
+    color: #000 !important;
+    padding: 2px 6px !important;
+    font-size: 8px !important;
+    font-weight: bold !important;
+    border-radius: 2px !important;
+}
+
+/* Game Details z-index sicherstellen */
+.game-details {
+    z-index: 9999 !important;
+}
