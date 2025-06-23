@@ -54,6 +54,15 @@
                         🎮 GameDetails öffnen
                     </a>
                 </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon">⚡</div>
+                    <h3>GameEvents Review</h3>
+                    <p>Detaillierte Ansicht aller Spielereignisse, Tore, Strafen mit Season-Management</p>
+                    <a href="/dev/gameevents.html" class="btn btn-success">
+                        ⚡ GameEvents öffnen
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -143,8 +152,36 @@
                         <button class="btn btn-secondary btn-small" onclick="executeGameDetailsAllCrawling()">
                             🌐 Legacy Crawl (alle)
                         </button>
+                        <button class="btn btn-danger btn-small" onclick="executeGameDetailsDelete()">
+                            🗑️ Season löschen
+                        </button>
                     </div>
                     <div class="backend-status" id="gameDetailsStatus"></div>
+                </div>
+
+                <div class="backend-card">
+                    <div class="backend-icon">⚡</div>
+                    <h3>Game Events Crawling</h3>
+                    <p>Crawle Spielereignisse (Tore, Strafen, etc.) von Swiss Unihockey API für gewählte Saison</p>
+                    <select class="season-select" id="gameEventsSeasonSelect">
+                        <option value="2025/26">2025/26 (Aktuell)</option>
+                        <option value="all">Alle verfügbaren Seasons</option>
+                        <option value="2024/25">2024/25</option>
+                        <option value="2023/24">2023/24</option>
+                        <option value="2022/23">2022/23</option>
+                    </select>
+                    <div class="game-events-actions" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-info btn-small" onclick="executeGameEventsCrawling()">
+                            ⚡ Season crawlen
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="executeGameEventsAllCrawling()">
+                            🌐 Legacy Crawl (alle)
+                        </button>
+                        <button class="btn btn-danger btn-small" onclick="executeGameEventsDelete()">
+                            🗑️ Season löschen
+                        </button>
+                    </div>
+                    <div class="backend-status" id="gameEventsStatus"></div>
                 </div>
             </div>
         </div>
@@ -179,6 +216,10 @@
             <div class="stat-card">
                 <span class="stat-value" id="gameDetailsCount">-</span>
                 <span class="stat-label">Game Details</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="gameEventsCount">-</span>
+                <span class="stat-label">Game Events</span>
             </div>
             <div class="stat-card">
                 <span class="stat-value" id="bracketSorted">-</span>
@@ -398,6 +439,162 @@
                 updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
             }
         }
+
+        // Game Details Season löschen
+        async function executeGameDetailsDelete() {
+            const season = document.getElementById('gameDetailsSeasonSelect').value;
+            
+            if (season === 'all') {
+                updateBackendStatus('gameDetailsStatus', '❌ Löschung für "alle Seasons" nicht verfügbar', 'error');
+                return;
+            }
+            
+            if (!confirm(`Game Details für Season ${season} wirklich löschen?`)) {
+                return;
+            }
+            
+            updateBackendStatus('gameDetailsStatus', `⏳ Game Details für Season ${season} werden gelöscht...`, 'loading');
+            
+            try {
+                const response = await fetch(`/api/game-details/season/${encodeURIComponent(season)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.deleted !== undefined) {
+                    updateBackendStatus('gameDetailsStatus', `✅ Season ${season} gelöscht: ${result.deleted} Einträge entfernt`, 'success');
+                } else {
+                    updateBackendStatus('gameDetailsStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+
+        // ===== GAME EVENTS FUNCTIONS =====
+        
+        // Game Events Crawling - Season-spezifisch
+        async function executeGameEventsCrawling() {
+            const season = document.getElementById('gameEventsSeasonSelect').value;
+            
+            if (season === 'all') {
+                updateBackendStatus('gameEventsStatus', '⏳ Game Events für alle verfügbaren Seasons werden gecrawlt...', 'loading');
+                
+                try {
+                    // Erst verfügbare Seasons laden
+                    const seasonsResponse = await fetch('/api/game-events/seasons');
+                    const seasons = await seasonsResponse.json();
+                    
+                    if (!Array.isArray(seasons) || seasons.length === 0) {
+                        updateBackendStatus('gameEventsStatus', '❌ Keine verfügbaren Seasons gefunden', 'error');
+                        return;
+                    }
+                    
+                    let totalSuccess = 0;
+                    let totalErrors = 0;
+                    let totalEvents = 0;
+                    
+                    // Jede Season einzeln crawlen
+                    for (const seasonToCrawl of seasons) {
+                        updateBackendStatus('gameEventsStatus', `⏳ Crawle Events Season ${seasonToCrawl}... (${seasons.indexOf(seasonToCrawl) + 1}/${seasons.length})`, 'loading');
+                        
+                        const response = await fetch(`/api/crawl-game-events/${encodeURIComponent(seasonToCrawl)}`, {
+                            method: 'POST'
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success !== undefined) {
+                            totalSuccess += result.success;
+                            totalErrors += result.errors;
+                            totalEvents += result.totalEvents || 0;
+                        }
+                        
+                        // Kurze Pause zwischen Seasons
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                    
+                    updateBackendStatus('gameEventsStatus', `✅ Alle Events Seasons gecrawlt: ${totalSuccess} Games, ${totalEvents} Events, ${totalErrors} Fehler`, 'success');
+                    
+                } catch (error) {
+                    updateBackendStatus('gameEventsStatus', `❌ Fehler beim Crawlen aller Events Seasons: ${error.message}`, 'error');
+                }
+                
+            } else {
+                // Einzelne Season crawlen
+                updateBackendStatus('gameEventsStatus', `⏳ Game Events für Season ${season} werden gecrawlt...`, 'loading');
+                
+                try {
+                    const response = await fetch(`/api/crawl-game-events/${encodeURIComponent(season)}`, {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success !== undefined) {
+                        updateBackendStatus('gameEventsStatus', `✅ Events Season ${season} gecrawlt: ${result.success} Games, ${result.totalEvents || 0} Events, ${result.errors} Fehler`, 'success');
+                    } else {
+                        updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Legacy Game Events Crawling (alte Methode)
+        async function executeGameEventsAllCrawling() {
+            updateBackendStatus('gameEventsStatus', '⏳ Legacy Game Events Crawling (alle Cup-Spiele)...', 'loading');
+            
+            try {
+                const response = await fetch('/api/crawl-game-events', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success !== undefined) {
+                    updateBackendStatus('gameEventsStatus', `✅ Legacy Events Crawling abgeschlossen: ${result.success} Games, ${result.totalEvents || 0} Events, ${result.errors} Fehler`, 'success');
+                } else {
+                    updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+
+        // Game Events Season löschen
+        async function executeGameEventsDelete() {
+            const season = document.getElementById('gameEventsSeasonSelect').value;
+            
+            if (season === 'all') {
+                updateBackendStatus('gameEventsStatus', '❌ Löschung für "alle Seasons" nicht verfügbar', 'error');
+                return;
+            }
+            
+            if (!confirm(`Game Events für Season ${season} wirklich löschen?`)) {
+                return;
+            }
+            
+            updateBackendStatus('gameEventsStatus', `⏳ Game Events für Season ${season} werden gelöscht...`, 'loading');
+            
+            try {
+                const response = await fetch(`/api/game-events/season/${encodeURIComponent(season)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.deleted !== undefined) {
+                    updateBackendStatus('gameEventsStatus', `✅ Events Season ${season} gelöscht: ${result.deleted} Einträge entfernt`, 'success');
+                } else {
+                    updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
         
         function updateBackendStatus(elementId, message, type) {
             const element = document.getElementById(elementId);
@@ -427,6 +624,18 @@
                     }
                 } catch (error) {
                     document.getElementById('gameDetailsCount').textContent = '0';
+                }
+
+                // Game Events Stats laden
+                try {
+                    const gameEventsResponse = await fetch('/api/game-events/stats');
+                    const gameEventsStats = await gameEventsResponse.json();
+                    
+                    if (gameEventsStats.totalEvents !== undefined) {
+                        document.getElementById('gameEventsCount').textContent = gameEventsStats.totalEvents.toLocaleString();
+                    }
+                } catch (error) {
+                    document.getElementById('gameEventsCount').textContent = '0';
                 }
                 
                 const bracketResponse = await fetch('/bracket-sorting-status');
