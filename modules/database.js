@@ -244,19 +244,19 @@ async function getGameFromDB(db, gameId) {
 async function saveGameToDB(db, gameData) {
   const insertQuery = `
     INSERT INTO games 
-    (gamesd, team1, team2, roundname, roundId, tournamentid, tournamentname, 
-     season, cuptype, gender, fieldType, gamedate, gametime, venue, status, 
-     result, source, apidndpoint, link, hometeamscore, awayteamscore, 
-     gamelocation, referees, spectators, notes, numericgameid, bracketsortorder, updatedat)
+    ("gameid", team1, team2, "roundname", "roundid", "tournamentid", "tournamentname", 
+    season, "cuptype", gender, "fieldtype", "gamedate", "gametime", venue, status, 
+    result, source, "apiendpoint", link, "hometeamscore", "awayteamscore", 
+    "gamelocation", referees, spectators, notes, "numericgameid", "bracketsortorder", "updatedat")
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, CURRENT_TIMESTAMP)
-    ON CONFLICT (gameId) DO NOTHING
-    RETURNING gameId;
+    ON CONFLICT ("gameid") DO NOTHING
+    RETURNING "gameid";
   `;
   
   const values = [
     gameData.gameId, gameData.team1, gameData.team2, gameData.roundName,
-    gameData.roundId, gameData.tournamentid, gameData.tournamentName,
-    gameData.season, gameData.cupType, gameData.gender, gameData.fieldType,
+    gameData.roundid, gameData.tournamentid, gameData.tournamentName,
+    gameData.season, gameData.cupType, gameData.gender, gameData.fieldtype,
     gameData.gameDate, gameData.gameTime, gameData.venue, gameData.status,
     gameData.result, gameData.source, gameData.apiEndpoint, gameData.link,
     gameData.homeTeamScore || null, gameData.awayTeamScore || null,

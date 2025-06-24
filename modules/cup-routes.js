@@ -1,4 +1,4 @@
-// modules/cup-routes.js - Cup-Crawling Routen mit Smart Skip Logic
+// modules/cup-routes.js - Cup-Crawling Routen mit Smart Skip Logic (PostgreSQL)
 
 const dbHelpers = require('./database');
 
@@ -34,7 +34,7 @@ const CUP_CONFIGS = {
   }
 };
 
-function register(app, pool) {  // ← pool statt db
+function register(app, pool) {  // pool statt db
   console.log('🔧 Registriere Cup-Routen...');
 
   // GET /crawl-cup - Hauptcrawler für spezifische Cups
@@ -127,7 +127,7 @@ function register(app, pool) {  // ← pool statt db
             }
             
             // 🎯 SMART LOGIC: Prüfe existierendes Spiel
-            const existingGame = await dbHelpers.getGameFromDB(pool, uniqueGameId);  // ← pool
+            const existingGame = await dbHelpers.getGameFromDB(pool, uniqueGameId);
             
             if (existingGame) {
               // Spiel existiert bereits - prüfe ob es gespielt wurde
@@ -143,7 +143,7 @@ function register(app, pool) {  // ← pool statt db
                 // 🔄 UPDATE: Spiel hat neues/anderes Resultat
                 console.log(`🔄 UPDATE: ${game.team1} vs ${game.team2} - Resultat geändert: "${existingGame.result}" → "${currentResult}"`);
                 
-                await updateGameInDB(pool, uniqueGameId, {  // ← pool
+                await updateGameInDB(pool, uniqueGameId, {
                   result: currentResult,
                   status: currentResult ? 'finished' : 'scheduled'
                 });
@@ -160,7 +160,7 @@ function register(app, pool) {  // ← pool statt db
                 // 🆕 NEW RESULT: Spiel war unentschieden, hat jetzt Resultat
                 console.log(`🆕 NEW RESULT: ${game.team1} vs ${game.team2} - Neues Resultat: "${currentResult}"`);
                 
-                await updateGameInDB(pool, uniqueGameId, {  // ← pool
+                await updateGameInDB(pool, uniqueGameId, {
                   result: currentResult,
                   status: 'finished'
                 });
@@ -196,7 +196,7 @@ function register(app, pool) {  // ← pool statt db
                 team2: game.team2,
                 roundName: round.name,
                 roundId: round.id,
-                tournamentid: tournament.id,
+                tournamentId: tournament.id,
                 tournamentName: tournament.name,
                 season: tournament.season,
                 cupType: cupType,
@@ -220,7 +220,7 @@ function register(app, pool) {  // ← pool statt db
               };
               
               try {
-                const saveResult = await dbHelpers.saveGameToDB(pool, gameData);  // ← pool
+                const saveResult = await dbHelpers.saveGameToDB(pool, gameData);
                 if (saveResult.changes > 0) {
                   console.log(`✅ SAVED: ${game.team1} vs ${game.team2} saved to DB`);
                   game.fromCache = false;
@@ -298,12 +298,12 @@ function register(app, pool) {  // ← pool statt db
   console.log('✅ Cup-Routen registriert');
 }
 
-// 🔄 Neue Hilfsfunktion: Update Game in DB - PostgreSQL-Version
+// 🔄 Update Game in DB - PostgreSQL-Version
 async function updateGameInDB(pool, gameId, updates) {
-  const fields = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`).join(', ');
+  const fields = Object.keys(updates).map((key, index) => `"${key}" = $${index + 1}`).join(', ');
   const values = Object.values(updates);
   
-  const sql = `UPDATE games SET ${fields} WHERE gameid = $${values.length + 1}`;  // ← gameid (lowercase)
+  const sql = `UPDATE games SET ${fields} WHERE "gameId" = $${values.length + 1}`;
   
   const result = await pool.query(sql, [...values, gameId]);
   return { changes: result.rowCount || 0 };
@@ -368,7 +368,7 @@ function findRelevantTournament(cupData, cupType, requestedSeason = null) {
     
     console.log(`📅 Using season: ${currentSeason.text}`);
     
-    const knowntournamentids = {
+    const knownTournamentIds = {
       'herren_grossfeld': {
         '2025/26': '406151', // Mobiliar Unihockey Cup Männer
         '2024/25': '406115', // Mobiliar Unihockey Cup Herren
@@ -395,16 +395,16 @@ function findRelevantTournament(cupData, cupType, requestedSeason = null) {
       }
     };
     
-    const tournamentid = knowntournamentids[cupType]?.[currentSeason.text];
+    const tournamentId = knownTournamentIds[cupType]?.[currentSeason.text];
     
-    if (tournamentid) {
+    if (tournamentId) {
       const tournament = currentSeason.entries?.find(entry => 
-        entry.set_in_context.tournament_id.toString() === tournamentid
+        entry.set_in_context.tournament_id.toString() === tournamentId
       );
       
       return {
-        id: tournamentid,
-        name: tournament?.text || `Unknown Tournament ${tournamentid}`,
+        id: tournamentId,
+        name: tournament?.text || `Unknown Tournament ${tournamentId}`,
         season: currentSeason.text,
         gameCount: 0
       };
@@ -418,11 +418,11 @@ function findRelevantTournament(cupData, cupType, requestedSeason = null) {
   }
 }
 
-async function getCupRounds(tournamentid) {
+async function getCupRounds(tournamentId) {
   try {
-    console.log(`🔍 Getting rounds for tournament ${tournamentid}...`);
+    console.log(`🔍 Getting rounds for tournament ${tournamentId}...`);
     
-    const response = await fetch(`https://api-v2.swissunihockey.ch/api/cups/?tournament_id=${tournamentid}`, {
+    const response = await fetch(`https://api-v2.swissunihockey.ch/api/cups/?tournament_id=${tournamentId}`, {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'SwissCup-Crawler/1.0'
@@ -453,7 +453,7 @@ async function getCupRounds(tournamentid) {
       }
     }
     
-    throw new Error(`Failed to get rounds for tournament ${tournamentid}`);
+    throw new Error(`Failed to get rounds for tournament ${tournamentId}`);
     
   } catch (error) {
     console.error(`❌ Error getting rounds: ${error.message}`);
@@ -461,11 +461,11 @@ async function getCupRounds(tournamentid) {
   }
 }
 
-async function getCupGamesByRound(tournamentid, roundId, side = 'left') {
+async function getCupGamesByRound(tournamentId, roundId, side = 'left') {
   try {
-    console.log(`🎮 Getting games for tournament ${tournamentid}, round ${roundId}, side ${side}...`);
+    console.log(`🎮 Getting games for tournament ${tournamentId}, round ${roundId}, side ${side}...`);
     
-    const endpoint = `/api/games?mode=cup&tournament_id=${tournamentid}&round=${roundId}&side=${side}`;
+    const endpoint = `/api/games?mode=cup&tournament_id=${tournamentId}&round=${roundId}&side=${side}`;
     
     const response = await fetch(`https://api-v2.swissunihockey.ch${endpoint}`, {
       headers: {

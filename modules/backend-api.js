@@ -1,4 +1,4 @@
-// modules/backend-api.js - Backend Interface API Routes
+// modules/backend-api.js - Backend Interface API Routes (PostgreSQL)
 
 const autoCrawl = require('./auto-crawl');
 const bracketSorting = require('./bracket-sorting');
@@ -16,7 +16,7 @@ const CURRENT_CUPS = [
 /**
  * Registriert alle Backend API Routes
  */
-function register(app, pool) {  // ← pool statt db
+function register(app, pool) {  // pool statt db
   console.log('🔧 Registriere Backend API Routes...');
 
   // POST /api/backend/quick-update
@@ -34,7 +34,7 @@ function register(app, pool) {  // ← pool statt db
       // 1. Prognose Cleanup
       console.log('Step 1/4: Prognose Cleanup...');
       for (const cupType of CURRENT_CUPS) {
-        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, CURRENT_SEASON);  // ← pool
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, CURRENT_SEASON);
         results.prognoseCleanup += deleted;
       }
 
@@ -45,9 +45,9 @@ function register(app, pool) {  // ← pool statt db
       // 3. Bracket-Sortierung
       console.log('Step 3/4: Bracket-Sortierung...');
       try {
-        await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
+        await bracketSorting.addBracketSortOrderColumn(pool);
         for (const cup of CURRENT_CUPS) {
-          await bracketSorting.calculateBracketSortingForEvent(pool, cup, CURRENT_SEASON);  // ← pool
+          await bracketSorting.calculateBracketSortingForEvent(pool, cup, CURRENT_SEASON);
         }
         results.bracketSorting = true;
       } catch (error) {
@@ -56,7 +56,7 @@ function register(app, pool) {  // ← pool statt db
 
       // 4. Prognose-Spiele
       console.log('Step 4/4: Prognose-Spiele...');
-      results.prognoseGeneration = await prognoseGames.generatePrognoseForAllCups(pool, CURRENT_SEASON);  // ← pool
+      results.prognoseGeneration = await prognoseGames.generatePrognoseForAllCups(pool, CURRENT_SEASON);
 
       res.json({
         success: true,
@@ -130,10 +130,10 @@ function register(app, pool) {  // ← pool statt db
       
       console.log(`🎯 Backend API: Bracket-Sortierung für Saison ${targetSeason}`);
       
-      await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
+      await bracketSorting.addBracketSortOrderColumn(pool);
       
       for (const cup of CURRENT_CUPS) {
-        await bracketSorting.calculateBracketSortingForEvent(pool, cup, targetSeason);  // ← pool
+        await bracketSorting.calculateBracketSortingForEvent(pool, cup, targetSeason);
       }
       
       res.json({
@@ -156,8 +156,8 @@ function register(app, pool) {  // ← pool statt db
     try {
       console.log('🎯 Backend API: Bracket-Sortierung für alle Saisons');
       
-      await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
-      await bracketSorting.calculateBracketSortingForAll(pool);  // ← pool
+      await bracketSorting.addBracketSortOrderColumn(pool);
+      await bracketSorting.calculateBracketSortingForAll(pool);
       
       res.json({
         success: true,
@@ -180,7 +180,7 @@ function register(app, pool) {  // ← pool statt db
       
       let totalDeleted = 0;
       for (const cupType of CURRENT_CUPS) {
-        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, CURRENT_SEASON);  // ← pool
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, CURRENT_SEASON);
         totalDeleted += deleted;
       }
       
@@ -205,7 +205,7 @@ function register(app, pool) {  // ← pool statt db
     try {
       console.log(`🔮 Backend API: Prognose-Generierung für Saison ${CURRENT_SEASON}`);
       
-      const results = await prognoseGames.generatePrognoseForAllCups(pool, CURRENT_SEASON);  // ← pool
+      const results = await prognoseGames.generatePrognoseForAllCups(pool, CURRENT_SEASON);
       
       res.json({
         success: true,
@@ -283,7 +283,6 @@ async function crawlCurrentSeason(season) {
 async function crawlCup(baseUrl, cup, season, skipPlayed = false) {
   const url = `${baseUrl}/crawl-cup?cup=${cup}&season=${encodeURIComponent(season)}${skipPlayed ? '&skipPlayed=true' : ''}`;
   
-  const fetch = require('node-fetch');
   const response = await fetch(url, {
     method: 'GET'
   });

@@ -1,9 +1,9 @@
 // modules/bracket-routes.js
-// Express-Routen für Bracket-Sortierung
+// Express-Routen für Bracket-Sortierung (PostgreSQL)
 
 const bracketSorting = require('./bracket-sorting');
 
-function register(app, pool) {  // ← pool statt db
+function register(app, pool) {  // pool statt db
     
     /**
      * POST /calculate-bracket-sorting
@@ -13,11 +13,11 @@ function register(app, pool) {  // ← pool statt db
         try {
             console.log('🎯 API call: Calculate bracket sorting for all events');
             
-            // Stelle sicher, dass bracketSortOrder Spalte existiert
-            await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
+            // Stelle sicher, dass bracketsortorder Spalte existiert
+            await bracketSorting.addBracketSortOrderColumn(pool);
             
             // Berechne Sortierung für alle Events
-            await bracketSorting.calculateBracketSortingForAll(pool);  // ← pool
+            await bracketSorting.calculateBracketSortingForAll(pool);
             
             res.json({
                 success: true,
@@ -35,34 +35,34 @@ function register(app, pool) {  // ← pool statt db
     });
     
     /**
-     * POST /calculate-bracket-sorting/:cupType/:season
+     * POST /calculate-bracket-sorting/:cuptype/:season
      * Berechnet Bracket-Sortierung für ein spezifisches Event
      */
-    app.post('/calculate-bracket-sorting/:cupType/:season', async (req, res) => {
+    app.post('/calculate-bracket-sorting/:cuptype/:season', async (req, res) => {
         try {
-            const { cupType, season } = req.params;
-            console.log(`🎯 API call: Calculate bracket sorting for ${cupType} - ${season}`);
+            const { cuptype, season } = req.params;
+            console.log(`🎯 API call: Calculate bracket sorting for ${cuptype} - ${season}`);
             
-            // Stelle sicher, dass bracketSortOrder Spalte existiert
-            await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
+            // Stelle sicher, dass bracketsortorder Spalte existiert
+            await bracketSorting.addBracketSortOrderColumn(pool);
             
             // Berechne Sortierung für spezifisches Event
-            await bracketSorting.calculateBracketSortingForEvent(pool, cupType, season);  // ← pool
+            await bracketSorting.calculateBracketSortingForEvent(pool, cuptype, season);
             
             res.json({
                 success: true,
-                message: `Bracket sorting calculated successfully for ${cupType} - ${season}`,
-                cupType,
+                message: `Bracket sorting calculated successfully for ${cuptype} - ${season}`,
+                cuptype,
                 season,
                 timestamp: new Date().toISOString()
             });
             
         } catch (error) {
-            console.error(`❌ Error calculating bracket sorting for ${cupType} - ${season}:`, error);
+            console.error(`❌ Error calculating bracket sorting for ${cuptype} - ${season}:`, error);
             res.status(500).json({
                 success: false,
                 error: error.message,
-                cupType: req.params.cupType,
+                cuptype: req.params.cuptype,
                 season: req.params.season
             });
         }
@@ -76,14 +76,14 @@ function register(app, pool) {  // ← pool statt db
         try {
             const query = `
                 SELECT 
-                    cuptype,
+                    "cuptype",
                     season,
-                    COUNT(*) as totalGames,
-                    COUNT(bracketsortorder) as sortedGames,
-                    ROUND(COUNT(bracketsortorder) * 100.0 / COUNT(*), 1) as sortingPercentage
+                    COUNT(*) as "totalGames",
+                    COUNT("bracketsortorder") as "sortedGames",
+                    ROUND(COUNT("bracketsortorder") * 100.0 / COUNT(*), 1) as "sortingPercentage"
                 FROM games
-                GROUP BY cuptype, season
-                ORDER BY cuptype, season
+                GROUP BY "cuptype", season
+                ORDER BY "cuptype", season
             `;
             
             const result = await pool.query(query);
@@ -104,54 +104,54 @@ function register(app, pool) {  // ← pool statt db
     });
     
     /**
-     * GET /bracket-sorting-details/:cupType/:season
+     * GET /bracket-sorting-details/:cuptype/:season
      * Zeigt detaillierte Bracket-Sortierung für ein Event
      */
-    app.get('/bracket-sorting-details/:cupType/:season', async (req, res) => {
+    app.get('/bracket-sorting-details/:cuptype/:season', async (req, res) => {
         try {
-            const { cupType, season } = req.params;
+            const { cuptype, season } = req.params;
             
             const query = `
                 SELECT 
-                    roundname,
-                    gameid,
-                    numericgameid,
-                    bracketsortorder,
+                    "roundName",
+                    "gameId",
+                    "numericGameId",
+                    "bracketsortorder",
                     team1,
                     team2,
                     result
                 FROM games
-                WHERE cuptype = $1 AND season = $2
+                WHERE "cuptype" = $1 AND season = $2
                 ORDER BY 
                     CASE 
-                        WHEN roundname ILIKE '%finale%' OR roundname ILIKE '%final%' OR roundname ILIKE '%1/1%' THEN 1000
-                        WHEN roundname ILIKE '%halbfinale%' OR roundname ILIKE '%1/2%' THEN 900
-                        WHEN roundname ILIKE '%viertelfinale%' OR roundname ILIKE '%1/4%' THEN 800
-                        WHEN roundname ILIKE '%achtelfinale%' OR roundname ILIKE '%1/8%' THEN 700
-                        WHEN roundname ILIKE '%1/16%' THEN 600
-                        WHEN roundname ILIKE '%1/32%' THEN 500
-                        WHEN roundname ILIKE '%1/64%' THEN 400
-                        WHEN roundname ILIKE '%1/128%' THEN 300
+                        WHEN "roundName" ILIKE '%finale%' OR "roundName" ILIKE '%final%' OR "roundName" ILIKE '%1/1%' THEN 1000
+                        WHEN "roundName" ILIKE '%halbfinale%' OR "roundName" ILIKE '%1/2%' THEN 900
+                        WHEN "roundName" ILIKE '%viertelfinale%' OR "roundName" ILIKE '%1/4%' THEN 800
+                        WHEN "roundName" ILIKE '%achtelfinale%' OR "roundName" ILIKE '%1/8%' THEN 700
+                        WHEN "roundName" ILIKE '%1/16%' THEN 600
+                        WHEN "roundName" ILIKE '%1/32%' THEN 500
+                        WHEN "roundName" ILIKE '%1/64%' THEN 400
+                        WHEN "roundName" ILIKE '%1/128%' THEN 300
                         ELSE 100
                     END DESC,
-                    bracketsortorder ASC,
-                    CAST(numericgameid AS INTEGER) ASC
+                    "bracketsortorder" ASC,
+                    CAST("numericGameId" AS INTEGER) ASC
             `;
             
-            const result = await pool.query(query, [cupType, season]);
+            const result = await pool.query(query, [cuptype, season]);
             
             // Gruppiere nach Runden
             const rounds = {};
             result.rows.forEach(game => {
-                if (!rounds[game.roundname]) {
-                    rounds[game.roundname] = [];
+                if (!rounds[game.roundName]) {
+                    rounds[game.roundName] = [];
                 }
-                rounds[game.roundname].push(game);
+                rounds[game.roundName].push(game);
             });
             
             res.json({
                 success: true,
-                cupType,
+                cuptype,
                 season,
                 totalGames: result.rows.length,
                 rounds,
@@ -159,7 +159,7 @@ function register(app, pool) {  // ← pool statt db
             });
             
         } catch (error) {
-            console.error(`❌ Error getting bracket sorting details for ${cupType} - ${season}:`, error);
+            console.error(`❌ Error getting bracket sorting details for ${cuptype} - ${season}:`, error);
             res.status(500).json({
                 success: false,
                 error: error.message

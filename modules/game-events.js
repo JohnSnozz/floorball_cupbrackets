@@ -1,7 +1,5 @@
 // modules/game-events.js - GameEvents mit Saison-Management (PostgreSQL)
 
-const fetch = require('node-fetch');
-
 class GameEventsManager {
   constructor(pool) {
     this.pool = pool;
@@ -10,9 +8,9 @@ class GameEventsManager {
 
   async setupTable() {
     try {
-      // GameEvents Tabelle für Event-Daten erstellen - nur essenzielle Felder
+      // GameEvents Tabelle für Event-Daten erstellen - lowercase für PostgreSQL
       const createTableSQL = `
-        CREATE TABLE IF NOT EXISTS gameEvents (
+        CREATE TABLE IF NOT EXISTS gameevents (
           id SERIAL PRIMARY KEY,
           game_id VARCHAR(50) NOT NULL,
           event_id VARCHAR(100) NOT NULL,
@@ -21,40 +19,34 @@ class GameEventsManager {
           event_type VARCHAR(100),
           team VARCHAR(255),
           player_name VARCHAR(255),
-          rawData TEXT,
-          lastUpdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          rawdata TEXT,
+          lastupdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           UNIQUE(game_id, event_id)
         )
       `;
       
       await this.pool.query(createTableSQL);
       console.log('✅ GameEvents Tabelle bereit (Game Events API)');
-      await this.addSeasonColumnIfMissing();
     } catch (err) {
       console.error('❌ Fehler beim Erstellen der gameEvents Tabelle:', err);
     }
   }
 
-  async addSeasonColumnIfMissing() {
+  async checkTableExists(tableName) {
     try {
-      // Prüfe ob season Spalte existiert
-      const columnExists = await this.checkColumnExists('gameevents', 'season');
-      console.log(`🔍 Debug: Season column exists in gameEvents: ${columnExists}`);
+      const query = `
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = $1
+        );
+      `;
       
-      if (!columnExists) {
-        await this.pool.query("ALTER TABLE gameEvents ADD COLUMN season VARCHAR(20)");
-        console.log('✅ Season Spalte zu gameEvents hinzugefügt');
-        await this.updateExistingSeasons();
-      } else {
-        console.log('ℹ️  Season Spalte bereits vorhanden in gameEvents');
-      }
+      const result = await this.pool.query(query, [tableName.toLowerCase()]);
+      return result.rows[0].exists;
     } catch (err) {
-      // Ignoriere "already exists" Fehler
-      if (err.code === '42701') {
-        console.log('ℹ️  Season Spalte bereits vorhanden in gameEvents (caught duplicate error)');
-      } else {
-        console.error('❌ Fehler beim Hinzufügen der season Spalte:', err);
-      }
+      console.error('❌ Fehler beim Prüfen der Tabelle:', err);
+      return false;
     }
   }
 
@@ -67,7 +59,6 @@ class GameEventsManager {
         );
       `;
       
-      // PostgreSQL speichert Namen in Kleinbuchstaben
       const result = await this.pool.query(query, [tableName.toLowerCase(), columnName.toLowerCase()]);
       return result.rows[0].exists;
     } catch (err) {
@@ -79,10 +70,10 @@ class GameEventsManager {
   async updateExistingSeasons() {
     try {
       const updateSQL = `
-        UPDATE gameEvents 
+        UPDATE gameevents 
         SET season = (
           SELECT season FROM games 
-          WHERE games.numericGameId::VARCHAR = gameEvents.game_id 
+          WHERE games.numericgameid::VARCHAR = gameevents.game_id 
           LIMIT 1
         )
         WHERE season IS NULL
@@ -153,9 +144,9 @@ class GameEventsManager {
     }
     
     const insertSQL = `
-      INSERT INTO gameEvents 
+      INSERT INTO gameevents 
       (game_id, event_id, season, minute, event_type, team, player_name, 
-       rawData, lastUpdated)
+       rawdata, lastupdated)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
       ON CONFLICT (game_id, event_id) DO UPDATE SET
         season = EXCLUDED.season,
@@ -163,8 +154,8 @@ class GameEventsManager {
         event_type = EXCLUDED.event_type,
         team = EXCLUDED.team,
         player_name = EXCLUDED.player_name,
-        rawData = EXCLUDED.rawData,
-        lastUpdated = CURRENT_TIMESTAMP
+        rawdata = EXCLUDED.rawdata,
+        lastupdated = CURRENT_TIMESTAMP
     `;
 
     let saved = 0;
@@ -192,7 +183,6 @@ class GameEventsManager {
     }
   }
 
-  // Get available seasons
   async getAvailableSeasons() {
     try {
       const seasonsSQL = `
@@ -210,12 +200,10 @@ class GameEventsManager {
     }
   }
 
-  // Crawl für spezifische Season
   async crawlGameEventsForSeason(season) {
     console.log(`🔍 Sammle GameEvents für Season ${season}...`);
     
     try {
-      // Prüfe ob games Tabelle existiert
       const tableCheck = await this.checkTableExists('games');
       
       if (!tableCheck) {
@@ -223,16 +211,15 @@ class GameEventsManager {
         return { success: 0, errors: 0, totalEvents: 0 };
       }
 
-      // Hole alle Games für spezifische Season
       const gamesSQL = `
-        SELECT DISTINCT numericGameId, team1, team2, cupType, season
+        SELECT DISTINCT numericgameid, team1, team2, cuptype, season
         FROM games 
         WHERE season = $1
-        AND numericGameId IS NOT NULL 
-        AND numericGameId != ''
+        AND numericgameid IS NOT NULL 
+        AND numericgameid > 0
         AND LOWER(team1) NOT LIKE '%freilos%' 
         AND LOWER(team2) NOT LIKE '%freilos%'
-        ORDER BY cupType, numericGameId
+        ORDER BY cuptype, numericgameid
       `;
 
       const gamesResult = await this.pool.query(gamesSQL, [season]);
@@ -257,7 +244,6 @@ class GameEventsManager {
             totalEvents += eventCount;
           }
           
-          // Progress anzeigen
           if (success % 10 === 0) {
             console.log(`📊 Progress Season ${season}: ${success}/${games.length} verarbeitet, ${totalEvents} Events`);
           }
@@ -266,7 +252,6 @@ class GameEventsManager {
           console.log(`❌ Fehler bei GameID ${game.numericgameid} (${game.team1} vs ${game.team2})`);
         }
 
-        // Rate limiting - 1 Request pro Sekunde
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
@@ -279,10 +264,9 @@ class GameEventsManager {
     }
   }
 
-  // Delete GameEvents für spezifische Season
   async deleteGameEventsForSeason(season) {
     try {
-      const deleteSQL = 'DELETE FROM gameEvents WHERE season = $1';
+      const deleteSQL = 'DELETE FROM gameevents WHERE season = $1';
       const result = await this.pool.query(deleteSQL, [season]);
       
       console.log(`🗑️ ${result.rowCount || 0} GameEvents für Season ${season} gelöscht`);
@@ -293,7 +277,6 @@ class GameEventsManager {
     }
   }
 
-  // Legacy: Crawl from all cups
   async crawlGameEventsFromCups() {
     console.log('🔍 Sammle GameEvents aus Cup-Daten...');
     
@@ -306,17 +289,17 @@ class GameEventsManager {
       }
 
       const gamesSQL = `
-        SELECT DISTINCT numericGameId, team1, team2, cupType, season
+        SELECT DISTINCT numericgameid, team1, team2, cuptype, season
         FROM games 
-        WHERE numericGameId IS NOT NULL 
-        AND numericGameId != ''
+        WHERE numericgameid IS NOT NULL 
+        AND numericgameid > 0
         AND LOWER(team1) NOT LIKE '%freilos%' 
         AND LOWER(team2) NOT LIKE '%freilos%'
-        AND numericGameId NOT IN (
-          SELECT DISTINCT game_id FROM gameEvents 
-          WHERE lastUpdated > CURRENT_TIMESTAMP - INTERVAL '1 day'
+        AND numericgameid NOT IN (
+          SELECT DISTINCT game_id FROM gameevents 
+          WHERE lastupdated > CURRENT_TIMESTAMP - INTERVAL '1 day'
         )
-        ORDER BY season DESC, cupType, numericGameId
+        ORDER BY season DESC, cuptype, numericgameid
       `;
 
       const gamesResult = await this.pool.query(gamesSQL);
@@ -364,13 +347,13 @@ class GameEventsManager {
   async getGameEventsStats() {
     const statsSQL = `
       SELECT 
-        COUNT(*) as totalEvents,
-        COUNT(DISTINCT game_id) as totalGames,
+        COUNT(*) as totalevents,
+        COUNT(DISTINCT game_id) as totalgames,
         COUNT(CASE WHEN event_type LIKE '%Torschütze%' THEN 1 END) as goals,
         COUNT(CASE WHEN event_type LIKE '%Strafe%' THEN 1 END) as penalties,
-        COUNT(CASE WHEN event_type = 'Bester Spieler' THEN 1 END) as bestPlayers,
+        COUNT(CASE WHEN event_type = 'Bester Spieler' THEN 1 END) as bestplayers,
         COUNT(DISTINCT season) as seasons
-      FROM gameEvents
+      FROM gameevents
     `;
     
     try {
@@ -378,7 +361,7 @@ class GameEventsManager {
       return result.rows[0];
     } catch (error) {
       console.error('❌ Fehler beim Abrufen der Stats:', error);
-      return { totalEvents: 0, totalGames: 0, goals: 0, penalties: 0, bestPlayers: 0, seasons: 0 };
+      return { totalevents: 0, totalgames: 0, goals: 0, penalties: 0, bestplayers: 0, seasons: 0 };
     }
   }
 
@@ -386,11 +369,11 @@ class GameEventsManager {
     const seasonStatsSQL = `
       SELECT 
         season,
-        COUNT(*) as totalEvents,
-        COUNT(DISTINCT game_id) as totalGames,
+        COUNT(*) as totalevents,
+        COUNT(DISTINCT game_id) as totalgames,
         COUNT(CASE WHEN event_type LIKE '%Torschütze%' THEN 1 END) as goals,
-        MAX(lastUpdated) as lastUpdate
-      FROM gameEvents 
+        MAX(lastupdated) as lastupdate
+      FROM gameevents 
       WHERE season IS NOT NULL
       GROUP BY season 
       ORDER BY season DESC
@@ -420,7 +403,7 @@ module.exports = {
     app.get('/api/game-events/:gameId', async (req, res) => {
       try {
         const result = await manager.pool.query(
-          'SELECT * FROM gameEvents WHERE game_id = $1 ORDER BY id', 
+          'SELECT * FROM gameevents WHERE game_id = $1 ORDER BY id', 
           [req.params.gameId]
         );
         
@@ -502,20 +485,20 @@ module.exports = {
         
         let sql = `
           SELECT game_id, event_id, season, minute, event_type, team, 
-                 player_name, lastUpdated
-          FROM gameEvents 
+                 player_name, lastupdated
+          FROM gameevents 
         `;
         
         let params = [];
         let conditions = [];
         
         if (season) {
-          conditions.push(`season = ${params.length + 1}`);
+          conditions.push(`season = $${params.length + 1}`);
           params.push(season);
         }
         
         if (gameId) {
-          conditions.push(`game_id = ${params.length + 1}`);
+          conditions.push(`game_id = $${params.length + 1}`);
           params.push(gameId);
         }
         
@@ -526,7 +509,7 @@ module.exports = {
         sql += ' ORDER BY game_id, id ';
         
         if (limit > 0) {
-          sql += ` LIMIT ${params.length + 1} OFFSET ${params.length + 2} `;
+          sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2} `;
           params.push(limit, offset);
         }
         

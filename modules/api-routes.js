@@ -1,4 +1,4 @@
-// modules/api-routes.js - API Routes für Frontend
+// modules/api-routes.js - API Routes für Frontend (PostgreSQL)
 
 // Cup-Konfigurationen (aus cup-routes.js übernommen)
 const CUP_CONFIGS = {
@@ -39,16 +39,10 @@ function register(app, db) {
         ORDER BY season DESC
       `;
       
-      db.all(query, [], (err, rows) => {
-        if (err) {
-          console.error('❌ Error fetching seasons:', err.message);
-          res.status(500).json({ error: err.message });
-        } else {
-          const seasons = rows.map(row => row.season);
-          console.log(`✅ Found ${seasons.length} seasons:`, seasons);
-          res.json(seasons);
-        }
-      });
+      const result = await db.query(query);
+      const seasons = result.rows.map(row => row.season);
+      console.log(`✅ Found ${seasons.length} seasons:`, seasons);
+      res.json(seasons);
       
     } catch (error) {
       console.error('❌ Error in /api/seasons:', error.message);
@@ -63,34 +57,29 @@ function register(app, db) {
       
       // Prüfe welche Cups tatsächlich Daten in der DB haben
       const query = `
-        SELECT DISTINCT cupType, COUNT(*) as gameCount
+        SELECT DISTINCT "cupType", COUNT(*) as "gameCount"
         FROM games 
-        WHERE cupType IS NOT NULL AND cupType != ''
-        GROUP BY cupType
-        HAVING gameCount > 0
-        ORDER BY cupType
+        WHERE "cupType" IS NOT NULL AND "cupType" != ''
+        GROUP BY "cupType"
+        HAVING COUNT(*) > 0
+        ORDER BY "cupType"
       `;
       
-      db.all(query, [], (err, rows) => {
-        if (err) {
-          console.error('❌ Error fetching cups:', err.message);
-          res.status(500).json({ error: err.message });
-        } else {
-          // Erstelle Cup-Liste basierend auf verfügbaren Daten
-          const availableCups = rows
-            .filter(row => CUP_CONFIGS[row.cupType])
-            .map(row => ({
-              id: row.cupType,
-              name: CUP_CONFIGS[row.cupType].name,
-              gameCount: row.gameCount
-            }));
-          
-          console.log(`✅ Found ${availableCups.length} cups with data:`, 
-                     availableCups.map(c => `${c.name} (${c.gameCount})`));
-          
-          res.json(availableCups);
-        }
-      });
+      const result = await db.query(query);
+      
+      // Erstelle Cup-Liste basierend auf verfügbaren Daten
+      const availableCups = result.rows
+        .filter(row => CUP_CONFIGS[row.cupType])
+        .map(row => ({
+          id: row.cupType,
+          name: CUP_CONFIGS[row.cupType].name,
+          gameCount: parseInt(row.gameCount)
+        }));
+      
+      console.log(`✅ Found ${availableCups.length} cups with data:`, 
+                 availableCups.map(c => `${c.name} (${c.gameCount})`));
+      
+      res.json(availableCups);
       
     } catch (error) {
       console.error('❌ Error in /api/cups:', error.message);
@@ -106,56 +95,56 @@ function register(app, db) {
       const queries = [
         // Statistiken pro Cup/Season
         `SELECT 
-           cupType, 
+           "cupType", 
            season, 
-           COUNT(*) as totalGames,
-           COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as playedGames,
-           COUNT(CASE WHEN source = 'prognose' THEN 1 END) as prognoseGames
+           COUNT(*) as "totalGames",
+           COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as "playedGames",
+           COUNT(CASE WHEN source = 'prognose' THEN 1 END) as "prognoseGames"
          FROM games 
-         GROUP BY cupType, season 
-         ORDER BY season DESC, cupType`,
+         GROUP BY "cupType", season 
+         ORDER BY season DESC, "cupType"`,
         
         // Aktuelle Season Statistiken
         `SELECT 
-           COUNT(*) as totalGames,
-           COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as playedGames,
-           COUNT(CASE WHEN source = 'prognose' THEN 1 END) as prognoseGames
+           COUNT(*) as "totalGames",
+           COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as "playedGames",
+           COUNT(CASE WHEN source = 'prognose' THEN 1 END) as "prognoseGames"
          FROM games 
          WHERE season = '2025/26'`,
          
         // Letzte Updates
         `SELECT 
-           cupType,
+           "cupType",
            season,
-           MAX(crawledAt) as lastUpdate
+           MAX("crawledAt") as "lastUpdate"
          FROM games 
          WHERE source != 'prognose'
-         GROUP BY cupType, season
-         ORDER BY lastUpdate DESC
+         GROUP BY "cupType", season
+         ORDER BY "lastUpdate" DESC
          LIMIT 10`
       ];
       
-      Promise.all(queries.map(query => 
-        new Promise((resolve, reject) => {
-          db.all(query, [], (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-          });
-        })
-      )).then(results => {
-        const stats = {
-          byCupSeason: results[0],
-          currentSeason: results[1][0] || { totalGames: 0, playedGames: 0, prognoseGames: 0 },
-          recentUpdates: results[2]
-        };
-        
-        console.log(`✅ Stats generated: ${stats.currentSeason.totalGames} games in current season`);
-        res.json(stats);
-        
-      }).catch(error => {
-        console.error('❌ Error generating stats:', error.message);
-        res.status(500).json({ error: error.message });
-      });
+      const results = await Promise.all(queries.map(query => db.query(query)));
+      
+      const stats = {
+        byCupSeason: results[0].rows,
+        currentSeason: results[1].rows[0] || { 
+          totalGames: 0, 
+          playedGames: 0, 
+          prognoseGames: 0 
+        },
+        recentUpdates: results[2].rows
+      };
+      
+      // Konvertiere String-Zahlen zu Integers
+      if (stats.currentSeason.totalGames) {
+        stats.currentSeason.totalGames = parseInt(stats.currentSeason.totalGames);
+        stats.currentSeason.playedGames = parseInt(stats.currentSeason.playedGames);
+        stats.currentSeason.prognoseGames = parseInt(stats.currentSeason.prognoseGames);
+      }
+      
+      console.log(`✅ Stats generated: ${stats.currentSeason.totalGames} games in current season`);
+      res.json(stats);
       
     } catch (error) {
       console.error('❌ Error in /api/stats:', error.message);

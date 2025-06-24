@@ -1,6 +1,6 @@
 // modules/game-routes.js - Routen für Spiel-Daten
 
-function register(app, pool) {  // ← pool statt db
+function register(app, pool) {
   console.log('🔧 Registriere Game-Routen...');
 
   // GET /games/all - Alle Spiele ohne Limit
@@ -8,7 +8,7 @@ function register(app, pool) {  // ← pool statt db
     console.log('📊 Fetching ALL games from database...');
     
     try {
-      const query = 'SELECT * FROM games ORDER BY crawledat DESC';  // ← crawledat (lowercase)
+      const query = 'SELECT * FROM games ORDER BY crawledAt DESC';
       const result = await pool.query(query);
       
       console.log(`✅ Returning ${result.rows.length} total games`);
@@ -29,17 +29,17 @@ function register(app, pool) {  // ← pool statt db
     console.log(`📊 Fetching games: cup=${cupType}, season=${season}, limit=${limit}`);
     
     try {
-      let query = 'SELECT * FROM games ORDER BY crawledat DESC LIMIT $1';  // ← crawledat + $1
+      let query = 'SELECT * FROM games ORDER BY crawledAt DESC LIMIT $1';
       let params = [limit];
       
       if (cupType && season) {
-        query = 'SELECT * FROM games WHERE cuptype = $1 AND season = $2 ORDER BY crawledat DESC LIMIT $3';  // ← cuptype (lowercase)
+        query = 'SELECT * FROM games WHERE cupType = $1 AND season = $2 ORDER BY crawledAt DESC LIMIT $3';
         params = [cupType, season, limit];
       } else if (cupType) {
-        query = 'SELECT * FROM games WHERE cuptype = $1 ORDER BY crawledat DESC LIMIT $2';  // ← cuptype (lowercase)
+        query = 'SELECT * FROM games WHERE cupType = $1 ORDER BY crawledAt DESC LIMIT $2';
         params = [cupType, limit];
       } else if (season) {
-        query = 'SELECT * FROM games WHERE season = $1 ORDER BY crawledat DESC LIMIT $2';
+        query = 'SELECT * FROM games WHERE season = $1 ORDER BY crawledAt DESC LIMIT $2';
         params = [season, limit];
       }
       
@@ -60,9 +60,9 @@ function register(app, pool) {  // ← pool statt db
     
     try {
       const queries = [
-        'SELECT season, cuptype, COUNT(*) as count FROM games GROUP BY season, cuptype ORDER BY season DESC, cuptype',  // ← cuptype (lowercase)
-        'SELECT COUNT(*) as totalgames FROM games',  // ← totalgames (lowercase)
-        'SELECT COUNT(DISTINCT tournamentid) as totaltournaments FROM games',  // ← tournamentid, totaltournaments (lowercase)
+        'SELECT season, cupType, COUNT(*) as count FROM games GROUP BY season, cupType ORDER BY season DESC, cupType',
+        'SELECT COUNT(*) as totalGames FROM games',
+        'SELECT COUNT(DISTINCT tournamentId) as totalTournaments FROM games',
         'SELECT status, COUNT(*) as count FROM games GROUP BY status'
       ];
       
@@ -70,8 +70,8 @@ function register(app, pool) {  // ← pool statt db
       
       const stats = {
         bySeason: results[0].rows,
-        totalGames: results[1].rows[0].totalgames,  // ← totalgames (lowercase)
-        totalTournaments: results[2].rows[0].totaltournaments,  // ← totaltournaments (lowercase)
+        totalGames: parseInt(results[1].rows[0].totalgames),
+        totalTournaments: parseInt(results[2].rows[0].totaltournaments),
         byStatus: results[3].rows
       };
       
@@ -122,21 +122,21 @@ function register(app, pool) {  // ← pool statt db
       };
       
       const query = `
-        SELECT DISTINCT cuptype, COUNT(*) as gamecount  
+        SELECT DISTINCT cupType, COUNT(*) as gameCount
         FROM games 
-        WHERE cuptype IS NOT NULL AND cuptype != ''
-        GROUP BY cuptype
+        WHERE cupType IS NOT NULL AND cupType != ''
+        GROUP BY cupType
         HAVING COUNT(*) > 0
-        ORDER BY cuptype
+        ORDER BY cupType
       `;
       
       const result = await pool.query(query);
       const availableCups = result.rows
-        .filter(row => CUP_CONFIGS[row.cuptype])  // ← cuptype (lowercase)
+        .filter(row => CUP_CONFIGS[row.cuptype])
         .map(row => ({
-          id: row.cuptype,  // ← cuptype (lowercase)
-          name: CUP_CONFIGS[row.cuptype].name,  // ← cuptype (lowercase)
-          gameCount: parseInt(row.gamecount)  // ← gamecount (lowercase)
+          id: row.cuptype,
+          name: CUP_CONFIGS[row.cuptype].name,
+          gameCount: parseInt(row.gamecount)
         }));
       
       console.log(`✅ Found ${availableCups.length} cups with data`);

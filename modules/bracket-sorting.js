@@ -6,7 +6,7 @@
 //
 // Schritte
 // 1. Bestimme die höchste bereits erfasste Runde (am nächsten zum
-//    Finale) und sortiere sie strikt nach `numericGameId`. Jedes Spiel
+//    Finale) und sortiere sie strikt nach `numericgameid`. Jedes Spiel
 //    erhält dabei den `bracketSortOrder` 1 … N.
 // 2. Baue aus dieser Basisrunde eine Team-Liste in genau dieser
 //    Reihenfolge (Heimteam, Auswärtsteam). Jedes Team erhält implizit
@@ -18,7 +18,7 @@
 // 4. Spiele mit Freilos werden dabei an jener Position einsortiert, an
 //    der der Freilos-Platz in der Team-Liste erscheint. Enthält eine
 //    Runde mehrere „Freilos vs Freilos"-Partien, werden sie in der
-//    aufsteigenden Reihenfolge ihrer `numericGameId` genutzt.
+//    aufsteigenden Reihenfolge ihrer `numericgameid` genutzt.
 // --------------------------------------------------------------
 
 /* eslint-disable no-console */
@@ -29,8 +29,8 @@ let pool = null;
 // --------------------------------------------------------------
 //            🔧  Hilfsfunktionen
 // --------------------------------------------------------------
-function getUnifiedRoundPriority(roundName) {
-  const name = (roundName || '').toLowerCase().trim();
+function getUnifiedRoundPriority(roundname) {
+  const name = (roundname || '').toLowerCase().trim();
   const fraction = name.match(/^1\/(\d+)$/);
   if (fraction) {
     const denom = parseInt(fraction[1], 10);
@@ -50,27 +50,27 @@ function isFreilosGame(game) {
 // --------------------------------------------------------------
 //            🧠  Kerne-Algorithmus
 // --------------------------------------------------------------
-async function calculateBracketSortingForEvent(poolOrDb, cupType, season) {
-  console.log(`\n🏒  Bracket-Sorting für ${cupType} – ${season}`);
+async function calculateBracketSortingForEvent(poolordb, cuptype, season) {
+  console.log(`\n🏒  Bracket-Sorting für ${cuptype} – ${season}`);
 
   // Bestimme ob wir PostgreSQL Pool oder SQLite DB verwenden
-  const isPostgreSQL = poolOrDb.query !== undefined;
+  const isPostgreSQL = poolordb.query !== undefined;
   
   // 1️⃣  Alle unterschiedlichen Runden holen & nach Priorität sortieren (Finale ➜ erste Stelle)
   let roundRows;
   
   if (isPostgreSQL) {
-    const result = await poolOrDb.query(
-      'SELECT DISTINCT roundName FROM games WHERE cupType = $1 AND season = $2',
-      [cupType, season]
+    const result = await poolordb.query(
+      'SELECT DISTINCT roundname FROM games WHERE cuptype = $1 AND season = $2',
+      [cuptype, season]
     );
     roundRows = result.rows;
   } else {
     // SQLite Fallback (falls noch verwendet)
     roundRows = await new Promise((resolve, reject) => {
-      poolOrDb.all(
-        'SELECT DISTINCT roundName FROM games WHERE cupType = ? AND season = ?',
-        [cupType, season],
+      poolordb.all(
+        'SELECT DISTINCT roundname FROM games WHERE cuptype = ? AND season = ?',
+        [cuptype, season],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
@@ -84,20 +84,20 @@ async function calculateBracketSortingForEvent(poolOrDb, cupType, season) {
     return;
   }
   
-  roundRows.sort((a, b) => getUnifiedRoundPriority(b.roundname || b.roundName) - getUnifiedRoundPriority(a.roundname || a.roundName));
-  const orderedRoundNames = roundRows.map((r) => r.roundname || r.roundName);
+  roundRows.sort((a, b) => getUnifiedRoundPriority(b.roundname || b.roundname) - getUnifiedRoundPriority(a.roundname || a.roundname));
+  const orderedRoundNames = roundRows.map((r) => r.roundname || r.roundname);
 
   // 2️⃣  Basisrunde bestimmen (= erste Runde in orderedRoundNames)
   const baseRound = orderedRoundNames[0];
   console.log(`🎯  Basisrunde (höchste gespielte Runde): ${baseRound}`);
 
-  await sortRoundByNumericGameId(poolOrDb, cupType, season, baseRound, isPostgreSQL);
+  await sortRoundByNumericGameId(poolordb, cuptype, season, baseRound, isPostgreSQL);
 
   // 3️⃣  Rückwärts alle weiteren Runden sortieren
   for (let i = 1; i < orderedRoundNames.length; i += 1) {
     const currentRound = orderedRoundNames[i];
     const nextRound = orderedRoundNames[i - 1]; // bereits sortiert
-    await sortRoundBasedOnNextRound(poolOrDb, cupType, season, currentRound, nextRound, isPostgreSQL);
+    await sortRoundBasedOnNextRound(poolordb, cuptype, season, currentRound, nextRound, isPostgreSQL);
   }
 
   console.log('✅  Bracket-Sorting abgeschlossen');
@@ -106,23 +106,23 @@ async function calculateBracketSortingForEvent(poolOrDb, cupType, season) {
 // --------------------------------------------------------------
 //            🔄  Runden-Sortierung
 // --------------------------------------------------------------
-async function sortRoundByNumericGameId(poolOrDb, cupType, season, roundName, isPostgreSQL) {
-  console.log(`   ➜ Sortiere ${roundName} nach numericGameId …`);
+async function sortRoundByNumericGameId(poolordb, cuptype, season, roundname, isPostgreSQL) {
+  console.log(`   ➜ Sortiere ${roundname} nach numericgameid …`);
   
   let games;
   
   if (isPostgreSQL) {
-    const result = await poolOrDb.query(
-      `SELECT gameId, numericGameId FROM games WHERE cupType = $1 AND season = $2 AND roundName = $3 ORDER BY CAST(numericGameId AS INTEGER) ASC`,
-      [cupType, season, roundName]
+    const result = await poolordb.query(
+      `SELECT gameId, numericgameid FROM games WHERE cuptype = $1 AND season = $2 AND roundname = $3 ORDER BY CAST(numericgameid AS INTEGER) ASC`,
+      [cuptype, season, roundname]
     );
     games = result.rows;
   } else {
     // SQLite Fallback
     games = await new Promise((resolve, reject) => {
-      poolOrDb.all(
-        `SELECT gameId, numericGameId FROM games WHERE cupType = ? AND season = ? AND roundName = ? ORDER BY CAST(numericGameId AS INTEGER) ASC`,
-        [cupType, season, roundName],
+      poolordb.all(
+        `SELECT gameId, numericgameid FROM games WHERE cuptype = ? AND season = ? AND roundname = ? ORDER BY CAST(numericgameid AS INTEGER) ASC`,
+        [cuptype, season, roundname],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
@@ -133,14 +133,14 @@ async function sortRoundByNumericGameId(poolOrDb, cupType, season, roundName, is
   
   for (let idx = 0; idx < games.length; idx += 1) {
     if (isPostgreSQL) {
-      await poolOrDb.query(
+      await poolordb.query(
         'UPDATE games SET bracketSortOrder = $1 WHERE gameId = $2',
         [idx + 1, games[idx].gameid || games[idx].gameId]
       );
     } else {
       // SQLite Fallback
       await new Promise((resolve, reject) => {
-        poolOrDb.run(
+        poolordb.run(
           'UPDATE games SET bracketSortOrder = ? WHERE gameId = ?',
           [idx + 1, games[idx].gameId],
           (err) => {
@@ -156,21 +156,21 @@ async function sortRoundByNumericGameId(poolOrDb, cupType, season, roundName, is
 // --------------------------------------------------------------
 //   🗺️  Hilfsfunktion: Team-Liste der „nächsten" Runde erzeugen
 // --------------------------------------------------------------
-async function buildTeamOrder(poolOrDb, cupType, season, nextRoundName, isPostgreSQL) {
+async function buildTeamOrder(poolordb, cuptype, season, nextroundname, isPostgreSQL) {
   let nextRoundGames;
   
   if (isPostgreSQL) {
-    const result = await poolOrDb.query(
-      `SELECT team1, team2 FROM games WHERE cupType = $1 AND season = $2 AND roundName = $3 ORDER BY bracketSortOrder ASC`,
-      [cupType, season, nextRoundName]
+    const result = await poolordb.query(
+      `SELECT team1, team2 FROM games WHERE cuptype = $1 AND season = $2 AND roundname = $3 ORDER BY bracketSortOrder ASC`,
+      [cuptype, season, nextroundname]
     );
     nextRoundGames = result.rows;
   } else {
     // SQLite Fallback
     nextRoundGames = await new Promise((resolve, reject) => {
-      poolOrDb.all(
-        `SELECT team1, team2 FROM games WHERE cupType = ? AND season = ? AND roundName = ? ORDER BY bracketSortOrder ASC`,
-        [cupType, season, nextRoundName],
+      poolordb.all(
+        `SELECT team1, team2 FROM games WHERE cuptype = ? AND season = ? AND roundname = ? ORDER BY bracketSortOrder ASC`,
+        [cuptype, season, nextroundname],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
@@ -190,27 +190,27 @@ async function buildTeamOrder(poolOrDb, cupType, season, nextRoundName, isPostgr
 // --------------------------------------------------------------
 //            🔗  Sortierung auf Basis der nächsten Runde
 // --------------------------------------------------------------
-async function sortRoundBasedOnNextRound(poolOrDb, cupType, season, currentRoundName, nextRoundName, isPostgreSQL) {
-  console.log(`   ➜ Sortiere ${currentRoundName} auf Basis von ${nextRoundName}`);
+async function sortRoundBasedOnNextRound(poolordb, cuptype, season, currentroundname, nextroundname, isPostgreSQL) {
+  console.log(`   ➜ Sortiere ${currentroundname} auf Basis von ${nextroundname}`);
 
   // 1. Team-Liste der nächsten Runde in korrekter Bracket-Reihenfolge
-  const teamOrder = await buildTeamOrder(poolOrDb, cupType, season, nextRoundName, isPostgreSQL);
+  const teamOrder = await buildTeamOrder(poolordb, cuptype, season, nextroundname, isPostgreSQL);
 
   // 2. Spiele der aktuellen Runde einlesen & in Maps aufteilen
   let currentGames;
   
   if (isPostgreSQL) {
-    const result = await poolOrDb.query(
-      `SELECT gameId, numericGameId, team1, team2 FROM games WHERE cupType = $1 AND season = $2 AND roundName = $3 ORDER BY CAST(numericGameId AS INTEGER) ASC`,
-      [cupType, season, currentRoundName]
+    const result = await poolordb.query(
+      `SELECT gameId, numericgameid, team1, team2 FROM games WHERE cuptype = $1 AND season = $2 AND roundname = $3 ORDER BY CAST(numericgameid AS INTEGER) ASC`,
+      [cuptype, season, currentroundname]
     );
     currentGames = result.rows;
   } else {
     // SQLite Fallback
     currentGames = await new Promise((resolve, reject) => {
-      poolOrDb.all(
-        `SELECT gameId, numericGameId, team1, team2 FROM games WHERE cupType = ? AND season = ? AND roundName = ? ORDER BY CAST(numericGameId AS INTEGER) ASC`,
-        [cupType, season, currentRoundName],
+      poolordb.all(
+        `SELECT gameId, numericgameid, team1, team2 FROM games WHERE cuptype = ? AND season = ? AND roundname = ? ORDER BY CAST(numericgameid AS INTEGER) ASC`,
+        [cuptype, season, currentroundname],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
@@ -226,7 +226,7 @@ async function sortRoundBasedOnNextRound(poolOrDb, cupType, season, currentRound
     // Normalisiere Feldnamen (PostgreSQL gibt lowercase zurück)
     const game = {
       gameId: g.gameid || g.gameId,
-      numericGameId: g.numericgameid || g.numericGameId,
+      numericgameid: g.numericgameid || g.numericgameid,
       team1: g.team1,
       team2: g.team2
     };
@@ -272,7 +272,7 @@ async function sortRoundBasedOnNextRound(poolOrDb, cupType, season, currentRound
     if (!usedGameIds.has(gameId)) {
       sortedGames.push({
         gameId: gameId,
-        numericGameId: g.numericgameid || g.numericGameId,
+        numericgameid: g.numericgameid || g.numericgameid,
         team1: g.team1,
         team2: g.team2
       });
@@ -283,14 +283,14 @@ async function sortRoundBasedOnNextRound(poolOrDb, cupType, season, currentRound
   // 5. Persistiere bracketSortOrder
   for (let i = 0; i < sortedGames.length; i += 1) {
     if (isPostgreSQL) {
-      await poolOrDb.query(
+      await poolordb.query(
         'UPDATE games SET bracketSortOrder = $1 WHERE gameId = $2',
         [i + 1, sortedGames[i].gameId]
       );
     } else {
       // SQLite Fallback
       await new Promise((resolve, reject) => {
-        poolOrDb.run(
+        poolordb.run(
           'UPDATE games SET bracketSortOrder = ? WHERE gameId = ?',
           [i + 1, sortedGames[i].gameId],
           (err) => {
@@ -308,13 +308,13 @@ async function sortRoundBasedOnNextRound(poolOrDb, cupType, season, currentRound
 // --------------------------------------------------------------
 //            🏗️  DB-Vorbereitung & Exporte
 // --------------------------------------------------------------
-async function addBracketSortOrderColumn(poolOrDb) {
-  const isPostgreSQL = poolOrDb.query !== undefined;
+async function addBracketSortOrderColumn(poolordb) {
+  const isPostgreSQL = poolordb.query !== undefined;
   
   try {
     if (isPostgreSQL) {
       // Prüfe ob Spalte bereits existiert
-      const columnExists = await poolOrDb.query(`
+      const columnExists = await poolordb.query(`
         SELECT EXISTS (
           SELECT FROM information_schema.columns 
           WHERE table_name = 'games' AND column_name = 'bracketsortorder'
@@ -322,7 +322,7 @@ async function addBracketSortOrderColumn(poolOrDb) {
       `);
       
       if (!columnExists.rows[0].exists) {
-        await poolOrDb.query('ALTER TABLE games ADD COLUMN bracketSortOrder INTEGER DEFAULT NULL');
+        await poolordb.query('ALTER TABLE games ADD COLUMN bracketSortOrder INTEGER DEFAULT NULL');
         console.log('ℹ️  Spalte bracketSortOrder hinzugefügt');
       } else {
         console.log('ℹ️  Spalte bracketSortOrder existiert bereits');
@@ -330,7 +330,7 @@ async function addBracketSortOrderColumn(poolOrDb) {
     } else {
       // SQLite Fallback
       await new Promise((resolve, reject) => {
-        poolOrDb.run('ALTER TABLE games ADD COLUMN bracketSortOrder INTEGER DEFAULT NULL', (err) => {
+        poolordb.run('ALTER TABLE games ADD COLUMN bracketSortOrder INTEGER DEFAULT NULL', (err) => {
           if (err) {
             if (err.message && err.message.toLowerCase().includes('duplicate')) {
               console.log('ℹ️  Spalte bracketSortOrder existiert bereits');
@@ -354,17 +354,17 @@ async function addBracketSortOrderColumn(poolOrDb) {
   }
 }
 
-async function calculateBracketSortingForAll(poolOrDb) {
-  const isPostgreSQL = poolOrDb.query !== undefined;
+async function calculateBracketSortingForAll(poolordb) {
+  const isPostgreSQL = poolordb.query !== undefined;
   let events;
   
   if (isPostgreSQL) {
-    const result = await poolOrDb.query('SELECT DISTINCT cupType, season FROM games');
+    const result = await poolordb.query('SELECT DISTINCT cuptype, season FROM games');
     events = result.rows;
   } else {
     // SQLite Fallback
     events = await new Promise((resolve, reject) => {
-      poolOrDb.all('SELECT DISTINCT cupType, season FROM games', (err, rows) => {
+      poolordb.all('SELECT DISTINCT cuptype, season FROM games', (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
@@ -372,9 +372,9 @@ async function calculateBracketSortingForAll(poolOrDb) {
   }
   
   for (const e of events) {
-    const cupType = e.cuptype || e.cupType;
+    const cuptype = e.cuptype || e.cuptype;
     const season = e.season;
-    await calculateBracketSortingForEvent(poolOrDb, cupType, season);
+    await calculateBracketSortingForEvent(poolordb, cuptype, season);
   }
 }
 
@@ -384,8 +384,8 @@ function setPool(poolInstance) {
 }
 
 // Wrapper-Funktionen für Kompatibilität mit bestehenden Modulen
-async function run(poolOrDb, sql, params = []) {
-  const isPostgreSQL = poolOrDb.query !== undefined;
+async function run(poolordb, sql, params = []) {
+  const isPostgreSQL = poolordb.query !== undefined;
   
   if (isPostgreSQL) {
     // Konvertiere SQL von SQLite zu PostgreSQL Format
@@ -398,12 +398,12 @@ async function run(poolOrDb, sql, params = []) {
       pgSql = sql.replace(/\?/g, () => `${paramIndex++}`);
     }
     
-    const result = await poolOrDb.query(pgSql, pgParams);
+    const result = await poolordb.query(pgSql, pgParams);
     return { changes: result.rowCount || 0 };
   } else {
     // SQLite Fallback
     return new Promise((resolve, reject) => {
-      poolOrDb.run(sql, params, function (err) {
+      poolordb.run(sql, params, function (err) {
         if (err) reject(err); 
         else resolve({ changes: this.changes || 0 });
       });
@@ -411,8 +411,8 @@ async function run(poolOrDb, sql, params = []) {
   }
 }
 
-async function all(poolOrDb, sql, params = []) {
-  const isPostgreSQL = poolOrDb.query !== undefined;
+async function all(poolordb, sql, params = []) {
+  const isPostgreSQL = poolordb.query !== undefined;
   
   if (isPostgreSQL) {
     // Konvertiere SQL von SQLite zu PostgreSQL Format
@@ -425,12 +425,12 @@ async function all(poolOrDb, sql, params = []) {
       pgSql = sql.replace(/\?/g, () => `${paramIndex++}`);
     }
     
-    const result = await poolOrDb.query(pgSql, pgParams);
+    const result = await poolordb.query(pgSql, pgParams);
     return result.rows;
   } else {
     // SQLite Fallback
     return new Promise((resolve, reject) => {
-      poolOrDb.all(sql, params, (err, rows) => {
+      poolordb.all(sql, params, (err, rows) => {
         if (err) reject(err); 
         else resolve(rows);
       });
@@ -438,8 +438,8 @@ async function all(poolOrDb, sql, params = []) {
   }
 }
 
-async function get(poolOrDb, sql, params = []) {
-  const isPostgreSQL = poolOrDb.query !== undefined;
+async function get(poolordb, sql, params = []) {
+  const isPostgreSQL = poolordb.query !== undefined;
   
   if (isPostgreSQL) {
     // Konvertiere SQL von SQLite zu PostgreSQL Format
@@ -452,12 +452,12 @@ async function get(poolOrDb, sql, params = []) {
       pgSql = sql.replace(/\?/g, () => `${paramIndex++}`);
     }
     
-    const result = await poolOrDb.query(pgSql, pgParams);
+    const result = await poolordb.query(pgSql, pgParams);
     return result.rows[0] || null;
   } else {
     // SQLite Fallback
     return new Promise((resolve, reject) => {
-      poolOrDb.get(sql, params, (err, row) => {
+      poolordb.get(sql, params, (err, row) => {
         if (err) reject(err); 
         else resolve(row);
       });

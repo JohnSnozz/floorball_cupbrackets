@@ -1,4 +1,4 @@
-// gamedetailviewer.js - GameDetails Frontend mit Season-Management
+// gamedetailviewer.js - GameDetails Frontend mit Season-Management (PostgreSQL-kompatibel)
 
 let allGameDetails = [];
 let filteredGameDetails = [];
@@ -8,10 +8,10 @@ let seasonStats = [];
 let currentSeasonFilter = '';
 let pendingDeleteSeason = null;
 
-// Alle Spalten aus der gameDetails Tabelle inkl. season
+// Alle Spalten aus der gameDetails Tabelle inkl. season (PostgreSQL lowercase)
 const ALL_COLUMNS = [
     'id',
-    'numericGameId',
+    'numericgameid',
     'season',
     'home_name',
     'away_name',
@@ -28,7 +28,7 @@ const ALL_COLUMNS = [
     'spectators',
     'title',
     'subtitle',
-    'lastUpdated'
+    'lastupdated'  // PostgreSQL gibt lowercase zurück
 ];
 
 // Load stats and seasons on page load
@@ -138,14 +138,17 @@ function updateSeasonManagement() {
         const card = document.createElement('div');
         card.className = 'season-card';
         
-        const lastUpdate = stat.lastUpdate ? 
-            new Date(stat.lastUpdate).toLocaleDateString('de-CH') : 'Nie';
+        // PostgreSQL gibt lowercase zurück - anpassen
+        const lastUpdate = stat.lastupdate ? 
+            new Date(stat.lastupdate).toLocaleDateString('de-CH') : 'Nie';
+        const totalGames = stat.totalgames || stat.totalGames || 0;
+        const gamesWithResults = stat.gameswithresults || stat.gamesWithResults || 0;
             
         card.innerHTML = `
             <h4>Season ${stat.season}</h4>
             <div class="season-stats">
-                📊 ${stat.totalGames} Spiele total<br>
-                ✅ ${stat.gamesWithResults} mit Resultat<br>
+                📊 ${totalGames} Spiele total<br>
+                ✅ ${gamesWithResults} mit Resultat<br>
                 🕐 Letztes Update: ${lastUpdate}
             </div>
             <div class="season-actions">
@@ -220,7 +223,8 @@ function filterBySeason(season = null) {
         if (season) {
             const stat = seasonStats.find(s => s.season === season);
             if (stat) {
-                filterInfo.textContent = `${stat.totalGames} Spiele in Season ${season}`;
+                const totalGames = stat.totalgames || stat.totalGames || 0;
+                filterInfo.textContent = `${totalGames} Spiele in Season ${season}`;
             } else {
                 filterInfo.textContent = `Filter: Season ${season}`;
             }
@@ -248,7 +252,50 @@ async function loadGameDetailsForSeason(season) {
         }
         
         allGameDetails = gameDetails;
-        filteredGameDetails = allGameDetails;
+        filteredGameDetails = filtered;
+    displayGameDetails(filtered);
+    if (currentSort.column) {
+        sortTable(currentSort.column, true);
+    }
+}
+
+// Utility functions
+const showLoading = () => {
+    const tbody = document.getElementById('gameDetailsTableBody');
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="${ALL_COLUMNS.length + 1}" class="loading">📊 Lade GameDetails…</td></tr>`;
+    }
+};
+
+const showNoData = () => {
+    const tbody = document.getElementById('gameDetailsTableBody');
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="${ALL_COLUMNS.length + 1}" class="no-data">🤷‍♂️ Keine GameDetails gefunden</td></tr>`;
+    }
+};
+
+function showAlert(msg, type = 'info') {
+    const c = document.getElementById('alertContainer');
+    if (c) {
+        c.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+        if (['success', 'info'].includes(type)) {
+            setTimeout(() => c.innerHTML = '', 3000);
+        }
+    }
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+});
+
+// ESC key to close modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+        closeDeleteModal();
+    }
+}); allGameDetails;
         
         createTableHeaders();
         displayGameDetails(filteredGameDetails);
@@ -341,7 +388,7 @@ function showDeleteConfirm(season) {
     pendingDeleteSeason = season;
     
     const stat = seasonStats.find(s => s.season === season);
-    const gameCount = stat ? stat.totalGames : 0;
+    const gameCount = stat ? (stat.totalgames || stat.totalGames || 0) : 0;
     
     document.getElementById('deleteConfirmText').innerHTML = `
         Möchtest du wirklich alle <strong>${gameCount} GameDetails</strong> für <strong>Season ${season}</strong> löschen?<br>
@@ -455,7 +502,7 @@ function displayGameDetails(gameDetails) {
                 } catch (e) {
                     // Keep original value
                 }
-            } else if (col === 'lastUpdated' && value) {
+            } else if (col === 'lastupdated' && value) {  // PostgreSQL lowercase
                 try {
                     const date = new Date(value);
                     value = date.toLocaleString('de-CH');
@@ -486,7 +533,7 @@ function displayGameDetails(gameDetails) {
         // Actions column
         const actionsTd = document.createElement('td');
         actionsTd.innerHTML = `
-            <button class="btn btn-info btn-small" onclick="showGameDetail('${detail.numericGameId}')">
+            <button class="btn btn-info btn-small" onclick="showGameDetail('${detail.numericgameid}')">
                 👁️ Details
             </button>
         `;
@@ -596,12 +643,16 @@ async function refreshStats() {
         const stats = await response.json();
         console.log('Stats API Response:', stats);
         
-        document.getElementById('statTotalGames').textContent = stats.totalGames || 0;
-        document.getElementById('statGamesWithResults').textContent = stats.gamesWithResults || 0;
-        document.getElementById('statGamesWithSpectators').textContent = stats.gamesWithSpectators || 0;
+        // PostgreSQL gibt lowercase zurück - flexible Behandlung
+        document.getElementById('statTotalGames').textContent = stats.totalgames || stats.totalGames || 0;
+        document.getElementById('statGamesWithResults').textContent = stats.gameswithresults || stats.gamesWithResults || 0;
+        document.getElementById('statGamesWithSpectators').textContent = stats.gameswithspectators || stats.gamesWithSpectators || 0;
+        
+        const avgSpectators = stats.avgspectators || stats.avgSpectators || 0;
         document.getElementById('statAvgSpectators').textContent = 
-            stats.avgSpectators ? stats.avgSpectators.toFixed(0) : '0';
-        document.getElementById('statGamesWithReferees').textContent = stats.gamesWithReferees || 0;
+            avgSpectators ? parseFloat(avgSpectators).toFixed(0) : '0';
+        
+        document.getElementById('statGamesWithReferees').textContent = stats.gameswithreferees || stats.gamesWithReferees || 0;
         
     } catch (error) {
         console.error('Error refreshing stats:', error);
@@ -635,12 +686,12 @@ function updateStatsFromData() {
 }
 
 // Show game detail modal - includes season info
-async function showGameDetail(numericGameId) {
+async function showGameDetail(numericgameid) {
     try {
-        const detail = allGameDetails.find(d => d.numericGameId === numericGameId);
+        const detail = allGameDetails.find(d => d.numericgameid === numericgameid);
         
         if (!detail) {
-            showAlert(`❌ Game ${numericGameId} nicht in geladenen Daten gefunden`, 'error');
+            showAlert(`❌ Game ${numericgameid} nicht in geladenen Daten gefunden`, 'error');
             return;
         }
         
@@ -659,7 +710,7 @@ async function showGameDetail(numericGameId) {
                 try {
                     value = new Date(value).toLocaleDateString('de-CH');
                 } catch (e) {}
-            } else if (col === 'lastUpdated' && value) {
+            } else if (col === 'lastupdated' && value) {  // PostgreSQL lowercase
                 try {
                     value = new Date(value).toLocaleString('de-CH');
                 } catch (e) {}
@@ -692,13 +743,14 @@ async function showGameDetail(numericGameId) {
         `;
         
         // Raw Data if available
-        if (detail.rawData) {
+        if (detail.rawData || detail.rawdata) {  // PostgreSQL könnte rawdata sein
+            const rawData = detail.rawData || detail.rawdata;
             content += `
                 <div style="padding: 15px; background: #333; border-radius: 6px;">
                     <h4 style="color: #ff6b00; margin: 0 0 10px 0;">Raw API Data</h4>
                     <details>
                         <summary style="cursor: pointer; color: #ff6b00;">API Raw Data anzeigen</summary>
-                        <pre style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 4px; font-size: 10px; overflow: auto; max-height: 300px;">${detail.rawData}</pre>
+                        <pre style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 4px; font-size: 10px; overflow: auto; max-height: 300px;">${rawData}</pre>
                     </details>
                 </div>
             `;
@@ -782,47 +834,4 @@ function filterTable() {
         });
     });
     
-    filteredGameDetails = filtered;
-    displayGameDetails(filtered);
-    if (currentSort.column) {
-        sortTable(currentSort.column, true);
-    }
-}
-
-// Utility functions
-const showLoading = () => {
-    const tbody = document.getElementById('gameDetailsTableBody');
-    if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="${ALL_COLUMNS.length + 1}" class="loading">📊 Lade GameDetails…</td></tr>`;
-    }
-};
-
-const showNoData = () => {
-    const tbody = document.getElementById('gameDetailsTableBody');
-    if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="${ALL_COLUMNS.length + 1}" class="no-data">🤷‍♂️ Keine GameDetails gefunden</td></tr>`;
-    }
-};
-
-function showAlert(msg, type = 'info') {
-    const c = document.getElementById('alertContainer');
-    if (c) {
-        c.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
-        if (['success', 'info'].includes(type)) {
-            setTimeout(() => c.innerHTML = '', 3000);
-        }
-    }
-}
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    loadStats();
-});
-
-// ESC key to close modals
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeModal();
-        closeDeleteModal();
-    }
-});
+    filteredGameDetails =
