@@ -16,7 +16,7 @@ const CURRENT_CUPS = [
 /**
  * Registriert alle Backend API Routes
  */
-function register(app, db) {
+function register(app, pool) {  // ← pool statt db
   console.log('🔧 Registriere Backend API Routes...');
 
   // POST /api/backend/quick-update
@@ -34,7 +34,7 @@ function register(app, db) {
       // 1. Prognose Cleanup
       console.log('Step 1/4: Prognose Cleanup...');
       for (const cupType of CURRENT_CUPS) {
-        const deleted = await prognoseGames.deleteAllPrognoseGames(db, cupType, CURRENT_SEASON);
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, CURRENT_SEASON);  // ← pool
         results.prognoseCleanup += deleted;
       }
 
@@ -45,9 +45,9 @@ function register(app, db) {
       // 3. Bracket-Sortierung
       console.log('Step 3/4: Bracket-Sortierung...');
       try {
-        await bracketSorting.addBracketSortOrderColumn(db);
+        await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
         for (const cup of CURRENT_CUPS) {
-          await bracketSorting.calculateBracketSortingForEvent(db, cup, CURRENT_SEASON);
+          await bracketSorting.calculateBracketSortingForEvent(pool, cup, CURRENT_SEASON);  // ← pool
         }
         results.bracketSorting = true;
       } catch (error) {
@@ -56,7 +56,7 @@ function register(app, db) {
 
       // 4. Prognose-Spiele
       console.log('Step 4/4: Prognose-Spiele...');
-      results.prognoseGeneration = await prognoseGames.generatePrognoseForAllCups(db, CURRENT_SEASON);
+      results.prognoseGeneration = await prognoseGames.generatePrognoseForAllCups(pool, CURRENT_SEASON);  // ← pool
 
       res.json({
         success: true,
@@ -130,10 +130,10 @@ function register(app, db) {
       
       console.log(`🎯 Backend API: Bracket-Sortierung für Saison ${targetSeason}`);
       
-      await bracketSorting.addBracketSortOrderColumn(db);
+      await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
       
       for (const cup of CURRENT_CUPS) {
-        await bracketSorting.calculateBracketSortingForEvent(db, cup, targetSeason);
+        await bracketSorting.calculateBracketSortingForEvent(pool, cup, targetSeason);  // ← pool
       }
       
       res.json({
@@ -156,8 +156,8 @@ function register(app, db) {
     try {
       console.log('🎯 Backend API: Bracket-Sortierung für alle Saisons');
       
-      await bracketSorting.addBracketSortOrderColumn(db);
-      await bracketSorting.calculateBracketSortingForAll(db);
+      await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
+      await bracketSorting.calculateBracketSortingForAll(pool);  // ← pool
       
       res.json({
         success: true,
@@ -180,7 +180,7 @@ function register(app, db) {
       
       let totalDeleted = 0;
       for (const cupType of CURRENT_CUPS) {
-        const deleted = await prognoseGames.deleteAllPrognoseGames(db, cupType, CURRENT_SEASON);
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, CURRENT_SEASON);  // ← pool
         totalDeleted += deleted;
       }
       
@@ -205,7 +205,7 @@ function register(app, db) {
     try {
       console.log(`🔮 Backend API: Prognose-Generierung für Saison ${CURRENT_SEASON}`);
       
-      const results = await prognoseGames.generatePrognoseForAllCups(db, CURRENT_SEASON);
+      const results = await prognoseGames.generatePrognoseForAllCups(pool, CURRENT_SEASON);  // ← pool
       
       res.json({
         success: true,

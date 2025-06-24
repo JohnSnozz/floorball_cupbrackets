@@ -1,92 +1,110 @@
-// modules/game-details.js - GameDetails mit Saison-Management
+// modules/game-details.js - GameDetails mit Saison-Management (PostgreSQL)
 
 const fetch = require('node-fetch');
 
 class GameDetailsManager {
-  constructor(db) {
-    this.db = db;
+  constructor(pool) {
+    this.pool = pool;
     this.setupTable();
   }
 
-  setupTable() {
-    // GameDetails Tabelle für Game Info erstellen - mit season hinzugefügt
-    const createTableSQL = `
-      CREATE TABLE IF NOT EXISTS gameDetails (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numericGameId TEXT UNIQUE NOT NULL,
-        season TEXT,
-        home_name TEXT,
-        away_name TEXT,
-        home_logo TEXT,
-        away_logo TEXT,
-        result TEXT,
-        date TEXT,
-        time TEXT,
-        location TEXT,
-        location_x REAL,
-        location_y REAL,
-        first_referee TEXT,
-        second_referee TEXT,
-        spectators INTEGER,
-        title TEXT,
-        subtitle TEXT,
-        rawData TEXT,
-        lastUpdated DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (numericGameId) REFERENCES games(numericGameId) ON DELETE CASCADE
-      )
-    `;
-    
-    this.db.run(createTableSQL, (err) => {
-      if (err) {
-        console.error('❌ Fehler beim Erstellen der gameDetails Tabelle:', err);
-      } else {
-        console.log('✅ GameDetails Tabelle bereit (Game Info API)');
-        // Check if season column exists, add if not
-        this.addSeasonColumnIfMissing();
-      }
-    });
-  }
-
-  addSeasonColumnIfMissing() {
-    this.db.all("PRAGMA table_info(gameDetails)", (err, columns) => {
-      if (err) {
-        console.error('❌ Fehler beim Prüfen der Tabellen-Info:', err);
-        return;
-      }
+  async setupTable() {
+    try {
+      // GameDetails Tabelle für Game Info erstellen - mit season hinzugefügt
+      const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS gameDetails (
+          id SERIAL PRIMARY KEY,
+          numericGameId VARCHAR(50) UNIQUE NOT NULL,
+          season VARCHAR(20),
+          home_name VARCHAR(255),
+          away_name VARCHAR(255),
+          home_logo TEXT,
+          away_logo TEXT,
+          result VARCHAR(100),
+          date VARCHAR(50),
+          time VARCHAR(20),
+          location VARCHAR(255),
+          location_x REAL,
+          location_y REAL,
+          first_referee VARCHAR(255),
+          second_referee VARCHAR(255),
+          spectators INTEGER,
+          title TEXT,
+          subtitle TEXT,
+          rawData TEXT,
+          lastUpdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
       
-      const hasSeasonColumn = columns.some(col => col.name === 'season');
-      if (!hasSeasonColumn) {
-        this.db.run("ALTER TABLE gameDetails ADD COLUMN season TEXT", (err) => {
-          if (err) {
-            console.error('❌ Fehler beim Hinzufügen der season Spalte:', err);
-          } else {
-            console.log('✅ Season Spalte hinzugefügt');
-            // Update existing records with season from games table
-            this.updateExistingSeasons();
-          }
-        });
-      }
-    });
+      await this.pool.query(createTableSQL);
+      console.log('✅ GameDetails Tabelle bereit (Game Info API)');
+      
+      // Check if season column exists, add if not
+      await this.addSeasonColumnIfMissing();
+    } catch (err) {
+      console.error('❌ Fehler beim Erstellen der gameDetails Tabelle:', err);
+    }
   }
 
-  updateExistingSeasons() {
-    const updateSQL = `
-      UPDATE gameDetails 
-      SET season = (
-        SELECT season FROM games 
-        WHERE games.numericGameId = gameDetails.numericGameId 
-        LIMIT 1
-      )
-      WHERE season IS NULL
-    `;
-    
-    this.db.run(updateSQL, (err) => {
-      if (err) {
-        console.error('❌ Fehler beim Update der Seasons:', err);
+  async addSeasonColumnIfMissing() {
+    try {
+      // Prüfe ob season Spalte existiert
+      const columnExists = await this.checkColumnExists('gamedetails', 'season');
+      console.log(`🔍 Debug: Season column exists in gameDetails: ${columnExists}`);
+      
+      if (!columnExists) {
+        await this.pool.query("ALTER TABLE gameDetails ADD COLUMN season VARCHAR(20)");
+        console.log('✅ Season Spalte hinzugefügt');
+        // Update existing records with season from games table
+        await this.updateExistingSeasons();
       } else {
-        console.log('✅ Seasons für bestehende GameDetails aktualisiert');
+        console.log('ℹ️  Season Spalte bereits vorhanden in gameDetails');
       }
-    });
+    } catch (err) {
+      // Ignoriere "already exists" Fehler
+      if (err.code === '42701') {
+        console.log('ℹ️  Season Spalte bereits vorhanden in gameDetails (caught duplicate error)');
+      } else {
+        console.error('❌ Fehler beim Prüfen/Hinzufügen der season Spalte:', err);
+      }
+    }
+  }
+
+  async checkColumnExists(tableName, columnName) {
+    try {
+      const query = `
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_name = $1 AND column_name = $2
+        );
+      `;
+      
+      // PostgreSQL speichert Namen in Kleinbuchstaben
+      const result = await this.pool.query(query, [tableName.toLowerCase(), columnName.toLowerCase()]);
+      return result.rows[0].exists;
+    } catch (err) {
+      console.error('❌ Fehler beim Prüfen der Spalte:', err);
+      return false;
+    }
+  }
+
+  async updateExistingSeasons() {
+    try {
+      const updateSQL = `
+        UPDATE gameDetails 
+        SET season = (
+          SELECT season FROM games 
+          WHERE games.numericGameId::VARCHAR = gameDetails.numericGameId 
+          LIMIT 1
+        )
+        WHERE season IS NULL
+      `;
+      
+      await this.pool.query(updateSQL);
+      console.log('✅ Seasons für bestehende GameDetails aktualisiert');
+    } catch (err) {
+      console.error('❌ Fehler beim Update der Seasons:', err);
+    }
   }
 
   // Date-Parsing Helper
@@ -127,7 +145,7 @@ class GameDetailsManager {
           month >= 1 && month <= 12 && 
           day >= 1 && day <= 31) {
         
-        // Formatiere als YYYY-MM-DD für SQLite
+        // Formatiere als YYYY-MM-DD für PostgreSQL
         return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       }
     }
@@ -239,34 +257,6 @@ class GameDetailsManager {
     return parsed;
   }
 
-  // Promise-Wrapper für sqlite3
-  queryAsync(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
-  }
-
-  queryAllAsync(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-  }
-
-  runAsync(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, function(err) {
-        if (err) reject(err);
-        else resolve(this);
-      });
-    });
-  }
-
   async saveGameDetails(numericGameId, gameData, season = null) {
     const parsed = this.parseGameData(gameData);
     
@@ -276,15 +266,34 @@ class GameDetailsManager {
     }
     
     const insertSQL = `
-      INSERT OR REPLACE INTO gameDetails 
+      INSERT INTO gameDetails 
       (numericGameId, season, home_name, away_name, home_logo, away_logo, result, 
        date, time, location, location_x, location_y, first_referee, 
        second_referee, spectators, title, subtitle, rawData, lastUpdated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP)
+      ON CONFLICT (numericGameId) DO UPDATE SET
+        season = EXCLUDED.season,
+        home_name = EXCLUDED.home_name,
+        away_name = EXCLUDED.away_name,
+        home_logo = EXCLUDED.home_logo,
+        away_logo = EXCLUDED.away_logo,
+        result = EXCLUDED.result,
+        date = EXCLUDED.date,
+        time = EXCLUDED.time,
+        location = EXCLUDED.location,
+        location_x = EXCLUDED.location_x,
+        location_y = EXCLUDED.location_y,
+        first_referee = EXCLUDED.first_referee,
+        second_referee = EXCLUDED.second_referee,
+        spectators = EXCLUDED.spectators,
+        title = EXCLUDED.title,
+        subtitle = EXCLUDED.subtitle,
+        rawData = EXCLUDED.rawData,
+        lastUpdated = CURRENT_TIMESTAMP
     `;
 
     try {
-      await this.runAsync(insertSQL, [
+      await this.pool.query(insertSQL, [
         numericGameId,
         season,
         parsed.home_name,
@@ -321,8 +330,8 @@ class GameDetailsManager {
         ORDER BY season DESC
       `;
       
-      const seasons = await this.queryAllAsync(seasonsSQL);
-      return seasons.map(row => row.season);
+      const result = await this.pool.query(seasonsSQL);
+      return result.rows.map(row => row.season);
     } catch (error) {
       console.error('❌ Fehler beim Abrufen der Seasons:', error);
       return [];
@@ -335,9 +344,7 @@ class GameDetailsManager {
     
     try {
       // Prüfe ob games Tabelle existiert
-      const tableCheck = await this.queryAsync(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='games'"
-      );
+      const tableCheck = await this.checkTableExists('games');
       
       if (!tableCheck) {
         console.log('⚠️  Games Tabelle existiert nicht - GameDetails Crawling übersprungen');
@@ -348,7 +355,7 @@ class GameDetailsManager {
       const gamesSQL = `
         SELECT DISTINCT numericGameId, team1, team2, cupType, season
         FROM games 
-        WHERE season = ?
+        WHERE season = $1
         AND numericGameId IS NOT NULL 
         AND numericGameId != ''
         AND LOWER(team1) NOT LIKE '%freilos%' 
@@ -356,7 +363,8 @@ class GameDetailsManager {
         ORDER BY cupType, numericGameId
       `;
 
-      const games = await this.queryAllAsync(gamesSQL, [season]);
+      const gamesResult = await this.pool.query(gamesSQL, [season]);
+      const games = gamesResult.rows;
       
       if (!games || games.length === 0) {
         console.log(`ℹ️  Keine Games für Season ${season} gefunden`);
@@ -368,10 +376,10 @@ class GameDetailsManager {
       let success = 0, errors = 0;
 
       for (const game of games) {
-        const gameData = await this.fetchGameDetails(game.numericGameId);
+        const gameData = await this.fetchGameDetails(game.numericgameid);
         
         if (gameData) {
-          await this.saveGameDetails(game.numericGameId, gameData, season);
+          await this.saveGameDetails(game.numericgameid, gameData, season);
           success++;
           
           // Progress anzeigen
@@ -380,7 +388,7 @@ class GameDetailsManager {
           }
         } else {
           errors++;
-          console.log(`❌ Fehler bei GameID ${game.numericGameId} (${game.team1} vs ${game.team2})`);
+          console.log(`❌ Fehler bei GameID ${game.numericgameid} (${game.team1} vs ${game.team2})`);
         }
 
         // Rate limiting - 1 Request pro Sekunde
@@ -399,11 +407,11 @@ class GameDetailsManager {
   // Delete GameDetails für spezifische Season
   async deleteGameDetailsForSeason(season) {
     try {
-      const deleteSQL = 'DELETE FROM gameDetails WHERE season = ?';
-      const result = await this.runAsync(deleteSQL, [season]);
+      const deleteSQL = 'DELETE FROM gameDetails WHERE season = $1';
+      const result = await this.pool.query(deleteSQL, [season]);
       
-      console.log(`🗑️ ${result.changes || 0} GameDetails für Season ${season} gelöscht`);
-      return { deleted: result.changes || 0, season };
+      console.log(`🗑️ ${result.rowCount || 0} GameDetails für Season ${season} gelöscht`);
+      return { deleted: result.rowCount || 0, season };
     } catch (error) {
       console.error(`❌ Fehler beim Löschen Season ${season}:`, error.message);
       return { deleted: 0, season, error: error.message };
@@ -415,9 +423,7 @@ class GameDetailsManager {
     console.log('🔍 Sammle GameIDs aus Cup-Daten...');
     
     try {
-      const tableCheck = await this.queryAsync(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='games'"
-      );
+      const tableCheck = await this.checkTableExists('games');
       
       if (!tableCheck) {
         console.log('⚠️  Games Tabelle existiert nicht - GameDetails Crawling übersprungen');
@@ -433,12 +439,13 @@ class GameDetailsManager {
         AND LOWER(team2) NOT LIKE '%freilos%'
         AND numericGameId NOT IN (
           SELECT numericGameId FROM gameDetails 
-          WHERE lastUpdated > datetime('now', '-1 day')
+          WHERE lastUpdated > CURRENT_TIMESTAMP - INTERVAL '1 day'
         )
         ORDER BY season DESC, cupType, numericGameId
       `;
 
-      const games = await this.queryAllAsync(gamesSQL);
+      const gamesResult = await this.pool.query(gamesSQL);
+      const games = gamesResult.rows;
       
       if (!games || games.length === 0) {
         console.log('ℹ️  Alle Games bereits aktuell oder keine neuen Cup-Games mit numericGameId vorhanden');
@@ -450,10 +457,10 @@ class GameDetailsManager {
       let success = 0, errors = 0;
 
       for (const game of games) {
-        const gameData = await this.fetchGameDetails(game.numericGameId);
+        const gameData = await this.fetchGameDetails(game.numericgameid);
         
         if (gameData) {
-          await this.saveGameDetails(game.numericGameId, gameData, game.season);
+          await this.saveGameDetails(game.numericgameid, gameData, game.season);
           success++;
           
           if (success % 10 === 0) {
@@ -461,7 +468,7 @@ class GameDetailsManager {
           }
         } else {
           errors++;
-          console.log(`❌ Fehler bei GameID ${game.numericGameId} (${game.team1} vs ${game.team2})`);
+          console.log(`❌ Fehler bei GameID ${game.numericgameid} (${game.team1} vs ${game.team2})`);
         }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -488,7 +495,8 @@ class GameDetailsManager {
     `;
     
     try {
-      return await this.queryAsync(statsSQL);
+      const result = await this.pool.query(statsSQL);
+      return result.rows[0];
     } catch (error) {
       console.error('❌ Fehler beim Abrufen der Stats:', error);
       return { totalGames: 0, gamesWithResults: 0, gamesWithSpectators: 0, avgSpectators: 0, gamesWithReferees: 0 };
@@ -509,7 +517,8 @@ class GameDetailsManager {
     `;
     
     try {
-      return await this.queryAllAsync(seasonStatsSQL);
+      const result = await this.pool.query(seasonStatsSQL);
+      return result.rows;
     } catch (error) {
       console.error('❌ Fehler beim Abrufen der Season Stats:', error);
       return [];
@@ -520,26 +529,28 @@ class GameDetailsManager {
 module.exports = {
   GameDetailsManager,
   
-  initialize: (db) => {
-    return new GameDetailsManager(db);
+  initialize: (pool) => {
+    return new GameDetailsManager(pool);
   },
 
-  register: (app, db) => {
-    const manager = new GameDetailsManager(db);
+  register: (app, pool) => {
+    const manager = new GameDetailsManager(pool);
 
     // Game Details für einzelnes Spiel
     app.get('/api/game-details/:gameId', async (req, res) => {
       try {
-        const result = await manager.queryAsync(
-          'SELECT * FROM gameDetails WHERE numericGameId = ?', 
+        const result = await manager.pool.query(
+          'SELECT * FROM gameDetails WHERE numericGameId = $1', 
           [req.params.gameId]
         );
         
-        if (result && result.rawData) {
-          result.rawData = JSON.parse(result.rawData);
+        let gameDetail = result.rows[0] || { error: 'Game not found' };
+        
+        if (gameDetail && gameDetail.rawdata) {
+          gameDetail.rawData = JSON.parse(gameDetail.rawdata);
         }
         
-        res.json(result || { error: 'Game not found' });
+        res.json(gameDetail);
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
@@ -623,19 +634,24 @@ module.exports = {
         let params = [];
         
         if (season) {
-          sql += ' WHERE season = ? ';
+          sql += ' WHERE season = $1 ';
           params.push(season);
         }
         
         sql += ' ORDER BY lastUpdated DESC ';
         
         if (limit > 0) {
-          sql += ' LIMIT ? OFFSET ? ';
-          params.push(limit, offset);
+          if (season) {
+            sql += ' LIMIT $2 OFFSET $3 ';
+            params.push(limit, offset);
+          } else {
+            sql += ' LIMIT $1 OFFSET $2 ';
+            params.push(limit, offset);
+          }
         }
         
-        const result = await manager.queryAllAsync(sql, params);
-        res.json(result);
+        const result = await manager.pool.query(sql, params);
+        res.json(result.rows);
       } catch (error) {
         res.status(500).json({ error: error.message });
       }

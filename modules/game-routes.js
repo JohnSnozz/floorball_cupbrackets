@@ -1,23 +1,23 @@
 // modules/game-routes.js - Routen für Spiel-Daten
 
-function register(app, db) {
+function register(app, pool) {  // ← pool statt db
   console.log('🔧 Registriere Game-Routen...');
 
   // GET /games/all - Alle Spiele ohne Limit
   app.get('/games/all', async (req, res) => {
     console.log('📊 Fetching ALL games from database...');
     
-    const query = 'SELECT * FROM games ORDER BY crawledAt DESC';
-    
-    db.all(query, [], (err, rows) => {
-      if (err) {
-        console.error('❌ Error fetching all games:', err.message);
-        res.status(500).json({ error: err.message });
-      } else {
-        console.log(`✅ Returning ${rows.length} total games`);
-        res.json(rows);
-      }
-    });
+    try {
+      const query = 'SELECT * FROM games ORDER BY crawledat DESC';  // ← crawledat (lowercase)
+      const result = await pool.query(query);
+      
+      console.log(`✅ Returning ${result.rows.length} total games`);
+      res.json(result.rows);
+      
+    } catch (error) {
+      console.error('❌ Error fetching all games:', error.message);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // GET /games - Spiele mit Filtern und Limit
@@ -28,57 +28,51 @@ function register(app, db) {
     
     console.log(`📊 Fetching games: cup=${cupType}, season=${season}, limit=${limit}`);
     
-    let query = 'SELECT * FROM games ORDER BY crawledAt DESC LIMIT ?';
-    let params = [limit];
-    
-    if (cupType && season) {
-      query = 'SELECT * FROM games WHERE cupType = ? AND season = ? ORDER BY crawledAt DESC LIMIT ?';
-      params = [cupType, season, limit];
-    } else if (cupType) {
-      query = 'SELECT * FROM games WHERE cupType = ? ORDER BY crawledAt DESC LIMIT ?';
-      params = [cupType, limit];
-    } else if (season) {
-      query = 'SELECT * FROM games WHERE season = ? ORDER BY crawledAt DESC LIMIT ?';
-      params = [season, limit];
-    }
-    
-    db.all(query, params, (err, rows) => {
-      if (err) {
-        console.error('❌ Error fetching games:', err.message);
-        res.status(500).json({ error: err.message });
-      } else {
-        console.log(`✅ Returning ${rows.length} games (${cupType || 'all cups'}, ${season || 'all seasons'})`);
-        res.json(rows);
+    try {
+      let query = 'SELECT * FROM games ORDER BY crawledat DESC LIMIT $1';  // ← crawledat + $1
+      let params = [limit];
+      
+      if (cupType && season) {
+        query = 'SELECT * FROM games WHERE cuptype = $1 AND season = $2 ORDER BY crawledat DESC LIMIT $3';  // ← cuptype (lowercase)
+        params = [cupType, season, limit];
+      } else if (cupType) {
+        query = 'SELECT * FROM games WHERE cuptype = $1 ORDER BY crawledat DESC LIMIT $2';  // ← cuptype (lowercase)
+        params = [cupType, limit];
+      } else if (season) {
+        query = 'SELECT * FROM games WHERE season = $1 ORDER BY crawledat DESC LIMIT $2';
+        params = [season, limit];
       }
-    });
+      
+      const result = await pool.query(query, params);
+      
+      console.log(`✅ Returning ${result.rows.length} games (${cupType || 'all cups'}, ${season || 'all seasons'})`);
+      res.json(result.rows);
+      
+    } catch (error) {
+      console.error('❌ Error fetching games:', error.message);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // GET /stats - Datenbank-Statistiken
   app.get('/stats', async (req, res) => {
     console.log('📈 Generating database statistics...');
     
-    const queries = [
-      'SELECT season, cupType, COUNT(*) as count FROM games GROUP BY season, cupType ORDER BY season DESC, cupType',
-      'SELECT COUNT(*) as totalGames FROM games',
-      'SELECT COUNT(DISTINCT tournamentId) as totalTournaments FROM games',
-      'SELECT status, COUNT(*) as count FROM games GROUP BY status'
-    ];
-    
     try {
-      const results = await Promise.all(queries.map(query => 
-        new Promise((resolve, reject) => {
-          db.all(query, [], (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-          });
-        })
-      ));
+      const queries = [
+        'SELECT season, cuptype, COUNT(*) as count FROM games GROUP BY season, cuptype ORDER BY season DESC, cuptype',  // ← cuptype (lowercase)
+        'SELECT COUNT(*) as totalgames FROM games',  // ← totalgames (lowercase)
+        'SELECT COUNT(DISTINCT tournamentid) as totaltournaments FROM games',  // ← tournamentid, totaltournaments (lowercase)
+        'SELECT status, COUNT(*) as count FROM games GROUP BY status'
+      ];
+      
+      const results = await Promise.all(queries.map(query => pool.query(query)));
       
       const stats = {
-        bySeason: results[0],
-        totalGames: results[1][0].totalGames,
-        totalTournaments: results[2][0].totalTournaments,
-        byStatus: results[3]
+        bySeason: results[0].rows,
+        totalGames: results[1].rows[0].totalgames,  // ← totalgames (lowercase)
+        totalTournaments: results[2].rows[0].totaltournaments,  // ← totaltournaments (lowercase)
+        byStatus: results[3].rows
       };
       
       console.log(`✅ Statistics generated: ${stats.totalGames} games, ${stats.totalTournaments} tournaments`);
@@ -102,16 +96,11 @@ function register(app, db) {
         ORDER BY season DESC
       `;
       
-      db.all(query, [], (err, rows) => {
-        if (err) {
-          console.error('❌ Error fetching seasons:', err.message);
-          res.status(500).json({ error: err.message });
-        } else {
-          const seasons = rows.map(row => row.season);
-          console.log(`✅ Found ${seasons.length} seasons:`, seasons);
-          res.json(seasons);
-        }
-      });
+      const result = await pool.query(query);
+      const seasons = result.rows.map(row => row.season);
+      
+      console.log(`✅ Found ${seasons.length} seasons:`, seasons);
+      res.json(seasons);
       
     } catch (error) {
       console.error('❌ Error in /api/seasons:', error.message);
@@ -133,31 +122,25 @@ function register(app, db) {
       };
       
       const query = `
-        SELECT DISTINCT cupType, COUNT(*) as gameCount
+        SELECT DISTINCT cuptype, COUNT(*) as gamecount  
         FROM games 
-        WHERE cupType IS NOT NULL AND cupType != ''
-        GROUP BY cupType
-        HAVING gameCount > 0
-        ORDER BY cupType
+        WHERE cuptype IS NOT NULL AND cuptype != ''
+        GROUP BY cuptype
+        HAVING COUNT(*) > 0
+        ORDER BY cuptype
       `;
       
-      db.all(query, [], (err, rows) => {
-        if (err) {
-          console.error('❌ Error fetching cups:', err.message);
-          res.status(500).json({ error: err.message });
-        } else {
-          const availableCups = rows
-            .filter(row => CUP_CONFIGS[row.cupType])
-            .map(row => ({
-              id: row.cupType,
-              name: CUP_CONFIGS[row.cupType].name,
-              gameCount: row.gameCount
-            }));
-          
-          console.log(`✅ Found ${availableCups.length} cups with data`);
-          res.json(availableCups);
-        }
-      });
+      const result = await pool.query(query);
+      const availableCups = result.rows
+        .filter(row => CUP_CONFIGS[row.cuptype])  // ← cuptype (lowercase)
+        .map(row => ({
+          id: row.cuptype,  // ← cuptype (lowercase)
+          name: CUP_CONFIGS[row.cuptype].name,  // ← cuptype (lowercase)
+          gameCount: parseInt(row.gamecount)  // ← gamecount (lowercase)
+        }));
+      
+      console.log(`✅ Found ${availableCups.length} cups with data`);
+      res.json(availableCups);
       
     } catch (error) {
       console.error('❌ Error in /api/cups:', error.message);

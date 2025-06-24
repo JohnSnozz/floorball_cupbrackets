@@ -2,7 +2,7 @@
 
 const path = require('path');
 
-function register(app, db) {
+function register(app, pool) {  // ← pool statt db
   console.log('🔧 Registriere Utility-Routen...');
 
   // GET /health - Health Check
@@ -23,8 +23,8 @@ function register(app, db) {
       
       // Importiere die Bracket-Logik
       const bracketSorting = require('./bracket-sorting');
-      await bracketSorting.addBracketSortOrderColumn(db);
-      await bracketSorting.calculateBracketSortingForAll(db);
+      await bracketSorting.addBracketSortOrderColumn(pool);  // ← pool
+      await bracketSorting.calculateBracketSortingForAll(pool);  // ← pool
       
       console.log('✅ Bracket sorting calculation completed');
       res.json({ success: true, message: 'Bracket sorting calculated' });

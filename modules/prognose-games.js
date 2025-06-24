@@ -1,4 +1,4 @@
-// modules/prognose-games.js - Prognose Spiele Generator
+// modules/prognose-games.js - Prognose Spiele Generator (PostgreSQL)
 
 /**
  * Generiert Prognose-Spiele basierend auf der aktuellen Bracket-Situation
@@ -30,29 +30,43 @@ const NEXT_ROUND_MAP = {
 };
 
 /**
+ * PostgreSQL Helper-Funktionen
+ */
+async function queryAsync(pool, sql, params = []) {
+    const result = await pool.query(sql, params);
+    return result.rows[0] || null;
+}
+
+async function queryAllAsync(pool, sql, params = []) {
+    const result = await pool.query(sql, params);
+    return result.rows || [];
+}
+
+async function runAsync(pool, sql, params = []) {
+    const result = await pool.query(sql, params);
+    return { changes: result.rowCount || 0 };
+}
+
+/**
  * Holt TeamShort aus der teamShorts Tabelle
  */
-async function getTeamShort(db, teamName) {
-    return new Promise((resolve) => {
-        const sql = 'SELECT teamShort FROM teamShorts WHERE team = ?';
-        
-        db.get(sql, [teamName], (err, row) => {
-            if (err || !row) {
-                // Fallback: ursprünglicher Teamname
-                resolve(teamName);
-            } else {
-                resolve(row.teamShort);
-            }
-        });
-    });
+async function getTeamShort(pool, teamName) {
+    try {
+        const sql = 'SELECT "teamShort" FROM "teamShorts" WHERE team = $1';
+        const result = await queryAsync(pool, sql, [teamName]);
+        return result ? result.teamShort : teamName;
+    } catch (err) {
+        // Fallback: ursprünglicher Teamname
+        return teamName;
+    }
 }
 
 /**
  * Erstellt Team-Verknüpfung mit Kurznamen
  */
-async function createTeamCombination(db, team1, team2) {
-    const team1Short = await getTeamShort(db, team1);
-    const team2Short = await getTeamShort(db, team2);
+async function createTeamCombination(pool, team1, team2) {
+    const team1Short = await getTeamShort(pool, team1);
+    const team2Short = await getTeamShort(pool, team2);
     
     return `${team1Short} / ${team2Short}`;
 }
@@ -60,42 +74,41 @@ async function createTeamCombination(db, team1, team2) {
 /**
  * Hauptfunktion: Generiert Prognose-Spiele für eine Saison/Cup
  */
-async function generatePrognoseGames(db, cupType, season) {
+async function generatePrognoseGames(pool, cuptype, season) {
     try {
-        console.log(`🔮 Generiere Prognose-Spiele für ${cupType} ${season}...`);
+        console.log(`🔮 Generiere Prognose-Spiele für ${cuptype} ${season}...`);
         
         // 1. Prüfe ob überhaupt Spiele in der DB sind
-        const totalGames = await new Promise((resolve) => {
-            db.get('SELECT COUNT(*) as count FROM games WHERE cupType = ? AND season = ? AND source != ?', 
-                  [cupType, season, 'prognose'], (err, row) => {
-                resolve(row ? row.count : 0);
-            });
-        });
+        const totalGamesResult = await queryAsync(pool, 
+            'SELECT COUNT(*) as count FROM games WHERE "cuptype" = $1 AND season = $2 AND source != $3', 
+            [cuptype, season, 'prognose']
+        );
+        const totalGames = totalGamesResult ? parseInt(totalGamesResult.count) : 0;
         
-        console.log(`   🔍 Debug: ${totalGames} Spiele in DB für ${cupType} ${season}`);
+        console.log(`   🔍 Debug: ${totalGames} Spiele in DB für ${cuptype} ${season}`);
         
         if (totalGames === 0) {
-            console.log(`   ❌ Keine Spiele gefunden für ${cupType} ${season} - kann keine Prognose erstellen`);
+            console.log(`   ❌ Keine Spiele gefunden für ${cuptype} ${season} - kann keine Prognose erstellen`);
             return { generated: 0, updated: 0, error: 'Keine Spiele in DB gefunden' };
         }
         
         // 2. Finde letzte echte Runde (Startpunkt)
-        const lastRealRound = await findLastRealRound(db, cupType, season);
+        const lastRealRound = await findLastRealRound(pool, cuptype, season);
         if (!lastRealRound) {
-            console.log(`   ❌ Keine echte Runde gefunden für ${cupType} ${season}`);
+            console.log(`   ❌ Keine echte Runde gefunden für ${cuptype} ${season}`);
             return { generated: 0, updated: 0, error: 'Keine echte Runde gefunden' };
         }
         
         // 3. Hole Tournament-Info
-        const tournamentInfo = await getTournamentInfo(db, cupType, season);
+        const tournamentInfo = await getTournamentInfo(pool, cuptype, season);
         if (!tournamentInfo) {
-            console.log(`   ❌ Tournament-Info nicht gefunden für ${cupType} ${season}`);
+            console.log(`   ❌ Tournament-Info nicht gefunden für ${cuptype} ${season}`);
             return { generated: 0, updated: 0, error: 'Tournament-Info nicht gefunden' };
         }
         
         // 4. Lösche ALLE existierenden Prognose-Spiele für diesen Cup/Saison
         console.log(`   🧹 Lösche alle existierenden Prognose-Spiele...`);
-        await deleteAllPrognoseGames(db, cupType, season);
+        await deleteAllPrognoseGames(pool, cuptype, season);
         
         // 5. Iterative Prognose-Generierung
         let totalGenerated = 0;
@@ -126,7 +139,7 @@ async function generatePrognoseGames(db, cupType, season) {
             console.log(`   🎯 Generiere ${nextRound} basierend auf ${currentRound}...`);
             
             // Generiere nächste Runde
-            const generatedCount = await generatePrognoseRound(db, cupType, season, currentRound, nextRound, tournamentInfo);
+            const generatedCount = await generatePrognoseRound(pool, cuptype, season, currentRound, nextRound, tournamentInfo);
             console.log(`   📊 ${nextRound}: ${generatedCount} Spiele generiert`);
             
             if (generatedCount === 0) {
@@ -157,7 +170,7 @@ async function generatePrognoseGames(db, cupType, season) {
         };
         
     } catch (error) {
-        console.error(`❌ Fehler bei Prognose-Generierung für ${cupType} ${season}: ${error.message}`);
+        console.error(`❌ Fehler bei Prognose-Generierung für ${cuptype} ${season}: ${error.message}`);
         console.error(error.stack);
         return { generated: 0, updated: 0, error: error.message };
     }
@@ -166,62 +179,55 @@ async function generatePrognoseGames(db, cupType, season) {
 /**
  * Findet die letzte echte Runde (nicht Prognose) als Startpunkt
  */
-async function findLastRealRound(db, cupType, season) {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT DISTINCT roundName, COUNT(*) as gameCount,
-                   COUNT(CASE WHEN source = 'prognose' THEN 1 END) as prognoseCount
-            FROM games 
-            WHERE cupType = ? AND season = ?
-            GROUP BY roundName
-            ORDER BY 
-                CASE roundName 
-                    WHEN '1/128' THEN 1
-                    WHEN '1/64' THEN 2 
-                    WHEN '1/32' THEN 3
-                    WHEN '1/16' THEN 4
-                    WHEN '1/8' THEN 5
-                    WHEN '1/4' THEN 6
-                    WHEN '1/2' THEN 7
-                    WHEN '1/1' THEN 8
-                    ELSE 9
-                END ASC
-        `;
+async function findLastRealRound(pool, cuptype, season) {
+    const sql = `
+        SELECT "roundname", COUNT(*) as "gameCount",
+               COUNT(CASE WHEN source = 'prognose' THEN 1 END) as "prognoseCount"
+        FROM games 
+        WHERE "cuptype" = $1 AND season = $2
+        GROUP BY "roundname"
+        ORDER BY 
+            CASE "roundname" 
+                WHEN '1/128' THEN 1
+                WHEN '1/64' THEN 2 
+                WHEN '1/32' THEN 3
+                WHEN '1/16' THEN 4
+                WHEN '1/8' THEN 5
+                WHEN '1/4' THEN 6
+                WHEN '1/2' THEN 7
+                WHEN '1/1' THEN 8
+                ELSE 9
+            END ASC
+    `;
+    
+    const rows = await queryAllAsync(pool, sql, [cuptype, season]);
+    
+    console.log(`   🔍 Debug: Alle Runden für ${cuptype} ${season}:`);
+    
+    let lastRealRound = null;
+    
+    for (const row of rows) {
+        const realGames = parseInt(row.gameCount) - parseInt(row.prognoseCount);
+        const status = parseInt(row.prognoseCount) > 0 ? '🔮 PROGNOSE' : (realGames > 0 ? '✅ ECHT' : '❓ LEER');
         
-        db.all(sql, [cupType, season], (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                console.log(`   🔍 Debug: Alle Runden für ${cupType} ${season}:`);
-                
-                let lastRealRound = null;
-                
-                for (const row of rows) {
-                    const realGames = row.gameCount - row.prognoseCount;
-                    const status = row.prognoseCount > 0 ? '🔮 PROGNOSE' : (realGames > 0 ? '✅ ECHT' : '❓ LEER');
-                    
-                    console.log(`     📊 ${row.roundName}: ${realGames} echt + ${row.prognoseCount} prognose = ${row.gameCount} total - ${status}`);
-                    
-                    // Nur echte Spiele zählen als "letzte reale Runde"
-                    if (realGames > 0) {
-                        lastRealRound = row.roundName;
-                    }
-                }
-                
-                console.log(`   📍 Letzte echte Runde: ${lastRealRound}`);
-                resolve(lastRealRound);
-            }
-        });
-    });
+        console.log(`     📊 ${row.roundname}: ${realGames} echt + ${row.prognoseCount} prognose = ${row.gameCount} total - ${status}`);
+        
+        // Nur echte Spiele zählen als "letzte reale Runde"
+        if (realGames > 0) {
+            lastRealRound = row.roundname;
+        }
+    }
+    
+    console.log(`   📍 Letzte echte Runde: ${lastRealRound}`);
+    return lastRealRound;
 }
-
 /**
  * Generiert eine Prognose-Runde basierend auf der Vorrunde
  */
-async function generatePrognoseRound(db, cupType, season, currentRound, nextRound, tournamentInfo) {
+async function generatePrognoseRound(pool, cuptype, season, currentRound, nextRound, tournamentInfo) {
     try {
         // Hole alle Spiele der aktuellen Runde (echte + bereits generierte Prognose)
-        const currentRoundGames = await getAllGamesForRound(db, cupType, season, currentRound);
+        const currentRoundGames = await getAllGamesForRound(pool, cuptype, season, currentRound);
         
         if (currentRoundGames.length === 0) {
             console.log(`   ⚠️ Keine Spiele in ${currentRound} gefunden`);
@@ -237,12 +243,12 @@ async function generatePrognoseRound(db, cupType, season, currentRound, nextRoun
             const game1 = currentRoundGames[i];
             const game2 = currentRoundGames[i + 1];
             
-            const newSortOrder = Math.ceil((game1.bracketSortOrder || 1) / 2);
+            const newSortOrder = Math.ceil((game1.bracketsortorder || 1) / 2);
             
             if (game2) {
                 // Zwei Spiele -> bestimme beide Teams nach Ihren Regeln
-                const team1 = await determineAdvancerFromGame(db, game1);
-                const team2 = await determineAdvancerFromGame(db, game2);
+                const team1 = await determineAdvancerFromGame(pool, game1);
+                const team2 = await determineAdvancerFromGame(pool, game2);
                 
                 nextRoundPairs.push({
                     team1: team1,
@@ -251,7 +257,7 @@ async function generatePrognoseRound(db, cupType, season, currentRound, nextRoun
                 });
             } else {
                 // Nur ein Spiel -> automatischer Aufsteiger mit Freilos
-                const team1 = await determineAdvancerFromGame(db, game1);
+                const team1 = await determineAdvancerFromGame(pool, game1);
                 
                 nextRoundPairs.push({
                     team1: team1,
@@ -273,39 +279,39 @@ async function generatePrognoseRound(db, cupType, season, currentRound, nextRoun
             const pair = nextRoundPairs[i];
             
             const gameData = {
-                gameId: await generateUniquePrognoseId(db),
+                gameid: await generateUniquePrognoseId(pool),
                 team1: pair.team1,
                 team2: pair.team2,
-                roundName: nextRound,
-                roundId: await getNextRoundId(db, cupType, season),
-                tournamentId: tournamentInfo.tournamentId,
-                tournamentName: tournamentInfo.tournamentName,
+                roundname: nextRound,
+                roundid: await getNextroundid(pool, cuptype, season),
+                tournamentid: tournamentInfo.tournamentid,
+                tournamentname: tournamentInfo.tournamentname,
                 season: season,
-                cupType: cupType,
+                cuptype: cuptype,
                 gender: tournamentInfo.gender,
-                fieldType: tournamentInfo.fieldType,
-                gameDate: '',
-                gameTime: '',
+                fieldtype: tournamentInfo.fieldtype,
+                gamedate: '',
+                gametime: '',
                 venue: '',
                 status: 'prognose',
                 result: 'TBD',
                 source: 'prognose',
-                apiEndpoint: '',
+                apiendpoint: '',
                 link: '',
-                homeTeamScore: null,
-                awayTeamScore: null,
-                gameLocation: null,
+                hometeamscore: null,
+                awayteamscore: null,
+                gamelocation: null,
                 referees: null,
                 spectators: null,
                 notes: 'Automatisch generierte Prognose',
-                numericGameId: null,
-                bracketSortOrder: pair.sortOrder
+                numericgameid: null,
+                bracketsortorder: pair.sortOrder
             };
             
             try {
-                await savePrognoseGame(db, gameData);
+                await savePrognoseGame(pool, gameData);
                 generatedCount++;
-                console.log(`   ✅ ${pair.team1} vs ${pair.team2} (${nextRound}) - ID: ${gameData.gameId}`);
+                console.log(`   ✅ ${pair.team1} vs ${pair.team2} (${nextRound}) - ID: ${gameData.gameid}`);
             } catch (saveError) {
                 console.error(`   ❌ Fehler beim Speichern: ${saveError.message}`);
             }
@@ -323,7 +329,7 @@ async function generatePrognoseRound(db, cupType, season, currentRound, nextRoun
 /**
  * Bestimmt den Aufsteiger nach Ihren 5 Regeln (mit teamShorts Integration)
  */
-async function determineAdvancerFromGame(db, game) {
+async function determineAdvancerFromGame(pool, game) {
     const team1 = game.team1;
     const team2 = game.team2;
     
@@ -354,393 +360,36 @@ async function determineAdvancerFromGame(db, game) {
     }
     
     // Fall 1: Nicht gespielt --> Team A / Team B (mit Kurznamen)
-    return await createTeamCombination(db, team1, team2);
+    return await createTeamCombination(pool, team1, team2);
 }
 
 /**
  * Holt alle Spiele einer Runde (echte + Prognose)
  */
-async function getAllGamesForRound(db, cupType, season, roundName) {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT * FROM games 
-            WHERE cupType = ? AND season = ? AND roundName = ?
-            ORDER BY bracketSortOrder ASC, gameId ASC
-        `;
-        
-        db.all(sql, [cupType, season, roundName], (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(rows || []);
-            }
-        });
-    });
+async function getAllGamesForRound(pool, cuptype, season, roundname) {
+    const sql = `
+        SELECT * FROM games 
+        WHERE "cuptype" = $1 AND season = $2 AND "roundname" = $3
+        ORDER BY "bracketsortorder" ASC, "gameid" ASC
+    `;
+    
+    return await queryAllAsync(pool, sql, [cuptype, season, roundname]);
 }
 
 /**
  * Holt Tournament-Informationen für Prognose-Spiele
  */
-async function getTournamentInfo(db, cupType, season) {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT DISTINCT tournamentId, tournamentName, gender, fieldType
-            FROM games 
-            WHERE cupType = ? AND season = ?
-            LIMIT 1
-        `;
-        
-        db.get(sql, [cupType, season], (err, row) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    });
-}
-
-/**
- * Löscht existierende Prognose-Spiele für bestimmte Runden
- */
-async function deleteExistingPrognoseGames(db, cupType, season, rounds) {
-    return new Promise((resolve, reject) => {
-        const placeholders = rounds.map(() => '?').join(',');
-        const sql = `
-            DELETE FROM games 
-            WHERE cupType = ? AND season = ? 
-            AND source = 'prognose'
-            AND roundName IN (${placeholders})
-        `;
-        
-        db.run(sql, [cupType, season, ...rounds], function(err) {
-            if (err) {
-                reject(err);
-            } else {
-                console.log(`   🗑️ ${this.changes} existierende Prognose-Spiele gelöscht`);
-                resolve(this.changes);
-            }
-        });
-    });
-}
-
-/**
- * Generiert die nächste Runde mit echten Team-Namen
- */
-async function generateNextRoundGames(db, cupType, season, lastRound, nextRound, tournamentInfo) {
-    try {
-        console.log(`   🎯 Generiere ${nextRound} mit echten Teams...`);
-        
-        // Hole alle Spiele der letzten Runde, sortiert nach bracketSortOrder
-        const lastRoundGames = await getGamesForRound(db, cupType, season, lastRound);
-        
-        if (lastRoundGames.length === 0) {
-            throw new Error(`Keine Spiele in Runde ${lastRound} gefunden`);
-        }
-        
-        console.log(`   📊 ${lastRoundGames.length} Spiele in ${lastRound} gefunden`);
-        
-        // Gruppiere Spiele paarweise für nächste Runde
-        const nextRoundPairs = [];
-        
-        for (let i = 0; i < lastRoundGames.length; i += 2) {
-            const game1 = lastRoundGames[i];
-            const game2 = lastRoundGames[i + 1];
-            
-            // 🔧 KORREKTE bracketSortOrder: Erste Spiel-Position / 2 GERUNDET NACH OBEN
-            const newSortOrder = Math.ceil((game1.bracketSortOrder || 1) / 2);
-            
-            if (game2) {
-                // Zwei Spiele -> bestimme beide Teams
-                const team1 = await determineWinnerOrAdvancer(db, game1);
-                const team2 = await determineWinnerOrAdvancer(db, game2);
-                
-                // 🔧 FREILOS-LOGIC: Falls ein Team Freilos hat, kombiniere mit dem anderen Spiel
-                if (team1 === 'Freilos' && team2 !== 'Freilos') {
-                    // game1 hat Freilos, game2 ist echtes Spiel -> kombiniere
-                    const realTeam1 = game1.team1 === 'Freilos' ? game1.team2 : game1.team1;
-                    nextRoundPairs.push({
-                        team1: realTeam1,
-                        team2: team2,
-                        sortOrder: newSortOrder
-                    });
-                } else if (team2 === 'Freilos' && team1 !== 'Freilos') {
-                    // game2 hat Freilos, game1 ist echtes Spiel -> kombiniere
-                    const realTeam2 = game2.team1 === 'Freilos' ? game2.team2 : game2.team1;
-                    nextRoundPairs.push({
-                        team1: team1,
-                        team2: realTeam2,
-                        sortOrder: newSortOrder
-                    });
-                } else if (team1 !== 'Freilos' && team2 !== 'Freilos') {
-                    // Beide sind echte Spiele
-                    nextRoundPairs.push({
-                        team1: team1,
-                        team2: team2,
-                        sortOrder: newSortOrder
-                    });
-                }
-                // Falls beide Freilos sind, überspringe komplett
-                
-            } else {
-                // Nur ein Spiel -> automatischer Aufsteiger mit Freilos
-                const team1 = await determineWinnerOrAdvancer(db, game1);
-                
-                if (team1 !== 'Freilos') {
-                    nextRoundPairs.push({
-                        team1: team1,
-                        team2: 'Freilos',
-                        sortOrder: newSortOrder
-                    });
-                }
-            }
-        }
-        
-        // Sortiere Paare nach sortOrder
-        nextRoundPairs.sort((a, b) => a.sortOrder - b.sortOrder);
-        
-        console.log(`   🔍 Debug: ${nextRoundPairs.length} Paare für ${nextRound} erstellt`);
-        
-        // Generiere Spiele für nächste Runde
-        let generatedCount = 0;
-        
-        for (let i = 0; i < nextRoundPairs.length; i++) {
-            const pair = nextRoundPairs[i];
-            
-            // 🔧 FREILOS-HANDLING: Falls beide Teams Freilos sind, überspringe das Spiel
-            if (pair.team1 === 'Freilos' && pair.team2 === 'Freilos') {
-                console.log(`   ⏭️ Überspringe Freilos vs Freilos Paarung`);
-                continue;
-            }
-            
-            const gameData = {
-                gameId: await generateUniquePrognoseId(db),
-                team1: pair.team1,
-                team2: pair.team2,
-                roundName: nextRound,
-                roundId: await getNextRoundId(db, cupType, season),
-                tournamentId: tournamentInfo.tournamentId,
-                tournamentName: tournamentInfo.tournamentName,
-                season: season,
-                cupType: cupType,
-                gender: tournamentInfo.gender,
-                fieldType: tournamentInfo.fieldType,
-                gameDate: '',
-                gameTime: '',
-                venue: '',
-                status: 'prognose',
-                result: 'TBD',
-                source: 'prognose',
-                apiEndpoint: '',
-                link: '',
-                homeTeamScore: null,
-                awayTeamScore: null,
-                gameLocation: null,
-                referees: null,
-                spectators: null,
-                notes: 'Automatisch generierte Prognose',
-                numericGameId: null,
-                bracketSortOrder: pair.sortOrder
-            };
-            
-            try {
-                await savePrognoseGame(db, gameData);
-                generatedCount++;
-                console.log(`   ✅ ${pair.team1} vs ${pair.team2} (${nextRound}) - ID: ${gameData.gameId}`);
-            } catch (saveError) {
-                console.error(`   ❌ Fehler beim Speichern: ${saveError.message}`);
-            }
-        }
-        
-        console.log(`   📊 ${generatedCount} Spiele für ${nextRound} generiert`);
-        return generatedCount;
-        
-    } catch (error) {
-        console.error(`❌ Fehler bei ${nextRound} Generierung: ${error.message}`);
-        return 0;
-    }
-}
-
-/**
- * Generiert übernächste Runde mit TBD Teams
- */
-async function generateTBDRoundGames(db, cupType, season, currentRound, nextRound, tournamentInfo) {
-    try {
-        console.log(`   🎯 Generiere ${nextRound} mit TBD Teams...`);
-        
-        // Hole alle Prognose-Spiele der aktuellen Runde
-        const currentRoundGames = await getPrognoseGamesForRound(db, cupType, season, currentRound);
-        
-        if (currentRoundGames.length === 0) {
-            console.log(`   ⚠️ Keine Prognose-Spiele in ${currentRound} gefunden`);
-            return 0;
-        }
-        
-        console.log(`   📊 ${currentRoundGames.length} Prognose-Spiele in ${currentRound} gefunden`);
-        
-        // Gruppiere Spiele paarweise für nächste Runde
-        const nextRoundPairs = [];
-        
-        for (let i = 0; i < currentRoundGames.length; i += 2) {
-            const game1 = currentRoundGames[i];
-            const game2 = currentRoundGames[i + 1];
-            
-            // 🔧 KORREKTE bracketSortOrder: Erste Spiel-Position / 2 GERUNDET NACH OBEN
-            const newSortOrder = Math.ceil((game1.bracketSortOrder || 1) / 2);
-            
-            if (game2) {
-                // Zwei Spiele -> TBD Paar (außer bei Freilos-Automatik)
-                const team1 = determineTBDOrAdvancer(game1);
-                const team2 = determineTBDOrAdvancer(game2);
-                
-                // Skip nur wenn beide explizit Freilos sind
-                if (team1 === 'Freilos' && team2 === 'Freilos') {
-                    continue;
-                }
-                
-                nextRoundPairs.push({
-                    team1: team1,
-                    team2: team2,
-                    sortOrder: newSortOrder
-                });
-            } else {
-                // Nur ein Spiel -> automatischer Aufsteiger
-                const team1 = determineTBDOrAdvancer(game1);
-                
-                if (team1 !== 'Freilos') {
-                    nextRoundPairs.push({
-                        team1: team1,
-                        team2: 'Freilos',
-                        sortOrder: newSortOrder
-                    });
-                }
-            }
-        }
-        
-        // Sortiere Paare nach sortOrder
-        nextRoundPairs.sort((a, b) => a.sortOrder - b.sortOrder);
-        
-        console.log(`   🔍 Debug: ${nextRoundPairs.length} TBD-Paare für ${nextRound} erstellt`);
-        
-        // Generiere TBD-Spiele für übernächste Runde
-        let generatedCount = 0;
-        
-        for (let i = 0; i < nextRoundPairs.length; i++) {
-            const pair = nextRoundPairs[i];
-            
-            // Generiere auch TBD vs TBD Spiele
-            const tbdGameData = {
-                gameId: await generateUniquePrognoseId(db),
-                team1: pair.team1,
-                team2: pair.team2,
-                roundName: nextRound,
-                roundId: await getNextRoundId(db, cupType, season),
-                tournamentId: tournamentInfo.tournamentId,
-                tournamentName: tournamentInfo.tournamentName,
-                season: season,
-                cupType: cupType,
-                gender: tournamentInfo.gender,
-                fieldType: tournamentInfo.fieldType,
-                gameDate: '',
-                gameTime: '',
-                venue: '',
-                status: 'prognose',
-                result: 'TBD',
-                source: 'prognose',
-                apiEndpoint: '',
-                link: '',
-                homeTeamScore: null,
-                awayTeamScore: null,
-                gameLocation: null,
-                referees: null,
-                spectators: null,
-                notes: 'Automatisch generierte TBD Prognose',
-                numericGameId: null,
-                bracketSortOrder: pair.sortOrder
-            };
-            
-            try {
-                await savePrognoseGame(db, tbdGameData);
-                generatedCount++;
-                console.log(`   ✅ ${pair.team1} vs ${pair.team2} (${nextRound} TBD) - ID: ${tbdGameData.gameId}`);
-            } catch (saveError) {
-                console.error(`   ❌ Fehler beim TBD-Speichern: ${saveError.message}`);
-            }
-        }
-        
-        console.log(`   📊 ${generatedCount} TBD-Spiele für ${nextRound} generiert`);
-        return generatedCount;
-        
-    } catch (error) {
-        console.error(`❌ Fehler bei ${nextRound} TBD-Generierung: ${error.message}`);
-        return 0;
-    }
-}
-
-/**
- * Bestimmt TBD oder fixen Aufsteiger für übernächste Runde
- */
-function determineTBDOrAdvancer(game) {
-    // Wenn ein Team bereits fix Freilos hat, kann es fix gesetzt werden
-    if (game.team1 === 'Freilos') {
-        return game.team2;
-    }
-    if (game.team2 === 'Freilos') {
-        return game.team1;
-    }
+async function getTournamentInfo(pool, cuptype, season) {
+    // Diese Funktion ist bereits korrekt - kein ORDER BY verwendet
+    const sql = `
+        SELECT DISTINCT tournamentid, tournamentname, gender, fieldtype
+        FROM games 
+        WHERE cuptype = $1 AND season = $2
+        LIMIT 1
+    `;
     
-    // Wenn beide Teams TBD/TBA sind, bleibt es TBD
-    if ((game.team1 === 'TBD' || game.team1 === 'TBA') && (game.team2 === 'TBD' || game.team2 === 'TBA')) {
-        return 'TBD';
-    }
-    
-    // Für alle anderen Fälle: TBD
-    return 'TBD';
+    return await queryAsync(pool, sql, [cuptype, season]);
 }
-
-/**
- * Holt alle Prognose-Spiele einer bestimmten Runde
- */
-async function getPrognoseGamesForRound(db, cupType, season, roundName) {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT * FROM games 
-            WHERE cupType = ? AND season = ? AND roundName = ?
-            AND source = 'prognose'
-            ORDER BY bracketSortOrder ASC, gameId ASC
-        `;
-        
-        db.all(sql, [cupType, season, roundName], (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(rows || []);
-            }
-        });
-    });
-}
-
-async function determineWinnerOrAdvancer(db, game) {
-    // Wenn ein Team Freilos ist, steigt das andere automatisch auf
-    if (game.team1 === 'Freilos') {
-        return game.team2;
-    }
-    if (game.team2 === 'Freilos') {
-        return game.team1;
-    }
-    
-    // Wenn das Spiel gespielt wurde, bestimme Gewinner
-    if (game.result && game.result.trim() !== '' && game.result !== 'TBD') {
-        const winner = determineWinnerFromResult(game.result, game.team1, game.team2);
-        if (winner) {
-            return winner;
-        }
-    }
-    
-    // Fallback: Team1 / Team2 Format für unentschiedene Spiele (mit Kurznamen)
-    return await createTeamCombination(db, game.team1, game.team2);
-}
-
 /**
  * Bestimmt Gewinner aus Resultat-String
  */
@@ -764,143 +413,94 @@ function determineWinnerFromResult(result, team1, team2) {
 }
 
 /**
- * Holt alle Spiele einer bestimmten Runde
- */
-async function getGamesForRound(db, cupType, season, roundName) {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT * FROM games 
-            WHERE cupType = ? AND season = ? AND roundName = ?
-            AND source != 'prognose'
-            ORDER BY bracketSortOrder ASC, gameId ASC
-        `;
-        
-        db.all(sql, [cupType, season, roundName], (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(rows || []);
-            }
-        });
-    });
-}
-
-/**
  * Generiert eine eindeutige Prognose-ID
  */
-async function generateUniquePrognoseId(db) {
-    return new Promise((resolve, reject) => {
-        // Finde die höchste bestehende Prognose-ID
-        const sql = `
-            SELECT gameId FROM games 
-            WHERE gameId LIKE 'prognose_%'
-            ORDER BY CAST(SUBSTR(gameId, 10) AS INTEGER) DESC
-            LIMIT 1
-        `;
-        
-        db.get(sql, [], (err, row) => {
-            if (err) {
-                reject(err);
-            } else {
-                let nextNumber = 1;
-                
-                if (row && row.gameId) {
-                    const currentNumber = parseInt(row.gameId.replace('prognose_', ''));
-                    if (!isNaN(currentNumber)) {
-                        nextNumber = currentNumber + 1;
-                    }
-                }
-                
-                // Formatiere mit führenden Nullen (7 Stellen)
-                const paddedNumber = nextNumber.toString().padStart(7, '0');
-                resolve(`prognose_${paddedNumber}`);
-            }
-        });
-    });
+async function generateUniquePrognoseId(pool) {
+    // Finde die höchste bestehende Prognose-ID
+    const sql = `
+        SELECT "gameid" FROM games 
+        WHERE "gameid" LIKE 'prognose_%'
+        ORDER BY CAST(SUBSTRING("gameid", 10) AS INTEGER) DESC
+        LIMIT 1
+    `;
+    
+    const row = await queryAsync(pool, sql, []);
+    
+    let nextNumber = 1;
+    
+    if (row && row.gameid) {
+        const currentNumber = parseInt(row.gameid.replace('prognose_', ''));
+        if (!isNaN(currentNumber)) {
+            nextNumber = currentNumber + 1;
+        }
+    }
+    
+    // Formatiere mit führenden Nullen (7 Stellen)
+    const paddedNumber = nextNumber.toString().padStart(7, '0');
+    return `prognose_${paddedNumber}`;
 }
 
 /**
  * Bestimmt die nächste Round-ID
  */
-async function getNextRoundId(db, cupType, season) {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT MAX(CAST(roundId AS INTEGER)) as maxRoundId
-            FROM games 
-            WHERE cupType = ? AND season = ?
-        `;
-        
-        db.get(sql, [cupType, season], (err, row) => {
-            if (err) {
-                reject(err);
-            } else {
-                const nextRoundId = (row && row.maxRoundId) ? row.maxRoundId + 1 : 1000;
-                resolve(nextRoundId.toString());
-            }
-        });
-    });
+async function getNextroundid(pool, cuptype, season) {
+    const sql = `
+        SELECT MAX(CAST("roundid" AS INTEGER)) as "maxroundid"
+        FROM games 
+        WHERE "cuptype" = $1 AND season = $2
+    `;
+    
+    const row = await queryAsync(pool, sql, [cuptype, season]);
+    const nextroundid = (row && row.maxroundid) ? row.maxroundid + 1 : 1000;
+    return nextroundid.toString();
 }
 
 /**
  * Speichert ein Prognose-Spiel in die Datenbank
  */
-async function savePrognoseGame(db, gameData) {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            INSERT INTO games (
-                gameId, team1, team2, roundName, roundId, tournamentId, tournamentName,
-                season, cupType, gender, fieldType, gameDate, gameTime, venue, status,
-                result, source, apiEndpoint, link, homeTeamScore, awayTeamScore,
-                gameLocation, referees, spectators, notes, numericGameId, bracketSortOrder
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        
-        const values = [
-            gameData.gameId, gameData.team1, gameData.team2, gameData.roundName,
-            gameData.roundId, gameData.tournamentId, gameData.tournamentName,
-            gameData.season, gameData.cupType, gameData.gender, gameData.fieldType,
-            gameData.gameDate, gameData.gameTime, gameData.venue, gameData.status,
-            gameData.result, gameData.source, gameData.apiEndpoint, gameData.link,
-            gameData.homeTeamScore, gameData.awayTeamScore, gameData.gameLocation,
-            gameData.referees, gameData.spectators, gameData.notes,
-            gameData.numericGameId, gameData.bracketSortOrder
-        ];
-        
-        db.run(sql, values, function(err) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve({ changes: this.changes, lastID: this.lastID });
-            }
-        });
-    });
+async function savePrognoseGame(pool, gameData) {
+    const sql = `
+        INSERT INTO games (
+            "gameid", team1, team2, "roundname", "roundid", "tournamentid", "tournamentname",
+            season, "cuptype", gender, "fieldtype", "gamedate", "gametime", venue, status,
+            result, source, "apiendpoint", link, "hometeamscore", "awayteamscore",
+            "gamelocation", referees, spectators, notes, "numericgameid", "bracketsortorder"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+    `;
+    
+    const values = [
+        gameData.gameid, gameData.team1, gameData.team2, gameData.roundname,
+        gameData.roundid, gameData.tournamentid, gameData.tournamentname,
+        gameData.season, gameData.cuptype, gameData.gender, gameData.fieldtype,
+        gameData.gamedate, gameData.gametime, gameData.venue, gameData.status,
+        gameData.result, gameData.source, gameData.apiendpoint, gameData.link,
+        gameData.hometeamscore || null, gameData.awayteamscore || null,
+        gameData.gamelocation || null, gameData.referees || null,
+        gameData.spectators || null, gameData.notes || null,
+        gameData.numericgameid || null, gameData.bracketsortorder || null
+    ];
+    
+    return await runAsync(pool, sql, values);
 }
 
 /**
  * Löscht alle Prognose-Spiele für einen Cup/Saison
  */
-async function deleteAllPrognoseGames(db, cupType, season) {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            DELETE FROM games 
-            WHERE cupType = ? AND season = ? AND source = 'prognose'
-        `;
-        
-        db.run(sql, [cupType, season], function(err) {
-            if (err) {
-                reject(err);
-            } else {
-                console.log(`   🗑️ ${this.changes} Prognose-Spiele für ${cupType} ${season} gelöscht`);
-                resolve(this.changes);
-            }
-        });
-    });
+async function deleteAllPrognoseGames(pool, cuptype, season) {
+    const sql = `
+        DELETE FROM games 
+        WHERE "cuptype" = $1 AND season = $2 AND source = 'prognose'
+    `;
+    
+    const result = await runAsync(pool, sql, [cuptype, season]);
+    console.log(`   🗑️ ${result.changes} Prognose-Spiele für ${cuptype} ${season} gelöscht`);
+    return result.changes;
 }
 
 /**
  * Generiert Prognose-Spiele für alle aktuellen Cups
  */
-async function generatePrognoseForAllCups(db, season) {
+async function generatePrognoseForAllCups(pool, season) {
     const CUPS = ['herren_grossfeld', 'damen_grossfeld', 'herren_kleinfeld', 'damen_kleinfeld'];
     
     console.log(`🔮 Generiere Prognose-Spiele für alle Cups (Saison ${season})...`);
@@ -908,21 +508,21 @@ async function generatePrognoseForAllCups(db, season) {
     let totalGenerated = 0;
     const results = [];
     
-    for (const cupType of CUPS) {
+    for (const cuptype of CUPS) {
         try {
-            console.log(`\n🏆 ${getCupDisplayName(cupType)}:`);
-            const result = await generatePrognoseGames(db, cupType, season);
+            console.log(`\n🏆 ${getCupDisplayName(cuptype)}:`);
+            const result = await generatePrognoseGames(pool, cuptype, season);
             
             totalGenerated += result.generated;
             results.push({
-                cupType: cupType,
+                cuptype: cuptype,
                 ...result
             });
             
         } catch (error) {
-            console.error(`❌ Fehler bei ${cupType}: ${error.message}`);
+            console.error(`❌ Fehler bei ${cuptype}: ${error.message}`);
             results.push({
-                cupType: cupType,
+                cuptype: cuptype,
                 generated: 0,
                 error: error.message
             });
@@ -941,33 +541,33 @@ async function generatePrognoseForAllCups(db, season) {
 /**
  * Hilfsfunktion: Lesbare Cup-Namen
  */
-function getCupDisplayName(cupType) {
+function getCupDisplayName(cuptype) {
     const names = {
         'herren_grossfeld': '🏒 Herren Grossfeld',
         'damen_grossfeld': '🏒 Damen Grossfeld',
         'herren_kleinfeld': '🏑 Herren Kleinfeld',
         'damen_kleinfeld': '🏑 Damen Kleinfeld'
     };
-    return names[cupType] || cupType;
+    return names[cuptype] || cuptype;
 }
 
 /**
  * API Route Registration
  */
-function register(app, db) {
+function register(app, pool) {
     console.log('🔧 Registriere Prognose-Routen...');
     
     // GET /generate-prognose - Generiert Prognose für einen spezifischen Cup
     app.get('/generate-prognose', async (req, res) => {
-        const cupType = req.query.cup || 'herren_grossfeld';
+        const cuptype = req.query.cup || 'herren_grossfeld';
         const season = req.query.season || '2025/26';
         
         try {
-            const result = await generatePrognoseGames(db, cupType, season);
+            const result = await generatePrognoseGames(pool, cuptype, season);
             
             res.json({
                 success: true,
-                cupType: cupType,
+                cuptype: cuptype,
                 season: season,
                 ...result
             });
@@ -977,7 +577,7 @@ function register(app, db) {
             res.status(500).json({
                 success: false,
                 error: error.message,
-                cupType: cupType,
+                cuptype: cuptype,
                 season: season
             });
         }
