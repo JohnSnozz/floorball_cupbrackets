@@ -33,7 +33,7 @@ function initializeSmartConnectors(smartRounds) {
             const connectors = createConnectorsForGame(nextGamePos, currentRound);
             connectors.forEach(connector => {
                 // Füge Metadaten für Hover-Funktionalität hinzu
-                connector.targetGameId = nextGamePos.game.bracketSortOrder;
+                connector.targetGameId = nextGamePos.game.bracketsortorder;
                 addConnectorToDOM(connector);
                 connectorCount++;
             });
@@ -49,7 +49,7 @@ function initializeSmartConnectors(smartRounds) {
 function createConnectorsForGame(nextGamePos, currentRound) {
     const connectors = [];
     const nextGame = nextGamePos.game;
-    const nextSortOrder = parseInt(nextGame.bracketSortOrder);
+    const nextSortOrder = parseInt(nextGame.bracketsortorder);
     
     // Berechne erwartete Vorgänger-SortOrders
     const pred1SortOrder = (nextSortOrder * 2) - 1;
@@ -57,10 +57,10 @@ function createConnectorsForGame(nextGamePos, currentRound) {
     
     // Finde Vorgänger-Spiele
     const pred1 = currentRound.gamePositions.find(pos => 
-        parseInt(pos.game.bracketSortOrder) === pred1SortOrder
+        parseInt(pos.game.bracketsortorder) === pred1SortOrder
     );
     const pred2 = currentRound.gamePositions.find(pos => 
-        parseInt(pos.game.bracketSortOrder) === pred2SortOrder
+        parseInt(pos.game.bracketsortorder) === pred2SortOrder
     );
     
     if (connectorDebugMode) {
@@ -258,7 +258,7 @@ function findPathToGame(targetGameId) {
         
         // Prüfe ob das aktuelle Ziel in dieser Runde ist
         const gameInRound = currentRound.gamePositions.find(pos => 
-            parseInt(pos.game.bracketSortOrder) === currentSortOrder
+            parseInt(pos.game.bracketsortorder) === currentSortOrder
         );
         
         if (gameInRound && roundIndex > 0) {
@@ -270,14 +270,14 @@ function findPathToGame(targetGameId) {
             const prevRound = currentSmartRounds[roundIndex - 1];
             
             const pred1 = prevRound.gamePositions.find(pos => 
-                parseInt(pos.game.bracketSortOrder) === pred1SortOrder
+                parseInt(pos.game.bracketsortorder) === pred1SortOrder
             );
             const pred2 = prevRound.gamePositions.find(pos => 
-                parseInt(pos.game.bracketSortOrder) === pred2SortOrder
+                parseInt(pos.game.bracketsortorder) === pred2SortOrder
             );
             
-            if (pred1) pathGameIds.push(pred1.game.bracketSortOrder);
-            if (pred2) pathGameIds.push(pred2.game.bracketSortOrder);
+            if (pred1) pathGameIds.push(pred1.game.bracketsortorder);
+            if (pred2) pathGameIds.push(pred2.game.bracketsortorder);
         }
     }
     

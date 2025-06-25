@@ -110,13 +110,13 @@ function register(app, pool) {  // pool statt db
           
           // Duplikate entfernen
           const uniqueGames = allRoundGames.filter((game, index, self) => 
-            index === self.findIndex(g => g.gameId === game.gameId)
+            index === self.findIndex(g => g.gameid === game.gameid)
           );
           
           console.log(`📊 Round ${round.name}: ${uniqueGames.length} unique games`);
           
           for (const game of uniqueGames) {
-            // Erstelle konsistente gameId basierend auf Teams, Runde und Turnier ODER numerische ID
+            // Erstelle konsistente gameid basierend auf Teams, Runde und Turnier ODER numerische ID
             let uniqueGameId;
             if (game.numericGameId) {
               uniqueGameId = `game_${game.numericGameId}`;
@@ -149,7 +149,7 @@ function register(app, pool) {  // pool statt db
                 });
                 
                 game.fromCache = false;
-                game.gameId = uniqueGameId;
+                game.gameid = uniqueGameId;
                 game.roundName = round.name;
                 game.tournamentName = tournament.name;
                 game.season = tournament.season;
@@ -166,7 +166,7 @@ function register(app, pool) {  // pool statt db
                 });
                 
                 game.fromCache = false;
-                game.gameId = uniqueGameId;
+                game.gameid = uniqueGameId;
                 game.roundName = round.name;
                 game.tournamentName = tournament.name;
                 game.season = tournament.season;
@@ -176,7 +176,7 @@ function register(app, pool) {  // pool statt db
               } else {
                 // 💾 CACHE: Unverändert, aus Cache
                 game.fromCache = true;
-                game.gameId = uniqueGameId;
+                game.gameid = uniqueGameId;
                 game.roundName = round.name;
                 game.tournamentName = tournament.name;
                 game.season = tournament.season;
@@ -190,7 +190,7 @@ function register(app, pool) {  // pool statt db
               
               // Neue Spieldaten aufbereiten und speichern
               const gameData = {
-                gameId: uniqueGameId,
+                gameid: uniqueGameId,
                 numericGameId: game.numericGameId || null,
                 team1: game.team1,
                 team2: game.team2,
@@ -224,7 +224,7 @@ function register(app, pool) {  // pool statt db
                 if (saveResult.changes > 0) {
                   console.log(`✅ SAVED: ${game.team1} vs ${game.team2} saved to DB`);
                   game.fromCache = false;
-                  game.gameId = uniqueGameId;
+                  game.gameid = uniqueGameId;
                   game.roundName = round.name;
                   game.tournamentName = tournament.name;
                   game.season = tournament.season;
@@ -233,7 +233,7 @@ function register(app, pool) {  // pool statt db
                 } else {
                   console.log(`🟡 DUPLICATE via INSERT ON CONFLICT: ${game.team1} vs ${game.team2}`);
                   game.fromCache = true;
-                  game.gameId = uniqueGameId;
+                  game.gameid = uniqueGameId;
                   game.roundName = round.name;
                   game.tournamentName = tournament.name;
                   game.season = tournament.season;
@@ -299,13 +299,13 @@ function register(app, pool) {  // pool statt db
 }
 
 // 🔄 Update Game in DB - PostgreSQL-Version
-async function updateGameInDB(pool, gameId, updates) {
+async function updateGameInDB(pool, gameid, updates) {
   const fields = Object.keys(updates).map((key, index) => `"${key}" = $${index + 1}`).join(', ');
   const values = Object.values(updates);
   
-  const sql = `UPDATE games SET ${fields} WHERE "gameId" = $${values.length + 1}`;
+  const sql = `UPDATE games SET ${fields} WHERE "gameid" = $${values.length + 1}`;
   
-  const result = await pool.query(sql, [...values, gameId]);
+  const result = await pool.query(sql, [...values, gameid]);
   return { changes: result.rowCount || 0 };
 }
 
@@ -539,14 +539,14 @@ function parseGamesFromAPI(data) {
         let gameLink = null;
         
         if (cells[0].link && cells[0].link.ids && cells[0].link.ids[0]) {
-          const gameId = cells[0].link.ids[0];
-          gameLink = `https://www.swissunihockey.ch/de/spiel/game-detail?game_id=${gameId}`;
+          const gameid = cells[0].link.ids[0];
+          gameLink = `https://www.swissunihockey.ch/de/spiel/game-detail?game_id=${gameid}`;
           console.log(`    🔗 Generated game link: ${gameLink}`);
         }
         
         if (team1 && team2) {
           const game = {
-            gameId: numericGameId ? `game_${numericGameId}` : `${team1}-${team2}-${Date.now()}`,
+            gameid: numericGameId ? `game_${numericGameId}` : `${team1}-${team2}-${Date.now()}`,
             numericGameId: numericGameId,
             team1: team1,
             team2: team2,
@@ -562,7 +562,7 @@ function parseGamesFromAPI(data) {
           games.push(game);
           console.log(`    ✅ Created game: ${team1} vs ${team2}`);
           console.log(`       - Numeric ID: ${numericGameId}`);
-          console.log(`       - Game ID: ${game.gameId}`);
+          console.log(`       - Game ID: ${game.gameid}`);
           console.log(`       - Link: ${gameLink || 'NONE'}`);
         }
       }

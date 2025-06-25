@@ -57,22 +57,22 @@ function register(app, db) {
       
       // Prüfe welche Cups tatsächlich Daten in der DB haben
       const query = `
-        SELECT DISTINCT "cupType", COUNT(*) as "gameCount"
+        SELECT DISTINCT "cuptype", COUNT(*) as "gameCount"
         FROM games 
-        WHERE "cupType" IS NOT NULL AND "cupType" != ''
-        GROUP BY "cupType"
+        WHERE "cuptype" IS NOT NULL AND "cuptype" != ''
+        GROUP BY "cuptype"
         HAVING COUNT(*) > 0
-        ORDER BY "cupType"
+        ORDER BY "cuptype"
       `;
       
       const result = await db.query(query);
       
       // Erstelle Cup-Liste basierend auf verfügbaren Daten
       const availableCups = result.rows
-        .filter(row => CUP_CONFIGS[row.cupType])
+        .filter(row => CUP_CONFIGS[row.cuptype])
         .map(row => ({
-          id: row.cupType,
-          name: CUP_CONFIGS[row.cupType].name,
+          id: row.cuptype,
+          name: CUP_CONFIGS[row.cuptype].name,
           gameCount: parseInt(row.gameCount)
         }));
       
@@ -95,14 +95,14 @@ function register(app, db) {
       const queries = [
         // Statistiken pro Cup/Season
         `SELECT 
-           "cupType", 
+           "cuptype", 
            season, 
            COUNT(*) as "totalGames",
            COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as "playedGames",
            COUNT(CASE WHEN source = 'prognose' THEN 1 END) as "prognoseGames"
          FROM games 
-         GROUP BY "cupType", season 
-         ORDER BY season DESC, "cupType"`,
+         GROUP BY "cuptype", season 
+         ORDER BY season DESC, "cuptype"`,
         
         // Aktuelle Season Statistiken
         `SELECT 
@@ -114,12 +114,12 @@ function register(app, db) {
          
         // Letzte Updates
         `SELECT 
-           "cupType",
+           "cuptype",
            season,
            MAX("crawledAt") as "lastUpdate"
          FROM games 
          WHERE source != 'prognose'
-         GROUP BY "cupType", season
+         GROUP BY "cuptype", season
          ORDER BY "lastUpdate" DESC
          LIMIT 10`
       ];

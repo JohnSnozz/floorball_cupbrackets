@@ -8,7 +8,7 @@ function register(app, pool) {
     console.log('📊 Fetching ALL games from database...');
     
     try {
-      const query = 'SELECT * FROM games ORDER BY crawledAt DESC';
+      const query = 'SELECT * FROM games ORDER BY crawledat DESC';
       const result = await pool.query(query);
       
       console.log(`✅ Returning ${result.rows.length} total games`);
@@ -22,30 +22,30 @@ function register(app, pool) {
 
   // GET /games - Spiele mit Filtern und Limit
   app.get('/games', async (req, res) => {
-    const cupType = req.query.cup;
+    const cuptype = req.query.cup;
     const season = req.query.season;
     const limit = parseInt(req.query.limit) || 100;
     
-    console.log(`📊 Fetching games: cup=${cupType}, season=${season}, limit=${limit}`);
+    console.log(`📊 Fetching games: cup=${cuptype}, season=${season}, limit=${limit}`);
     
     try {
-      let query = 'SELECT * FROM games ORDER BY crawledAt DESC LIMIT $1';
+      let query = 'SELECT * FROM games ORDER BY crawledat DESC LIMIT $1';
       let params = [limit];
       
-      if (cupType && season) {
-        query = 'SELECT * FROM games WHERE cupType = $1 AND season = $2 ORDER BY crawledAt DESC LIMIT $3';
-        params = [cupType, season, limit];
-      } else if (cupType) {
-        query = 'SELECT * FROM games WHERE cupType = $1 ORDER BY crawledAt DESC LIMIT $2';
-        params = [cupType, limit];
+      if (cuptype && season) {
+        query = 'SELECT * FROM games WHERE cuptype = $1 AND season = $2 ORDER BY crawledat DESC LIMIT $3';
+        params = [cuptype, season, limit];
+      } else if (cuptype) {
+        query = 'SELECT * FROM games WHERE cuptype = $1 ORDER BY crawledat DESC LIMIT $2';
+        params = [cuptype, limit];
       } else if (season) {
-        query = 'SELECT * FROM games WHERE season = $1 ORDER BY crawledAt DESC LIMIT $2';
+        query = 'SELECT * FROM games WHERE season = $1 ORDER BY crawledat DESC LIMIT $2';
         params = [season, limit];
       }
       
       const result = await pool.query(query, params);
       
-      console.log(`✅ Returning ${result.rows.length} games (${cupType || 'all cups'}, ${season || 'all seasons'})`);
+      console.log(`✅ Returning ${result.rows.length} games (${cuptype || 'all cups'}, ${season || 'all seasons'})`);
       res.json(result.rows);
       
     } catch (error) {
@@ -60,9 +60,9 @@ function register(app, pool) {
     
     try {
       const queries = [
-        'SELECT season, cupType, COUNT(*) as count FROM games GROUP BY season, cupType ORDER BY season DESC, cupType',
-        'SELECT COUNT(*) as totalGames FROM games',
-        'SELECT COUNT(DISTINCT tournamentId) as totalTournaments FROM games',
+        'SELECT season, cuptype, COUNT(*) as count FROM games GROUP BY season, cuptype ORDER BY season DESC, cuptype',
+        'SELECT COUNT(*) as totalgames FROM games',
+        'SELECT COUNT(DISTINCT tournamentId) as totaltournaments FROM games',
         'SELECT status, COUNT(*) as count FROM games GROUP BY status'
       ];
       
@@ -122,12 +122,12 @@ function register(app, pool) {
       };
       
       const query = `
-        SELECT DISTINCT cupType, COUNT(*) as gameCount
+        SELECT DISTINCT cuptype, COUNT(*) as gamecount
         FROM games 
-        WHERE cupType IS NOT NULL AND cupType != ''
-        GROUP BY cupType
+        WHERE cuptype IS NOT NULL AND cuptype != ''
+        GROUP BY cuptype
         HAVING COUNT(*) > 0
-        ORDER BY cupType
+        ORDER BY cuptype
       `;
       
       const result = await pool.query(query);

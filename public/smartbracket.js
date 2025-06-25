@@ -8,9 +8,9 @@ const ROUND_WIDTH = 180;
 const ROUND_GAP = 40;
 const TOTAL_ROUND_SPACING = ROUND_WIDTH + ROUND_GAP;
 
-function getUnifiedRoundPriority(roundName) {
-    const match = roundName.toLowerCase().match(/^1\/(\d+)$/);
-    if (!match) throw new Error(`Ungültiges Format: "${roundName}". Erwarte 1/X`);
+function getUnifiedRoundPriority(roundname) {
+    const match = roundname.toLowerCase().match(/^1\/(\d+)$/);
+    if (!match) throw new Error(`Ungültiges Format: "${roundname}". Erwarte 1/X`);
     return Math.log2(128) - Math.log2(parseInt(match[1])) + 1;
 }
 
@@ -45,8 +45,8 @@ async function loadAvailableOptions() {
         const seasonsResponse = await fetch('/api/seasons');
         if (seasonsResponse.ok) {
             const seasons = await seasonsResponse.json();
-            const seasonSelect = document.getElementById('seasonSelect');
-            seasonSelect.innerHTML = '';
+            const seasonselect = document.getElementById('seasonselect');
+            seasonselect.innerHTML = '';
             const currentSeason = getCurrentSeason();
             
             seasons.forEach(season => {
@@ -54,7 +54,7 @@ async function loadAvailableOptions() {
                 option.value = season;
                 option.textContent = season;
                 if (season === currentSeason) option.selected = true;
-                seasonSelect.appendChild(option);
+                seasonselect.appendChild(option);
             });
         } else {
             throw new Error('Seasons API not available');
@@ -64,8 +64,8 @@ async function loadAvailableOptions() {
         const cupsResponse = await fetch('/api/cups');
         if (cupsResponse.ok) {
             const cups = await cupsResponse.json();
-            const cupSelect = document.getElementById('cupSelect');
-            cupSelect.innerHTML = '';
+            const cupselect = document.getElementById('cupselect');
+            cupselect.innerHTML = '';
             
             // Definierte Reihenfolge
             const cupOrder = [
@@ -89,7 +89,7 @@ async function loadAvailableOptions() {
                 option.value = cup.id;
                 option.textContent = cup.name;
                 if (index === 0) option.selected = true; // Erster = Herren Grossfeld
-                cupSelect.appendChild(option);
+                cupselect.appendChild(option);
             });
         } else {
             throw new Error('Cups API not available');
@@ -102,19 +102,19 @@ async function loadAvailableOptions() {
 }
 
 function loadFallbackOptions() {
-    const cupSelect = document.getElementById('cupSelect');
-    const seasonSelect = document.getElementById('seasonSelect');
+    const cupselect = document.getElementById('cupselect');
+    const seasonselect = document.getElementById('seasonselect');
     const currentSeason = getCurrentSeason();
     
     // Cups in gewünschter Reihenfolge
-    cupSelect.innerHTML = `
+    cupselect.innerHTML = `
         <option value="herren_grossfeld" selected>Mobiliar Cup Herren Grossfeld</option>
         <option value="damen_grossfeld">Mobiliar Cup Damen Grossfeld</option>
         <option value="herren_kleinfeld">Liga Cup Herren Kleinfeld</option>
         <option value="damen_kleinfeld">Liga Cup Damen Kleinfeld</option>
     `;
     
-    seasonSelect.innerHTML = `
+    seasonselect.innerHTML = `
         <option value="${currentSeason}" selected>${currentSeason}</option>
         <option value="2024/25">2024/25</option>
         <option value="2023/24">2023/24</option>
@@ -123,12 +123,12 @@ function loadFallbackOptions() {
 }
 
 async function loadSmartBracket() {
-    const cupType = document.getElementById('cupSelect').value;
-    const season = document.getElementById('seasonSelect').value;
-    const bracketContent = document.getElementById('bracketContent');
+    const cupType = document.getElementById('cupselect').value;
+    const season = document.getElementById('seasonselect').value;
+    const bracketcontent = document.getElementById('bracketcontent');
     
     console.log(`🏒 Loading Smart Bracket: ${cupType} - ${season}`);
-    bracketContent.innerHTML = '<div class="loading">⏳ Lade Smart Bracket...</div>';
+    bracketcontent.innerHTML = '<div class="loading">⏳ Lade Smart Bracket...</div>';
     
     try {
         const response = await fetch(`/games?cup=${cupType}&season=${season}&limit=1000`);
@@ -136,15 +136,15 @@ async function loadSmartBracket() {
         
         const games = await response.json();
         if (games.length === 0) {
-            bracketContent.innerHTML = '<div class="error">Keine Spiele gefunden</div>';
+            bracketcontent.innerHTML = '<div class="error">Keine Spiele gefunden</div>';
             return;
         }
         
         currentGames = games;
         
-        const gamesWithSort = games.filter(g => g.bracketSortOrder);
+        const gamesWithSort = games.filter(g => g.bracketsortorder );
         if (gamesWithSort.length < games.length) {
-            bracketContent.innerHTML = '<div class="error">bracketSortOrder fehlt</div>';
+            bracketcontent.innerHTML = '<div class="error">bracketsortorder  fehlt</div>';
             return;
         }
         
@@ -160,7 +160,7 @@ async function loadSmartBracket() {
         renderSmartBracket();
         
     } catch (error) {
-        bracketContent.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        bracketcontent.innerHTML = `<div class="error">Error: ${error.message}</div>`;
     }
 }
 
@@ -182,9 +182,9 @@ function adjustContainerWidth() {
 function processSmartBracket(games) {
     const roundsMap = new Map();
     games.forEach(game => {
-        const roundName = game.roundName || 'Unknown';
-        if (!roundsMap.has(roundName)) roundsMap.set(roundName, []);
-        roundsMap.get(roundName).push(game);
+        const roundname = game.roundname || 'Unknown';
+        if (!roundsMap.has(roundname)) roundsMap.set(roundname, []);
+        roundsMap.get(roundname).push(game);
     });
     
     const sortedRounds = Array.from(roundsMap.entries()).sort((a, b) => 
@@ -193,15 +193,15 @@ function processSmartBracket(games) {
     
     const processedRounds = [];
     
-    sortedRounds.forEach(([roundName, roundGames], roundIndex) => {
+    sortedRounds.forEach(([roundname, roundGames], roundIndex) => {
         const sortedGames = roundGames.sort((a, b) => 
-            parseInt(a.bracketSortOrder) - parseInt(b.bracketSortOrder)
+            parseInt(a.bracketsortorder ) - parseInt(b.bracketsortorder )
         );
         const visibleGames = sortedGames.filter(g => !isDoubleFreilosGame(g));
         
         if (visibleGames.length === 0) return;
         
-        processedRounds.push([roundName, visibleGames]);
+        processedRounds.push([roundname, visibleGames]);
     });
     
     return processedRounds;
@@ -211,7 +211,7 @@ function processSmartPositioning(rounds) {
     let maxGameCount = 0;
     let maxGameRoundIndex = -1;
     
-    rounds.forEach(([roundName, roundGames], index) => {
+    rounds.forEach(([roundname, roundGames], index) => {
         if (roundGames.length > maxGameCount) {
             maxGameCount = roundGames.length;
             maxGameRoundIndex = index;
@@ -222,7 +222,7 @@ function processSmartPositioning(rounds) {
     const smartRounds = [];
     
     for (let i = 0; i < rounds.length; i++) {
-        const [roundName, roundGames] = rounds[i];
+        const [roundname, roundGames] = rounds[i];
         const roundX = i * TOTAL_ROUND_SPACING;
         let gamePositions;
         
@@ -235,7 +235,7 @@ function processSmartPositioning(rounds) {
                 height: MATCH_HEIGHT
             }));
             smartRounds.push({
-                name: roundName, 
+                name: roundname, 
                 games: roundGames, 
                 gamePositions, 
                 isMaxGameRound: true, 
@@ -262,7 +262,7 @@ function processSmartPositioning(rounds) {
                 }));
             }
             smartRounds.push({
-                name: roundName, 
+                name: roundname, 
                 games: roundGames, 
                 gamePositions, 
                 isMaxGameRound: false, 
@@ -272,7 +272,7 @@ function processSmartPositioning(rounds) {
             const previousRound = smartRounds[i - 1];
             gamePositions = calculatePostMaxRound(roundGames, previousRound, roundX);
             smartRounds.push({
-                name: roundName, 
+                name: roundname, 
                 games: roundGames, 
                 gamePositions, 
                 isMaxGameRound: false, 
@@ -290,16 +290,16 @@ function processSmartPositioning(rounds) {
 
 function calculatePostMaxRound(currentGames, previousRound, roundX) {
     return currentGames.map((game, index) => {
-        const currentSortOrder = parseInt(game.bracketSortOrder);
+        const currentSortOrder = parseInt(game.bracketsortorder );
         
         const pred1SortOrder = (currentSortOrder * 2) - 1;
         const pred2SortOrder = currentSortOrder * 2;
         
         const pred1 = previousRound.gamePositions.find(pos => 
-            parseInt(pos.game.bracketSortOrder) === pred1SortOrder
+            parseInt(pos.game.bracketsortorder ) === pred1SortOrder
         );
         const pred2 = previousRound.gamePositions.find(pos => 
-            parseInt(pos.game.bracketSortOrder) === pred2SortOrder
+            parseInt(pos.game.bracketsortorder ) === pred2SortOrder
         );
         
         let y;
@@ -328,7 +328,7 @@ function renderAbsoluteMatch(position) {
     const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
     const style = `position: absolute; top: ${y}px; left: ${x}px; width: ${width}px; height: ${height}px;`;
     
-    let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericGameId || ''}" data-bracket-sort="${game.bracketSortOrder}">`;
+    let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericGameId || ''}" data-bracket-sort="${game.bracketsortorder }">`;
     
     if (!hasResult) {
         const team1Classes = getTeamClasses(game, game.team1, hasResult);
@@ -368,9 +368,9 @@ function getTeamClasses(game, teamName, hasResult) {
 }
 
 function renderSmartBracket() {
-    const bracketContent = document.getElementById('bracketContent');
+    const bracketcontent = document.getElementById('bracketcontent');
     if (currentRounds.length === 0) {
-        bracketContent.innerHTML = '<div class="error">Keine Runden gefunden</div>';
+        bracketcontent.innerHTML = '<div class="error">Keine Runden gefunden</div>';
         return;
     }
     
@@ -388,7 +388,7 @@ function renderSmartBracket() {
     
     html += '</div>';
     
-    bracketContent.innerHTML = html;
+    bracketcontent.innerHTML = html;
     
     setTimeout(() => {
         adjustLongTeamNames();
@@ -451,12 +451,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let loadTimeout;
     
     // Dropdown Change Events mit Debouncing
-    document.getElementById('cupSelect').addEventListener('change', function() {
+    document.getElementById('cupselect').addEventListener('change', function() {
         clearTimeout(loadTimeout);
         console.log('🔄 Cup selection changed');
     });
     
-    document.getElementById('seasonSelect').addEventListener('change', function() {
+    document.getElementById('seasonselect').addEventListener('change', function() {
         clearTimeout(loadTimeout);
         console.log('🔄 Season selection changed');
     });

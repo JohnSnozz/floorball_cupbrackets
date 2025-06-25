@@ -87,8 +87,8 @@
                 
                 <div class="backend-card">
                     <div class="backend-icon">📥</div>
-                    <h3>Cup-Daten Crawling</h3>
-                    <p>Crawle Cup-Daten für gewählte Saison</p>
+                    <h3>Cup-Daten Management</h3>
+                    <p>Crawle oder lösche Cup-Daten für gewählte Saison</p>
                     <select class="season-select" id="crawlSeasonSelect">
                         <option value="2025/26">2025/26 (Aktuell)</option>
                         <option value="all">Alle Saisons</option>
@@ -96,16 +96,21 @@
                         <option value="2023/24">2023/24</option>
                         <option value="2022/23">2022/23</option>
                     </select>
-                    <button class="btn btn-info" onclick="executeCrawling()">
-                        📡 Crawling starten
-                    </button>
+                    <div class="cup-data-actions" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-info btn-small" onclick="executeCrawling()">
+                            📡 Crawling starten
+                        </button>
+                        <button class="btn btn-danger btn-small" onclick="executeCupDataDelete()">
+                            🗑️ Season löschen
+                        </button>
+                    </div>
                     <div class="backend-status" id="crawlingStatus"></div>
                 </div>
                 
                 <div class="backend-card">
                     <div class="backend-icon">🎯</div>
-                    <h3>Bracket-Sortierung</h3>
-                    <p>Berechne Tournament-Bracket Sortierung</p>
+                    <h3>Bracket-Sortierung Management</h3>
+                    <p>Berechne oder setze Bracket-Sortierung zurück</p>
                     <select class="season-select" id="bracketSeasonSelect">
                         <option value="2025/26">2025/26 (Aktuell)</option>
                         <option value="all">Alle Saisons</option>
@@ -113,22 +118,36 @@
                         <option value="2023/24">2023/24</option>
                         <option value="2022/23">2022/23</option>
                     </select>
-                    <button class="btn btn-success" onclick="executeBracketSorting()">
-                        🔢 Berechnung starten
-                    </button>
+                    <div class="bracket-management-actions" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-success btn-small" onclick="executeBracketSorting()">
+                            🔢 Berechnung starten
+                        </button>
+                        <button class="btn btn-warning btn-small" onclick="executeBracketReset()">
+                            🔄 Sortierung zurücksetzen
+                        </button>
+                    </div>
                     <div class="backend-status" id="bracketStatus"></div>
                 </div>
                 
                 <div class="backend-card">
                     <div class="backend-icon">🔮</div>
-                    <h3>Prognose-Spiele</h3>
-                    <p>Generiere Prognose-Spiele für aktuelle Saison</p>
-                    <div class="prognose-actions">
-                        <button class="btn btn-danger btn-small" onclick="executePrognoseCleanup()">
-                            🗑️ Cleanup
-                        </button>
+                    <h3>Prognose-Spiele Management</h3>
+                    <p>Generiere oder lösche Prognose-Spiele für gewählte Saison</p>
+                    <select class="season-select" id="prognoseSeasonSelect">
+                        <option value="2025/26">2025/26 (Aktuell)</option>
+                        <option value="2024/25">2024/25</option>
+                        <option value="2023/24">2023/24</option>
+                        <option value="2022/23">2022/23</option>
+                    </select>
+                    <div class="prognose-actions" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
                         <button class="btn btn-primary btn-small" onclick="executePrognoseGenerate()">
                             ⚡ Generieren
+                        </button>
+                        <button class="btn btn-danger btn-small" onclick="executePrognoseCleanup()">
+                            🗑️ Cleanup aktuell
+                        </button>
+                        <button class="btn btn-warning btn-small" onclick="executePrognoseSeasonDelete()">
+                            🗑️ Season löschen
                         </button>
                     </div>
                     <div class="backend-status" id="prognoseStatus"></div>
@@ -182,6 +201,25 @@
                         </button>
                     </div>
                     <div class="backend-status" id="gameEventsStatus"></div>
+                </div>
+
+                <!-- NEU: Season Komplett-Löschung -->
+                <div class="backend-card">
+                    <div class="backend-icon">💥</div>
+                    <h3>Season Komplett-Löschung</h3>
+                    <p>⚠️ ACHTUNG: Löscht ALLE Daten einer Season unwiderruflich</p>
+                    <select class="season-select" id="completeDeleteSeasonSelect">
+                        <option value="">-- Season wählen --</option>
+                        <option value="2024/25">2024/25</option>
+                        <option value="2023/24">2023/24</option>
+                        <option value="2022/23">2022/23</option>
+                    </select>
+                    <div class="complete-delete-actions" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-danger" onclick="executeCompleteSeasonDelete()">
+                            💥 Season KOMPLETT löschen
+                        </button>
+                    </div>
+                    <div class="backend-status" id="completeDeleteStatus"></div>
                 </div>
             </div>
         </div>
@@ -285,6 +323,38 @@
                 updateBackendStatus('crawlingStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
             }
         }
+
+        // NEU: Cup-Daten für Season löschen
+        async function executeCupDataDelete() {
+            const season = document.getElementById('crawlSeasonSelect').value;
+            
+            if (season === 'all') {
+                updateBackendStatus('crawlingStatus', '❌ Löschung für "alle Saisons" nicht verfügbar', 'error');
+                return;
+            }
+            
+            if (!confirm(`Cup-Daten für Season ${season} wirklich löschen?\n\nDies löscht alle Cup-Spiele (außer Prognose) für diese Season.`)) {
+                return;
+            }
+            
+            updateBackendStatus('crawlingStatus', `⏳ Cup-Daten für Season ${season} werden gelöscht...`, 'loading');
+            
+            try {
+                const response = await fetch(`/api/backend/cup-data/season/${encodeURIComponent(season)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('crawlingStatus', `✅ Season ${season} gelöscht: ${result.deleted} Cup-Spiele entfernt`, 'success');
+                } else {
+                    updateBackendStatus('crawlingStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('crawlingStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
         
         async function executeBracketSorting() {
             const season = document.getElementById('bracketSeasonSelect').value;
@@ -304,6 +374,33 @@
                 
                 if (result.success) {
                     updateBackendStatus('bracketStatus', '✅ Bracket-Sortierung erfolgreich berechnet', 'success');
+                } else {
+                    updateBackendStatus('bracketStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('bracketStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+
+        // NEU: Bracket-Sortierung zurücksetzen
+        async function executeBracketReset() {
+            const season = document.getElementById('bracketSeasonSelect').value;
+            
+            if (!confirm(`Bracket-Sortierung für Season ${season} wirklich zurücksetzen?`)) {
+                return;
+            }
+            
+            updateBackendStatus('bracketStatus', `⏳ Bracket-Sortierung für Season ${season} wird zurückgesetzt...`, 'loading');
+            
+            try {
+                const response = await fetch(`/api/backend/bracket-sorting/season/${encodeURIComponent(season)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('bracketStatus', `✅ Season ${season}: ${result.updated} Spiele zurückgesetzt`, 'success');
                 } else {
                     updateBackendStatus('bracketStatus', `❌ Fehler: ${result.error}`, 'error');
                 }
@@ -351,8 +448,35 @@
                 updateBackendStatus('prognoseStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
             }
         }
+
+        // NEU: Prognose-Spiele für Season löschen
+        async function executePrognoseSeasonDelete() {
+            const season = document.getElementById('prognoseSeasonSelect').value;
+            
+            if (!confirm(`Prognose-Spiele für Season ${season} wirklich löschen?`)) {
+                return;
+            }
+            
+            updateBackendStatus('prognoseStatus', `⏳ Prognose-Spiele für Season ${season} werden gelöscht...`, 'loading');
+            
+            try {
+                const response = await fetch(`/api/backend/prognose/season/${encodeURIComponent(season)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('prognoseStatus', `✅ Season ${season} gelöscht: ${result.deleted} Prognose-Spiele entfernt`, 'success');
+                } else {
+                    updateBackendStatus('prognoseStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('prognoseStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
         
-        // Game Details Crawling - Season-spezifisch
+        // Game Details Crawling - Season-spezifisch (KORRIGIERT)
         async function executeGameDetailsCrawling() {
             const season = document.getElementById('gameDetailsSeasonSelect').value;
             
@@ -374,6 +498,234 @@
                     
                     // Jede Season einzeln crawlen
                     for (const seasonToCrawl of seasons) {
+                        updateBackendStatus('gameDetailsStatus', `⏳ Crawle Details Season ${seasonToCrawl}... (${seasons.indexOf(seasonToCrawl) + 1}/${seasons.length})`, 'loading');
+                        
+                        const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(seasonToCrawl)}`, {
+                            method: 'POST'
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success !== undefined) {
+                            totalSuccess += result.success;
+                            totalErrors += result.errors;
+                        }
+                        
+                        // Kurze Pause zwischen Seasons
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                    
+                    updateBackendStatus('gameDetailsStatus', `✅ Alle Details Seasons gecrawlt: ${totalSuccess} Games, ${totalErrors} Fehler`, 'success');
+                    
+                } catch (error) {
+                    updateBackendStatus('gameDetailsStatus', `❌ Fehler beim Crawlen aller Details Seasons: ${error.message}`, 'error');
+                }
+                
+            } else {
+                // Einzelne Season crawlen
+                updateBackendStatus('gameDetailsStatus', `⏳ Game Details für Season ${season} werden gecrawlt...`, 'loading');
+                
+                try {
+                    const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(season)}`, {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success !== undefined) {
+                        updateBackendStatus('gameDetailsStatus', `✅ Details Season ${season} gecrawlt: ${result.success} Games, ${result.errors} Fehler`, 'success');
+                    } else {
+                        updateBackendStatus('gameDetailsStatus', `❌ Fehler: ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+                }
+            }
+}
+        
+        // Legacy Game Events Crawling (alte Methode)
+        async function executeGameEventsAllCrawling() {
+            updateBackendStatus('gameEventsStatus', '⏳ Legacy Game Events Crawling (alle Cup-Spiele)...', 'loading');
+            
+            try {
+                const response = await fetch('/api/crawl-game-events', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success !== undefined) {
+                    updateBackendStatus('gameEventsStatus', `✅ Legacy Events Crawling abgeschlossen: ${result.success} Games, ${result.totalEvents || 0} Events, ${result.errors} Fehler`, 'success');
+                } else {
+                    updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+
+        // Game Events Season löschen
+        async function executeGameEventsDelete() {
+            const season = document.getElementById('gameEventsSeasonSelect').value;
+            
+            if (season === 'all') {
+                updateBackendStatus('gameEventsStatus', '❌ Löschung für "alle Seasons" nicht verfügbar', 'error');
+                return;
+            }
+            
+            if (!confirm(`Game Events für Season ${season} wirklich löschen?`)) {
+                return;
+            }
+            
+            updateBackendStatus('gameEventsStatus', `⏳ Game Events für Season ${season} werden gelöscht...`, 'loading');
+            
+            try {
+                const response = await fetch(`/api/game-events/season/${encodeURIComponent(season)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.deleted !== undefined) {
+                    updateBackendStatus('gameEventsStatus', `✅ Events Season ${season} gelöscht: ${result.deleted} Einträge entfernt`, 'success');
+                } else {
+                    updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+
+        // NEU: Season komplett löschen
+        async function executeCompleteSeasonDelete() {
+            const season = document.getElementById('completeDeleteSeasonSelect').value;
+            
+            if (!season || season === 'all') {
+                updateBackendStatus('completeDeleteStatus', '❌ Bitte eine spezifische Season wählen', 'error');
+                return;
+            }
+            
+            const confirmText = `ACHTUNG: Dies löscht ALLE Daten für Season ${season}:
+            
+- Alle Cup-Spiele
+- Alle Prognose-Spiele  
+- Alle GameDetails
+- Alle GameEvents
+- Bracket-Sortierung
+
+Diese Aktion ist UNWIDERRUFLICH!
+
+Geben Sie zur Bestätigung "${season}" ein:`;
+            
+            const userInput = prompt(confirmText);
+            
+            if (userInput !== season) {
+                updateBackendStatus('completeDeleteStatus', '❌ Abgebrochen - Season nicht bestätigt', 'error');
+                return;
+            }
+            
+            updateBackendStatus('completeDeleteStatus', `⏳ Season ${season} wird KOMPLETT gelöscht...`, 'loading');
+            
+            try {
+                const response = await fetch(`/api/backend/complete-season/${encodeURIComponent(season)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateBackendStatus('completeDeleteStatus', 
+                        `✅ Season ${season} KOMPLETT gelöscht: ${result.totalDeleted} Einträge total\n` +
+                        `Cup-Daten: ${result.details.cupData}, Prognose: ${result.details.prognoseGames}, ` +
+                        `Details: ${result.details.gameDetails}, Events: ${result.details.gameEvents}`, 'success');
+                } else {
+                    updateBackendStatus('completeDeleteStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('completeDeleteStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateBackendStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `backend-status ${type}`;
+        }
+        
+        // Existing status update functions
+        async function updateStatus() {
+            try {
+                const statsResponse = await fetch('/stats');
+                const stats = await statsResponse.json();
+                
+                if (stats.totalGames !== undefined) {
+                    document.getElementById('totalGames').textContent = stats.totalGames.toLocaleString();
+                    document.getElementById('totalEvents').textContent = stats.totalTournaments || '-';
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleString('de-CH');
+                }
+                
+                // Game Details Stats laden
+                try {
+                    const gameDetailsResponse = await fetch('/api/game-details/stats');
+                    const gameDetailsStats = await gameDetailsResponse.json();
+                    
+                    if (gameDetailsStats.totalGames !== undefined) {
+                        document.getElementById('gameDetailsCount').textContent = gameDetailsStats.totalGames.toLocaleString();
+                    }
+                } catch (error) {
+                    document.getElementById('gameDetailsCount').textContent = '0';
+                }
+
+                // Game Events Stats laden
+                try {
+                    const gameEventsResponse = await fetch('/api/game-events/stats');
+                    const gameEventsStats = await gameEventsResponse.json();
+                    
+                    if (gameEventsStats.totalEvents !== undefined) {
+                        document.getElementById('gameEventsCount').textContent = gameEventsStats.totalEvents.toLocaleString();
+                    }
+                } catch (error) {
+                    document.getElementById('gameEventsCount').textContent = '0';
+                }
+                
+                const bracketResponse = await fetch('/bracket-sorting-status');
+                const bracketStats = await bracketResponse.json();
+                
+                if (bracketStats.success) {
+                    const totalSorted = bracketStats.events.reduce((sum, event) => sum + event.sortedGames, 0);
+                    document.getElementById('bracketSorted').textContent = totalSorted.toLocaleString();
+                }
+                
+                document.getElementById('autoCrawlStatus').innerHTML = '✅ Abgeschlossen';
+                document.getElementById('autoCrawlStatus').className = 'status-value status-active';
+                
+            } catch (error) {
+                console.error('Status update failed:', error);
+                document.getElementById('autoCrawlStatus').innerHTML = '❌ Fehler';
+                document.getElementById('autoCrawlStatus').className = 'status-value status-error';
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus();
+            setInterval(updateStatus, 30000);
+        });
+        
+        setInterval(async () => {
+            try {
+                const response = await fetch('/health');
+                const status = response.ok ? '🟢 Online' : '🔴 Fehler';
+                document.getElementById('serverStatus').textContent = status;
+                document.getElementById('serverStatus').className = response.ok ? 
+                    'status-value status-active' : 'status-value status-error';
+            } catch (error) {
+                document.getElementById('serverStatus').textContent = '🔴 Offline';
+                document.getElementById('serverStatus').className = 'status-value status-error';
+            }
+        }, 10000);
+    </script>
+</body>
+</html> {
                         updateBackendStatus('gameDetailsStatus', `⏳ Crawle Season ${seasonToCrawl}... (${seasons.indexOf(seasonToCrawl) + 1}/${seasons.length})`, 'loading');
                         
                         const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(seasonToCrawl)}`, {
@@ -496,183 +848,4 @@
                     let totalEvents = 0;
                     
                     // Jede Season einzeln crawlen
-                    for (const seasonToCrawl of seasons) {
-                        updateBackendStatus('gameEventsStatus', `⏳ Crawle Events Season ${seasonToCrawl}... (${seasons.indexOf(seasonToCrawl) + 1}/${seasons.length})`, 'loading');
-                        
-                        const response = await fetch(`/api/crawl-game-events/${encodeURIComponent(seasonToCrawl)}`, {
-                            method: 'POST'
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success !== undefined) {
-                            totalSuccess += result.success;
-                            totalErrors += result.errors;
-                            totalEvents += result.totalEvents || 0;
-                        }
-                        
-                        // Kurze Pause zwischen Seasons
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                    }
-                    
-                    updateBackendStatus('gameEventsStatus', `✅ Alle Events Seasons gecrawlt: ${totalSuccess} Games, ${totalEvents} Events, ${totalErrors} Fehler`, 'success');
-                    
-                } catch (error) {
-                    updateBackendStatus('gameEventsStatus', `❌ Fehler beim Crawlen aller Events Seasons: ${error.message}`, 'error');
-                }
-                
-            } else {
-                // Einzelne Season crawlen
-                updateBackendStatus('gameEventsStatus', `⏳ Game Events für Season ${season} werden gecrawlt...`, 'loading');
-                
-                try {
-                    const response = await fetch(`/api/crawl-game-events/${encodeURIComponent(season)}`, {
-                        method: 'POST'
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success !== undefined) {
-                        updateBackendStatus('gameEventsStatus', `✅ Events Season ${season} gecrawlt: ${result.success} Games, ${result.totalEvents || 0} Events, ${result.errors} Fehler`, 'success');
-                    } else {
-                        updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
-                    }
-                } catch (error) {
-                    updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
-                }
-            }
-        }
-        
-        // Legacy Game Events Crawling (alte Methode)
-        async function executeGameEventsAllCrawling() {
-            updateBackendStatus('gameEventsStatus', '⏳ Legacy Game Events Crawling (alle Cup-Spiele)...', 'loading');
-            
-            try {
-                const response = await fetch('/api/crawl-game-events', {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success !== undefined) {
-                    updateBackendStatus('gameEventsStatus', `✅ Legacy Events Crawling abgeschlossen: ${result.success} Games, ${result.totalEvents || 0} Events, ${result.errors} Fehler`, 'success');
-                } else {
-                    updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
-            }
-        }
-
-        // Game Events Season löschen
-        async function executeGameEventsDelete() {
-            const season = document.getElementById('gameEventsSeasonSelect').value;
-            
-            if (season === 'all') {
-                updateBackendStatus('gameEventsStatus', '❌ Löschung für "alle Seasons" nicht verfügbar', 'error');
-                return;
-            }
-            
-            if (!confirm(`Game Events für Season ${season} wirklich löschen?`)) {
-                return;
-            }
-            
-            updateBackendStatus('gameEventsStatus', `⏳ Game Events für Season ${season} werden gelöscht...`, 'loading');
-            
-            try {
-                const response = await fetch(`/api/game-events/season/${encodeURIComponent(season)}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (result.deleted !== undefined) {
-                    updateBackendStatus('gameEventsStatus', `✅ Events Season ${season} gelöscht: ${result.deleted} Einträge entfernt`, 'success');
-                } else {
-                    updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
-            }
-        }
-        
-        function updateBackendStatus(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            element.textContent = message;
-            element.className = `backend-status ${type}`;
-        }
-        
-        // Existing status update functions
-        async function updateStatus() {
-            try {
-                const statsResponse = await fetch('/stats');
-                const stats = await statsResponse.json();
-                
-                if (stats.totalGames !== undefined) {
-                    document.getElementById('totalGames').textContent = stats.totalGames.toLocaleString();
-                    document.getElementById('totalEvents').textContent = stats.totalTournaments || '-';
-                    document.getElementById('lastUpdate').textContent = new Date().toLocaleString('de-CH');
-                }
-                
-                // Game Details Stats laden
-                try {
-                    const gameDetailsResponse = await fetch('/api/game-details/stats');
-                    const gameDetailsStats = await gameDetailsResponse.json();
-                    
-                    if (gameDetailsStats.totalGames !== undefined) {
-                        document.getElementById('gameDetailsCount').textContent = gameDetailsStats.totalGames.toLocaleString();
-                    }
-                } catch (error) {
-                    document.getElementById('gameDetailsCount').textContent = '0';
-                }
-
-                // Game Events Stats laden
-                try {
-                    const gameEventsResponse = await fetch('/api/game-events/stats');
-                    const gameEventsStats = await gameEventsResponse.json();
-                    
-                    if (gameEventsStats.totalEvents !== undefined) {
-                        document.getElementById('gameEventsCount').textContent = gameEventsStats.totalEvents.toLocaleString();
-                    }
-                } catch (error) {
-                    document.getElementById('gameEventsCount').textContent = '0';
-                }
-                
-                const bracketResponse = await fetch('/bracket-sorting-status');
-                const bracketStats = await bracketResponse.json();
-                
-                if (bracketStats.success) {
-                    const totalSorted = bracketStats.events.reduce((sum, event) => sum + event.sortedGames, 0);
-                    document.getElementById('bracketSorted').textContent = totalSorted.toLocaleString();
-                }
-                
-                document.getElementById('autoCrawlStatus').innerHTML = '✅ Abgeschlossen';
-                document.getElementById('autoCrawlStatus').className = 'status-value status-active';
-                
-            } catch (error) {
-                console.error('Status update failed:', error);
-                document.getElementById('autoCrawlStatus').innerHTML = '❌ Fehler';
-                document.getElementById('autoCrawlStatus').className = 'status-value status-error';
-            }
-        }
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            updateStatus();
-            setInterval(updateStatus, 30000);
-        });
-        
-        setInterval(async () => {
-            try {
-                const response = await fetch('/health');
-                const status = response.ok ? '🟢 Online' : '🔴 Fehler';
-                document.getElementById('serverStatus').textContent = status;
-                document.getElementById('serverStatus').className = response.ok ? 
-                    'status-value status-active' : 'status-value status-error';
-            } catch (error) {
-                document.getElementById('serverStatus').textContent = '🔴 Offline';
-                document.getElementById('serverStatus').className = 'status-value status-error';
-            }
-        }, 10000);
-    </script>
-</body>
-</html>
+                    for (const seasonToCrawl of seasons)

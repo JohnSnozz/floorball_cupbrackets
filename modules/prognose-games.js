@@ -34,7 +34,7 @@ const NEXT_ROUND_MAP = {
  */
 async function getTeamShort(pool, teamName) {
     try {
-        const sql = 'SELECT teamShort FROM teamShorts WHERE team = $1';
+        const sql = 'SELECT teamshort FROM teamshorts WHERE team = $1';
         const result = await pool.query(sql, [teamName]);
         return result.rows[0] ? result.rows[0].teamshort : teamName;
     } catch (err) {
@@ -56,41 +56,41 @@ async function createTeamCombination(pool, team1, team2) {
 /**
  * Hauptfunktion: Generiert Prognose-Spiele für eine Saison/Cup
  */
-async function generatePrognoseGames(pool, cupType, season) {
+async function generatePrognoseGames(pool, cuptype, season) {
     try {
-        console.log(`🔮 Generiere Prognose-Spiele für ${cupType} ${season}...`);
+        console.log(`🔮 Generiere Prognose-Spiele für ${cuptype} ${season}...`);
         
         // 1. Prüfe ob überhaupt Spiele in der DB sind
         const totalGamesResult = await pool.query(
-            'SELECT COUNT(*) as count FROM games WHERE cupType = $1 AND season = $2 AND source != $3', 
-            [cupType, season, 'prognose']
+            'SELECT COUNT(*) as count FROM games WHERE cuptype = $1 AND season = $2 AND source != $3', 
+            [cuptype, season, 'prognose']
         );
         const totalGames = totalGamesResult.rows[0] ? parseInt(totalGamesResult.rows[0].count) : 0;
         
-        console.log(`   🔍 Debug: ${totalGames} Spiele in DB für ${cupType} ${season}`);
+        console.log(`   🔍 Debug: ${totalGames} Spiele in DB für ${cuptype} ${season}`);
         
         if (totalGames === 0) {
-            console.log(`   ❌ Keine Spiele gefunden für ${cupType} ${season} - kann keine Prognose erstellen`);
+            console.log(`   ❌ Keine Spiele gefunden für ${cuptype} ${season} - kann keine Prognose erstellen`);
             return { generated: 0, updated: 0, error: 'Keine Spiele in DB gefunden' };
         }
         
         // 2. Finde letzte echte Runde (Startpunkt)
-        const lastRealRound = await findLastRealRound(pool, cupType, season);
+        const lastRealRound = await findLastRealRound(pool, cuptype, season);
         if (!lastRealRound) {
-            console.log(`   ❌ Keine echte Runde gefunden für ${cupType} ${season}`);
+            console.log(`   ❌ Keine echte Runde gefunden für ${cuptype} ${season}`);
             return { generated: 0, updated: 0, error: 'Keine echte Runde gefunden' };
         }
         
         // 3. Hole Tournament-Info
-        const tournamentInfo = await getTournamentInfo(pool, cupType, season);
+        const tournamentInfo = await getTournamentInfo(pool, cuptype, season);
         if (!tournamentInfo) {
-            console.log(`   ❌ Tournament-Info nicht gefunden für ${cupType} ${season}`);
+            console.log(`   ❌ Tournament-Info nicht gefunden für ${cuptype} ${season}`);
             return { generated: 0, updated: 0, error: 'Tournament-Info nicht gefunden' };
         }
         
         // 4. Lösche ALLE existierenden Prognose-Spiele für diesen Cup/Saison
         console.log(`   🧹 Lösche alle existierenden Prognose-Spiele...`);
-        await deleteAllPrognoseGames(pool, cupType, season);
+        await deleteAllPrognoseGames(pool, cuptype, season);
         
         // 5. Iterative Prognose-Generierung
         let totalGenerated = 0;
@@ -121,7 +121,7 @@ async function generatePrognoseGames(pool, cupType, season) {
             console.log(`   🎯 Generiere ${nextRound} basierend auf ${currentRound}...`);
             
             // Generiere nächste Runde
-            const generatedCount = await generatePrognoseRound(pool, cupType, season, currentRound, nextRound, tournamentInfo);
+            const generatedCount = await generatePrognoseRound(pool, cuptype, season, currentRound, nextRound, tournamentInfo);
             console.log(`   📊 ${nextRound}: ${generatedCount} Spiele generiert`);
             
             if (generatedCount === 0) {
@@ -152,7 +152,7 @@ async function generatePrognoseGames(pool, cupType, season) {
         };
         
     } catch (error) {
-        console.error(`❌ Fehler bei Prognose-Generierung für ${cupType} ${season}: ${error.message}`);
+        console.error(`❌ Fehler bei Prognose-Generierung für ${cuptype} ${season}: ${error.message}`);
         console.error(error.stack);
         return { generated: 0, updated: 0, error: error.message };
     }
@@ -161,15 +161,15 @@ async function generatePrognoseGames(pool, cupType, season) {
 /**
  * Findet die letzte echte Runde (nicht Prognose) als Startpunkt
  */
-async function findLastRealRound(pool, cupType, season) {
+async function findLastRealRound(pool, cuptype, season) {
     const sql = `
-        SELECT roundName, COUNT(*) as gameCount,
-               COUNT(CASE WHEN source = 'prognose' THEN 1 END) as prognoseCount
+        SELECT roundname, COUNT(*) as gamecount,
+               COUNT(CASE WHEN source = 'prognose' THEN 1 END) as prognosecount
         FROM games 
-        WHERE cupType = $1 AND season = $2
-        GROUP BY roundName
+        WHERE cuptype = $1 AND season = $2
+        GROUP BY roundname
         ORDER BY 
-            CASE roundName 
+            CASE roundname 
                 WHEN '1/128' THEN 1
                 WHEN '1/64' THEN 2 
                 WHEN '1/32' THEN 3
@@ -182,10 +182,10 @@ async function findLastRealRound(pool, cupType, season) {
             END ASC
     `;
     
-    const result = await pool.query(sql, [cupType, season]);
+    const result = await pool.query(sql, [cuptype, season]);
     const rows = result.rows;
     
-    console.log(`   🔍 Debug: Alle Runden für ${cupType} ${season}:`);
+    console.log(`   🔍 Debug: Alle Runden für ${cuptype} ${season}:`);
     
     let lastRealRound = null;
     
@@ -208,10 +208,10 @@ async function findLastRealRound(pool, cupType, season) {
 /**
  * Generiert eine Prognose-Runde basierend auf der Vorrunde
  */
-async function generatePrognoseRound(pool, cupType, season, currentRound, nextRound, tournamentInfo) {
+async function generatePrognoseRound(pool, cuptype, season, currentRound, nextRound, tournamentInfo) {
     try {
         // Hole alle Spiele der aktuellen Runde (echte + bereits generierte Prognose)
-        const currentRoundGames = await getAllGamesForRound(pool, cupType, season, currentRound);
+        const currentRoundGames = await getAllGamesForRound(pool, cuptype, season, currentRound);
         
         if (currentRoundGames.length === 0) {
             console.log(`   ⚠️ Keine Spiele in ${currentRound} gefunden`);
@@ -227,6 +227,7 @@ async function generatePrognoseRound(pool, cupType, season, currentRound, nextRo
             const game1 = currentRoundGames[i];
             const game2 = currentRoundGames[i + 1];
             
+            // KORRIGIERT: PostgreSQL lowercase Feldname
             const newSortOrder = Math.ceil((game1.bracketsortorder || 1) / 2);
             
             if (game2) {
@@ -263,39 +264,39 @@ async function generatePrognoseRound(pool, cupType, season, currentRound, nextRo
             const pair = nextRoundPairs[i];
             
             const gameData = {
-                gameId: await generateUniquePrognoseId(pool),
+                gameid: await generateUniquePrognoseId(pool),
                 team1: pair.team1,
                 team2: pair.team2,
-                roundName: nextRound,
-                roundId: await getNextRoundId(pool, cupType, season),
-                tournamentId: tournamentInfo.tournamentid,
-                tournamentName: tournamentInfo.tournamentname,
+                roundname: nextRound,
+                roundid: await getNextRoundId(pool, cuptype, season),
+                tournamentid: tournamentInfo.tournamentid,
+                tournamentname: tournamentInfo.tournamentname,
                 season: season,
-                cupType: cupType,
+                cuptype: cuptype,
                 gender: tournamentInfo.gender,
-                fieldType: tournamentInfo.fieldtype,
-                gameDate: '',
-                gameTime: '',
+                fieldtype: tournamentInfo.fieldtype,
+                gamedate: '',
+                gametime: '',
                 venue: '',
                 status: 'prognose',
                 result: 'TBD',
                 source: 'prognose',
-                apiEndpoint: '',
+                apiendpoint: '',
                 link: '',
-                homeTeamScore: null,
-                awayTeamScore: null,
-                gameLocation: null,
+                hometeamscore: null,
+                awayteamscore: null,
+                gamelocation: null,
                 referees: null,
                 spectators: null,
                 notes: 'Automatisch generierte Prognose',
-                numericGameId: null,
-                bracketSortOrder: pair.sortOrder
+                numericgameid: null,
+                bracketsortorder: pair.sortOrder
             };
             
             try {
                 await savePrognoseGame(pool, gameData);
                 generatedCount++;
-                console.log(`   ✅ ${pair.team1} vs ${pair.team2} (${nextRound}) - ID: ${gameData.gameId}`);
+                console.log(`   ✅ ${pair.team1} vs ${pair.team2} (${nextRound}) - ID: ${gameData.gameid}`);
             } catch (saveError) {
                 console.error(`   ❌ Fehler beim Speichern: ${saveError.message}`);
             }
@@ -350,29 +351,29 @@ async function determineAdvancerFromGame(pool, game) {
 /**
  * Holt alle Spiele einer Runde (echte + Prognose)
  */
-async function getAllGamesForRound(pool, cupType, season, roundName) {
+async function getAllGamesForRound(pool, cuptype, season, roundname) {
     const sql = `
         SELECT * FROM games 
-        WHERE cupType = $1 AND season = $2 AND roundName = $3
-        ORDER BY bracketSortOrder ASC, gameId ASC
+        WHERE cuptype = $1 AND season = $2 AND roundname = $3
+        ORDER BY bracketsortorder ASC, gameid ASC
     `;
     
-    const result = await pool.query(sql, [cupType, season, roundName]);
+    const result = await pool.query(sql, [cuptype, season, roundname]);
     return result.rows || [];
 }
 
 /**
  * Holt Tournament-Informationen für Prognose-Spiele
  */
-async function getTournamentInfo(pool, cupType, season) {
+async function getTournamentInfo(pool, cuptype, season) {
     const sql = `
-        SELECT DISTINCT tournamentId, tournamentName, gender, fieldType
+        SELECT DISTINCT tournamentid, tournamentname, gender, fieldtype
         FROM games 
-        WHERE cupType = $1 AND season = $2
+        WHERE cuptype = $1 AND season = $2
         LIMIT 1
     `;
     
-    const result = await pool.query(sql, [cupType, season]);
+    const result = await pool.query(sql, [cuptype, season]);
     return result.rows[0] || null;
 }
 
@@ -404,9 +405,9 @@ function determineWinnerFromResult(result, team1, team2) {
 async function generateUniquePrognoseId(pool) {
     // Finde die höchste bestehende Prognose-ID
     const sql = `
-        SELECT gameId FROM games 
-        WHERE gameId LIKE 'prognose_%'
-        ORDER BY CAST(SUBSTRING(gameId, 10) AS INTEGER) DESC
+        SELECT gameid FROM games 
+        WHERE gameid LIKE 'prognose_%'
+        ORDER BY CAST(SUBSTRING(gameid, 10) AS INTEGER) DESC
         LIMIT 1
     `;
     
@@ -430,14 +431,14 @@ async function generateUniquePrognoseId(pool) {
 /**
  * Bestimmt die nächste Round-ID
  */
-async function getNextRoundId(pool, cupType, season) {
+async function getNextRoundId(pool, cuptype, season) {
     const sql = `
-        SELECT MAX(CAST(roundId AS INTEGER)) as maxRoundId
+        SELECT MAX(CAST(roundid AS INTEGER)) as maxroundid
         FROM games 
-        WHERE cupType = $1 AND season = $2
+        WHERE cuptype = $1 AND season = $2
     `;
     
-    const result = await pool.query(sql, [cupType, season]);
+    const result = await pool.query(sql, [cuptype, season]);
     const row = result.rows[0];
     const nextRoundId = (row && row.maxroundid) ? row.maxroundid + 1 : 1000;
     return nextRoundId.toString();
@@ -449,23 +450,23 @@ async function getNextRoundId(pool, cupType, season) {
 async function savePrognoseGame(pool, gameData) {
     const sql = `
         INSERT INTO games (
-            gameId, team1, team2, roundName, roundId, tournamentId, tournamentName,
-            season, cupType, gender, fieldType, gameDate, gameTime, venue, status,
-            result, source, apiEndpoint, link, homeTeamScore, awayTeamScore,
-            gameLocation, referees, spectators, notes, numericGameId, bracketSortOrder
+            gameid, team1, team2, roundname, roundid, tournamentid, tournamentname,
+            season, cuptype, gender, fieldtype, gamedate, gametime, venue, status,
+            result, source, apiendpoint, link, hometeamscore, awayteamscore,
+            gamelocation, referees, spectators, notes, numericgameid, bracketsortorder 
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
     `;
     
     const values = [
-        gameData.gameId, gameData.team1, gameData.team2, gameData.roundName,
-        gameData.roundId, gameData.tournamentId, gameData.tournamentName,
-        gameData.season, gameData.cupType, gameData.gender, gameData.fieldType,
-        gameData.gameDate, gameData.gameTime, gameData.venue, gameData.status,
-        gameData.result, gameData.source, gameData.apiEndpoint, gameData.link,
-        gameData.homeTeamScore || null, gameData.awayTeamScore || null,
-        gameData.gameLocation || null, gameData.referees || null,
+        gameData.gameid, gameData.team1, gameData.team2, gameData.roundname,
+        gameData.roundid, gameData.tournamentid, gameData.tournamentname,
+        gameData.season, gameData.cuptype, gameData.gender, gameData.fieldtype,
+        gameData.gamedate, gameData.gametime, gameData.venue, gameData.status,
+        gameData.result, gameData.source, gameData.apiendpoint, gameData.link,
+        gameData.hometeamscore || null, gameData.awayteamscore || null,
+        gameData.gamelocation || null, gameData.referees || null,
         gameData.spectators || null, gameData.notes || null,
-        gameData.numericGameId || null, gameData.bracketSortOrder || null
+        gameData.numericgameid || null, gameData.bracketsortorder || null
     ];
     
     const result = await pool.query(sql, values);
@@ -475,14 +476,14 @@ async function savePrognoseGame(pool, gameData) {
 /**
  * Löscht alle Prognose-Spiele für einen Cup/Saison
  */
-async function deleteAllPrognoseGames(pool, cupType, season) {
+async function deleteAllPrognoseGames(pool, cuptype, season) {
     const sql = `
         DELETE FROM games 
-        WHERE cupType = $1 AND season = $2 AND source = 'prognose'
+        WHERE cuptype = $1 AND season = $2 AND source = 'prognose'
     `;
     
-    const result = await pool.query(sql, [cupType, season]);
-    console.log(`   🗑️ ${result.rowCount} Prognose-Spiele für ${cupType} ${season} gelöscht`);
+    const result = await pool.query(sql, [cuptype, season]);
+    console.log(`   🗑️ ${result.rowCount} Prognose-Spiele für ${cuptype} ${season} gelöscht`);
     return result.rowCount;
 }
 
@@ -497,21 +498,21 @@ async function generatePrognoseForAllCups(pool, season) {
     let totalGenerated = 0;
     const results = [];
     
-    for (const cupType of CUPS) {
+    for (const cuptype of CUPS) {
         try {
-            console.log(`\n🏆 ${getCupDisplayName(cupType)}:`);
-            const result = await generatePrognoseGames(pool, cupType, season);
+            console.log(`\n🏆 ${getCupDisplayName(cuptype)}:`);
+            const result = await generatePrognoseGames(pool, cuptype, season);
             
             totalGenerated += result.generated;
             results.push({
-                cupType: cupType,
+                cuptype: cuptype,
                 ...result
             });
             
         } catch (error) {
-            console.error(`❌ Fehler bei ${cupType}: ${error.message}`);
+            console.error(`❌ Fehler bei ${cuptype}: ${error.message}`);
             results.push({
-                cupType: cupType,
+                cuptype: cuptype,
                 generated: 0,
                 error: error.message
             });
@@ -530,14 +531,14 @@ async function generatePrognoseForAllCups(pool, season) {
 /**
  * Hilfsfunktion: Lesbare Cup-Namen
  */
-function getCupDisplayName(cupType) {
+function getCupDisplayName(cuptype) {
     const names = {
         'herren_grossfeld': '🏒 Herren Grossfeld',
         'damen_grossfeld': '🏒 Damen Grossfeld',
         'herren_kleinfeld': '🏑 Herren Kleinfeld',
         'damen_kleinfeld': '🏑 Damen Kleinfeld'
     };
-    return names[cupType] || cupType;
+    return names[cuptype] || cuptype;
 }
 
 /**
@@ -548,15 +549,15 @@ function register(app, pool) {
     
     // GET /generate-prognose - Generiert Prognose für einen spezifischen Cup
     app.get('/generate-prognose', async (req, res) => {
-        const cupType = req.query.cup || 'herren_grossfeld';
+        const cuptype = req.query.cup || 'herren_grossfeld';
         const season = req.query.season || '2025/26';
         
         try {
-            const result = await generatePrognoseGames(pool, cupType, season);
+            const result = await generatePrognoseGames(pool, cuptype, season);
             
             res.json({
                 success: true,
-                cupType: cupType,
+                cuptype: cuptype,
                 season: season,
                 ...result
             });
@@ -566,7 +567,7 @@ function register(app, pool) {
             res.status(500).json({
                 success: false,
                 error: error.message,
-                cupType: cupType,
+                cuptype: cuptype,
                 season: season
             });
         }
@@ -575,9 +576,65 @@ function register(app, pool) {
     console.log('✅ Prognose-Routen registriert');
 }
 
+/**
+ * Erweiterte deleteAllPrognoseGames Funktion - jetzt für beliebige Season
+ */
+async function deleteAllPrognoseGames(pool, cuptype, season) {
+    const sql = `
+        DELETE FROM games 
+        WHERE cuptype = $1 AND season = $2 AND source = 'prognose'
+    `;
+    
+    const result = await pool.query(sql, [cuptype, season]);
+    const deletedCount = result.rowCount || 0;
+    
+    console.log(`   🗑️ ${deletedCount} Prognose-Spiele für ${cuptype} ${season} gelöscht`);
+    return deletedCount;
+}
+
+/**
+ * Löscht Prognose-Spiele für alle Cups einer Season
+ */
+async function deletePrognoseForAllCupsInSeason(pool, season) {
+    const CUPS = ['herren_grossfeld', 'damen_grossfeld', 'herren_kleinfeld', 'damen_kleinfeld'];
+    
+    console.log(`🗑️ Lösche Prognose-Spiele für alle Cups (Saison ${season})...`);
+    
+    let totalDeleted = 0;
+    const results = [];
+    
+    for (const cuptype of CUPS) {
+        try {
+            const deleted = await deleteAllPrognoseGames(pool, cuptype, season);
+            totalDeleted += deleted;
+            results.push({
+                cuptype: cuptype,
+                deleted: deleted
+            });
+            
+        } catch (error) {
+            console.error(`❌ Fehler beim Löschen ${cuptype}: ${error.message}`);
+            results.push({
+                cuptype: cuptype,
+                deleted: 0,
+                error: error.message
+            });
+        }
+    }
+    
+    console.log(`📊 Prognose-Löschung abgeschlossen: ${totalDeleted} Spiele gelöscht`);
+    
+    return {
+        totalDeleted: totalDeleted,
+        results: results
+    };
+}
+
+// In der exports am Ende hinzufügen:
 module.exports = {
     generatePrognoseGames,
     generatePrognoseForAllCups,
     deleteAllPrognoseGames,
+    deletePrognoseForAllCupsInSeason, // ← NEU
     register
 };

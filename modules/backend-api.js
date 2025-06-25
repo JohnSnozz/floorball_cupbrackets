@@ -224,7 +224,172 @@ function register(app, pool) {  // pool statt db
     }
   });
 
-  console.log('✅ Backend API Routes registriert');
+  // ========== NEU: DELETE ROUTEN ==========
+
+  // 1. Cup-Daten für Season löschen
+  app.delete('/api/backend/cup-data/season/:season', async (req, res) => {
+    try {
+      const season = req.params.season;
+      console.log(`🗑️ Backend API: Lösche Cup-Daten für Season ${season}`);
+      
+      // Lösche alle Spiele (außer Prognose) für diese Season
+      const deleteSQL = `
+        DELETE FROM games 
+        WHERE season = $1 AND source != 'prognose'
+      `;
+      
+      const result = await pool.query(deleteSQL, [season]);
+      
+      res.json({
+        success: true,
+        deleted: result.rowCount || 0,
+        season: season,
+        message: `${result.rowCount || 0} Cup-Spiele für Season ${season} gelöscht`
+      });
+
+    } catch (error) {
+      console.error('❌ Cup-Daten Season Lösch-Fehler:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // 2. Prognose-Spiele für beliebige Season löschen  
+  app.delete('/api/backend/prognose/season/:season', async (req, res) => {
+    try {
+      const season = req.params.season;
+      console.log(`🗑️ Backend API: Lösche Prognose-Spiele für Season ${season}`);
+      
+      let totalDeleted = 0;
+      for (const cupType of CURRENT_CUPS) {
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, season);
+        totalDeleted += deleted;
+      }
+      
+      res.json({
+        success: true,
+        deleted: totalDeleted,
+        season: season,
+        message: `${totalDeleted} Prognose-Spiele für Season ${season} gelöscht`
+      });
+
+    } catch (error) {
+      console.error('❌ Prognose Season Lösch-Fehler:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // 3. Komplette Season löschen (alle Daten)
+  app.delete('/api/backend/complete-season/:season', async (req, res) => {
+    try {
+      const season = req.params.season;
+      
+      if (!season || season === 'all') {
+        return res.status(400).json({
+          success: false,
+          error: 'Season-Parameter erforderlich. "all" nicht erlaubt.'
+        });
+      }
+      
+      console.log(`🗑️ Backend API: Lösche ALLE Daten für Season ${season}`);
+      
+      const results = {
+        cupData: 0,
+        prognoseGames: 0,
+        gameDetails: 0,
+        gameEvents: 0
+      };
+
+      // 1. Cup-Daten löschen
+      const cupDataResult = await pool.query(
+        'DELETE FROM games WHERE season = $1 AND source != $2', 
+        [season, 'prognose']
+      );
+      results.cupData = cupDataResult.rowCount || 0;
+
+      // 2. Prognose-Spiele löschen
+      for (const cupType of CURRENT_CUPS) {
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, season);
+        results.prognoseGames += deleted;
+      }
+
+      // 3. GameDetails löschen (falls GameDetailsManager verfügbar)
+      try {
+        const gameDetailsResult = await pool.query(
+          'DELETE FROM gamedetails WHERE season = $1', 
+          [season]
+        );
+        results.gameDetails = gameDetailsResult.rowCount || 0;
+      } catch (err) {
+        console.log('⚠️ GameDetails Tabelle nicht gefunden oder Fehler beim Löschen');
+      }
+
+      // 4. GameEvents löschen (falls GameEventsManager verfügbar)
+      try {
+        const gameEventsResult = await pool.query(
+          'DELETE FROM gameevents WHERE season = $1', 
+          [season]
+        );
+        results.gameEvents = gameEventsResult.rowCount || 0;
+      } catch (err) {
+        console.log('⚠️ GameEvents Tabelle nicht gefunden oder Fehler beim Löschen');
+      }
+
+      const totalDeleted = results.cupData + results.prognoseGames + results.gameDetails + results.gameEvents;
+      
+      res.json({
+        success: true,
+        season: season,
+        totalDeleted: totalDeleted,
+        details: results,
+        message: `Season ${season} komplett gelöscht: ${totalDeleted} Einträge total`
+      });
+
+    } catch (error) {
+      console.error('❌ Complete Season Lösch-Fehler:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  // 4. Bracket-Sortierung für Season zurücksetzen
+  app.delete('/api/backend/bracket-sorting/season/:season', async (req, res) => {
+    try {
+      const season = req.params.season;
+      console.log(`🗑️ Backend API: Setze Bracket-Sortierung für Season ${season} zurück`);
+      
+      const resetSQL = `
+        UPDATE games 
+        SET bracketsortorder = NULL 
+        WHERE season = $1
+      `;
+      
+      const result = await pool.query(resetSQL, [season]);
+      
+      res.json({
+        success: true,
+        updated: result.rowCount || 0,
+        season: season,
+        message: `Bracket-Sortierung für ${result.rowCount || 0} Spiele zurückgesetzt`
+      });
+
+    } catch (error) {
+      console.error('❌ Bracket-Sortierung Reset Fehler:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
+  console.log('✅ Backend API Routes (inkl. DELETE-Routen) registriert');
 }
 
 /**

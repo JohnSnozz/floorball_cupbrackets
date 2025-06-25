@@ -113,8 +113,8 @@ function register(app, pool) {  // pool statt db
             
             const query = `
                 SELECT 
-                    "roundName",
-                    "gameId",
+                    "roundname",
+                    "gameid",
                     "numericGameId",
                     "bracketsortorder",
                     team1,
@@ -124,18 +124,18 @@ function register(app, pool) {  // pool statt db
                 WHERE "cuptype" = $1 AND season = $2
                 ORDER BY 
                     CASE 
-                        WHEN "roundName" ILIKE '%finale%' OR "roundName" ILIKE '%final%' OR "roundName" ILIKE '%1/1%' THEN 1000
-                        WHEN "roundName" ILIKE '%halbfinale%' OR "roundName" ILIKE '%1/2%' THEN 900
-                        WHEN "roundName" ILIKE '%viertelfinale%' OR "roundName" ILIKE '%1/4%' THEN 800
-                        WHEN "roundName" ILIKE '%achtelfinale%' OR "roundName" ILIKE '%1/8%' THEN 700
-                        WHEN "roundName" ILIKE '%1/16%' THEN 600
-                        WHEN "roundName" ILIKE '%1/32%' THEN 500
-                        WHEN "roundName" ILIKE '%1/64%' THEN 400
-                        WHEN "roundName" ILIKE '%1/128%' THEN 300
+                        WHEN "roundname" ILIKE '%finale%' OR "roundname" ILIKE '%final%' OR "roundname" ILIKE '%1/1%' THEN 1000
+                        WHEN "roundname" ILIKE '%halbfinale%' OR "roundname" ILIKE '%1/2%' THEN 900
+                        WHEN "roundname" ILIKE '%viertelfinale%' OR "roundname" ILIKE '%1/4%' THEN 800
+                        WHEN "roundname" ILIKE '%achtelfinale%' OR "roundname" ILIKE '%1/8%' THEN 700
+                        WHEN "roundname" ILIKE '%1/16%' THEN 600
+                        WHEN "roundname" ILIKE '%1/32%' THEN 500
+                        WHEN "roundname" ILIKE '%1/64%' THEN 400
+                        WHEN "roundname" ILIKE '%1/128%' THEN 300
                         ELSE 100
                     END DESC,
                     "bracketsortorder" ASC,
-                    CAST("numericGameId" AS INTEGER) ASC
+                    CAST("numericgameid" AS INTEGER) ASC
             `;
             
             const result = await pool.query(query, [cuptype, season]);
@@ -143,10 +143,10 @@ function register(app, pool) {  // pool statt db
             // Gruppiere nach Runden
             const rounds = {};
             result.rows.forEach(game => {
-                if (!rounds[game.roundName]) {
-                    rounds[game.roundName] = [];
+                if (!rounds[game.roundname]) {
+                    rounds[game.roundname] = [];
                 }
-                rounds[game.roundName].push(game);
+                rounds[game.roundname].push(game);
             });
             
             res.json({
