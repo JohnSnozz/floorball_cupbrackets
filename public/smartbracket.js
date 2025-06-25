@@ -328,7 +328,7 @@ function renderAbsoluteMatch(position) {
     const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
     const style = `position: absolute; top: ${y}px; left: ${x}px; width: ${width}px; height: ${height}px;`;
     
-    let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericGameId || ''}" data-bracket-sort="${game.bracketsortorder }">`;
+    let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericgameid || ''}" data-bracket-sort="${game.bracketsortorder }">`;
     
     if (!hasResult) {
         const team1Classes = getTeamClasses(game, game.team1, hasResult);

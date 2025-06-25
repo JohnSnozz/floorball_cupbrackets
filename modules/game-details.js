@@ -31,7 +31,7 @@ class GameDetailsManager {
         title text,
         subtitle text,
         rawdata text,
-        lastupdated timestamp default current_timestamp,
+        lastupdated timestamp default datetime('now'),
         foreign key (numericgameid) references games(numericgameid) on delete cascade
       )
     `;
@@ -275,7 +275,7 @@ class GameDetailsManager {
       (numericgameid, season, home_name, away_name, home_logo, away_logo, result, 
        date, time, location, location_x, location_y, first_referee, 
        second_referee, spectators, title, subtitle, rawdata, lastupdated)
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, current_timestamp)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, datetime('now'))
       on conflict (numericgameid) do update set
         season = excluded.season,
         home_name = excluded.home_name,
@@ -294,7 +294,7 @@ class GameDetailsManager {
         title = excluded.title,
         subtitle = excluded.subtitle,
         rawdata = excluded.rawdata,
-        lastupdated = current_timestamp
+        lastupdated = datetime('now')
     `;
 
     try {
@@ -447,7 +447,7 @@ class GameDetailsManager {
         and lower(team2) not like '%freilos%'
         and numericgameid not in (
           select numericgameid from gamedetails 
-          where lastupdated > current_timestamp - interval '1 day'
+          where lastupdated > datetime('now') - interval '1 day'
         )
         order by season desc, cuptype, numericgameid
       `;

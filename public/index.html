@@ -106,6 +106,18 @@
                     </div>
                     <div class="backend-status" id="crawlingStatus"></div>
                 </div>
+
+                <!-- NEU: Teamshorts CSV Upload -->
+                <div class="backend-card">
+                    <div class="backend-icon">🏷️</div>
+                    <h3>Teamshorts Management</h3>
+                    <p>Team-Abkürzungen per CSV hochladen und synchronisieren</p>
+                    <input type="file" id="teamshortsCsv" accept=".csv" style="margin-bottom: 10px; width: 100%;" />
+                    <button class="btn btn-primary btn-small" onclick="executeTeamshortsUpload()">
+                        📁 CSV Upload & Sync
+                    </button>
+                    <div class="backend-status" id="teamshortsStatus"></div>
+                </div>
                 
                 <div class="backend-card">
                     <div class="backend-icon">🎯</div>
@@ -355,6 +367,38 @@
                 updateBackendStatus('crawlingStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
             }
         }
+
+        // NEU: Teamshorts CSV Upload
+        async function executeTeamshortsUpload() {
+            const fileInput = document.getElementById('teamshortsCsv');
+            if (fileInput.files.length === 0) {
+                updateBackendStatus('teamshortsStatus', '❌ Bitte eine CSV-Datei auswählen', 'error');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('csv', file);
+
+            updateBackendStatus('teamshortsStatus', '⏳ CSV wird hochgeladen und synchronisiert...', 'loading');
+
+            try {
+                const response = await fetch('/api/backend/teamshorts-sync', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    updateBackendStatus('teamshortsStatus', `✅ Synchronisation erfolgreich: ${result.updated} aktualisiert, ${result.inserted} neue Einträge`, 'success');
+                } else {
+                    updateBackendStatus('teamshortsStatus', `❌ Fehler: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateBackendStatus('teamshortsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
         
         async function executeBracketSorting() {
             const season = document.getElementById('bracketSeasonSelect').value;
@@ -541,234 +585,6 @@
                     updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
                 }
             }
-}
-        
-        // Legacy Game Events Crawling (alte Methode)
-        async function executeGameEventsAllCrawling() {
-            updateBackendStatus('gameEventsStatus', '⏳ Legacy Game Events Crawling (alle Cup-Spiele)...', 'loading');
-            
-            try {
-                const response = await fetch('/api/crawl-game-events', {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success !== undefined) {
-                    updateBackendStatus('gameEventsStatus', `✅ Legacy Events Crawling abgeschlossen: ${result.success} Games, ${result.totalEvents || 0} Events, ${result.errors} Fehler`, 'success');
-                } else {
-                    updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
-            }
-        }
-
-        // Game Events Season löschen
-        async function executeGameEventsDelete() {
-            const season = document.getElementById('gameEventsSeasonSelect').value;
-            
-            if (season === 'all') {
-                updateBackendStatus('gameEventsStatus', '❌ Löschung für "alle Seasons" nicht verfügbar', 'error');
-                return;
-            }
-            
-            if (!confirm(`Game Events für Season ${season} wirklich löschen?`)) {
-                return;
-            }
-            
-            updateBackendStatus('gameEventsStatus', `⏳ Game Events für Season ${season} werden gelöscht...`, 'loading');
-            
-            try {
-                const response = await fetch(`/api/game-events/season/${encodeURIComponent(season)}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (result.deleted !== undefined) {
-                    updateBackendStatus('gameEventsStatus', `✅ Events Season ${season} gelöscht: ${result.deleted} Einträge entfernt`, 'success');
-                } else {
-                    updateBackendStatus('gameEventsStatus', `❌ Fehler: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                updateBackendStatus('gameEventsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
-            }
-        }
-
-        // NEU: Season komplett löschen
-        async function executeCompleteSeasonDelete() {
-            const season = document.getElementById('completeDeleteSeasonSelect').value;
-            
-            if (!season || season === 'all') {
-                updateBackendStatus('completeDeleteStatus', '❌ Bitte eine spezifische Season wählen', 'error');
-                return;
-            }
-            
-            const confirmText = `ACHTUNG: Dies löscht ALLE Daten für Season ${season}:
-            
-- Alle Cup-Spiele
-- Alle Prognose-Spiele  
-- Alle GameDetails
-- Alle GameEvents
-- Bracket-Sortierung
-
-Diese Aktion ist UNWIDERRUFLICH!
-
-Geben Sie zur Bestätigung "${season}" ein:`;
-            
-            const userInput = prompt(confirmText);
-            
-            if (userInput !== season) {
-                updateBackendStatus('completeDeleteStatus', '❌ Abgebrochen - Season nicht bestätigt', 'error');
-                return;
-            }
-            
-            updateBackendStatus('completeDeleteStatus', `⏳ Season ${season} wird KOMPLETT gelöscht...`, 'loading');
-            
-            try {
-                const response = await fetch(`/api/backend/complete-season/${encodeURIComponent(season)}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateBackendStatus('completeDeleteStatus', 
-                        `✅ Season ${season} KOMPLETT gelöscht: ${result.totalDeleted} Einträge total\n` +
-                        `Cup-Daten: ${result.details.cupData}, Prognose: ${result.details.prognoseGames}, ` +
-                        `Details: ${result.details.gameDetails}, Events: ${result.details.gameEvents}`, 'success');
-                } else {
-                    updateBackendStatus('completeDeleteStatus', `❌ Fehler: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                updateBackendStatus('completeDeleteStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
-            }
-        }
-        
-        function updateBackendStatus(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            element.textContent = message;
-            element.className = `backend-status ${type}`;
-        }
-        
-        // Existing status update functions
-        async function updateStatus() {
-            try {
-                const statsResponse = await fetch('/stats');
-                const stats = await statsResponse.json();
-                
-                if (stats.totalGames !== undefined) {
-                    document.getElementById('totalGames').textContent = stats.totalGames.toLocaleString();
-                    document.getElementById('totalEvents').textContent = stats.totalTournaments || '-';
-                    document.getElementById('lastUpdate').textContent = new Date().toLocaleString('de-CH');
-                }
-                
-                // Game Details Stats laden
-                try {
-                    const gameDetailsResponse = await fetch('/api/game-details/stats');
-                    const gameDetailsStats = await gameDetailsResponse.json();
-                    
-                    if (gameDetailsStats.totalGames !== undefined) {
-                        document.getElementById('gameDetailsCount').textContent = gameDetailsStats.totalGames.toLocaleString();
-                    }
-                } catch (error) {
-                    document.getElementById('gameDetailsCount').textContent = '0';
-                }
-
-                // Game Events Stats laden
-                try {
-                    const gameEventsResponse = await fetch('/api/game-events/stats');
-                    const gameEventsStats = await gameEventsResponse.json();
-                    
-                    if (gameEventsStats.totalEvents !== undefined) {
-                        document.getElementById('gameEventsCount').textContent = gameEventsStats.totalEvents.toLocaleString();
-                    }
-                } catch (error) {
-                    document.getElementById('gameEventsCount').textContent = '0';
-                }
-                
-                const bracketResponse = await fetch('/bracket-sorting-status');
-                const bracketStats = await bracketResponse.json();
-                
-                if (bracketStats.success) {
-                    const totalSorted = bracketStats.events.reduce((sum, event) => sum + event.sortedGames, 0);
-                    document.getElementById('bracketSorted').textContent = totalSorted.toLocaleString();
-                }
-                
-                document.getElementById('autoCrawlStatus').innerHTML = '✅ Abgeschlossen';
-                document.getElementById('autoCrawlStatus').className = 'status-value status-active';
-                
-            } catch (error) {
-                console.error('Status update failed:', error);
-                document.getElementById('autoCrawlStatus').innerHTML = '❌ Fehler';
-                document.getElementById('autoCrawlStatus').className = 'status-value status-error';
-            }
-        }
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            updateStatus();
-            setInterval(updateStatus, 30000);
-        });
-        
-        setInterval(async () => {
-            try {
-                const response = await fetch('/health');
-                const status = response.ok ? '🟢 Online' : '🔴 Fehler';
-                document.getElementById('serverStatus').textContent = status;
-                document.getElementById('serverStatus').className = response.ok ? 
-                    'status-value status-active' : 'status-value status-error';
-            } catch (error) {
-                document.getElementById('serverStatus').textContent = '🔴 Offline';
-                document.getElementById('serverStatus').className = 'status-value status-error';
-            }
-        }, 10000);
-    </script>
-</body>
-</html> {
-                        updateBackendStatus('gameDetailsStatus', `⏳ Crawle Season ${seasonToCrawl}... (${seasons.indexOf(seasonToCrawl) + 1}/${seasons.length})`, 'loading');
-                        
-                        const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(seasonToCrawl)}`, {
-                            method: 'POST'
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success !== undefined) {
-                            totalSuccess += result.success;
-                            totalErrors += result.errors;
-                        }
-                        
-                        // Kurze Pause zwischen Seasons
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                    }
-                    
-                    updateBackendStatus('gameDetailsStatus', `✅ Alle Seasons gecrawlt: ${totalSuccess} erfolgreich, ${totalErrors} Fehler`, 'success');
-                    
-                } catch (error) {
-                    updateBackendStatus('gameDetailsStatus', `❌ Fehler beim Crawlen aller Seasons: ${error.message}`, 'error');
-                }
-                
-            } else {
-                // Einzelne Season crawlen
-                updateBackendStatus('gameDetailsStatus', `⏳ Game Details für Season ${season} werden gecrawlt...`, 'loading');
-                
-                try {
-                    const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(season)}`, {
-                        method: 'POST'
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success !== undefined) {
-                        updateBackendStatus('gameDetailsStatus', `✅ Season ${season} gecrawlt: ${result.success} erfolgreich, ${result.errors} Fehler`, 'success');
-                    } else {
-                        updateBackendStatus('gameDetailsStatus', `❌ Fehler: ${result.error}`, 'error');
-                    }
-                } catch (error) {
-                    updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
-                }
-            }
         }
         
         // Legacy Game Details Crawling (alte Methode)
@@ -835,17 +651,4 @@ Geben Sie zur Bestätigung "${season}" ein:`;
                 
                 try {
                     // Erst verfügbare Seasons laden
-                    const seasonsResponse = await fetch('/api/game-events/seasons');
-                    const seasons = await seasonsResponse.json();
-                    
-                    if (!Array.isArray(seasons) || seasons.length === 0) {
-                        updateBackendStatus('gameEventsStatus', '❌ Keine verfügbaren Seasons gefunden', 'error');
-                        return;
-                    }
-                    
-                    let totalSuccess = 0;
-                    let totalErrors = 0;
-                    let totalEvents = 0;
-                    
-                    // Jede Season einzeln crawlen
-                    for (const seasonToCrawl of seasons)
+                    const seaso
