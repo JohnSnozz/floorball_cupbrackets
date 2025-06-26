@@ -1,0 +1,556 @@
+/* Backend Dashboard Styles */
+
+/* Reset and Base */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+
+/* Dashboard Container */
+.dashboard-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.dashboard-header {
+    background: #2a2a2a;
+    border-bottom: 1px solid #444;
+    padding: 1rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.header-content h1 {
+    color: #007bff;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-info {
+    color: #bbb;
+    font-size: 0.9rem;
+}
+
+/* Navigation */
+.dashboard-nav {
+    background: #333;
+    padding: 1rem 2rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #444;
+}
+
+.nav-item {
+    color: #007bff;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    background: #444;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    border: 1px solid #555;
+}
+
+.nav-item:hover {
+    background: #007bff;
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* Main Content */
+.dashboard-main {
+    flex: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    width: 100%;
+}
+
+/* Sections */
+section {
+    margin-bottom: 3rem;
+}
+
+section h2 {
+    color: #fff;
+    font-size: 1.4rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Status Section */
+.status-section {
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 2rem;
+    border: 1px solid #444;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.status-item {
+    background: #333;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.status-item:hover {
+    background: #3a3a3a;
+    border-color: #555;
+}
+
+.status-label {
+    color: #bbb;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.status-value {
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.status-value.status-active {
+    color: #28a745;
+}
+
+.status-value.status-error {
+    color: #dc3545;
+}
+
+/* Quick Stats */
+.quick-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat-card {
+    background: #333;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.stat-card:hover {
+    background: #3a3a3a;
+    border-color: #555;
+    transform: translateY(-2px);
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #ff6b00;
+    margin-bottom: 0.3rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: #bbb;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+/* Backend Interface Section */
+.backend-interface-section {
+    background: #252525;
+    border-radius: 8px;
+    padding: 2rem;
+    border: 1px solid #333;
+}
+
+.backend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.backend-card {
+    background: #2d2d2d;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.backend-card:hover {
+    background: #333;
+    border-color: #555;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.backend-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
+    transition: left 0.5s;
+}
+
+.backend-card:hover::before {
+    left: 100%;
+}
+
+.backend-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    display: block;
+    position: relative;
+    z-index: 2;
+}
+
+.backend-card h3 {
+    color: #fff;
+    font-size: 1.1rem;
+    margin: 0 0 0.8rem 0;
+    font-weight: 600;
+    position: relative;
+    z-index: 2;
+}
+
+.backend-card p {
+    color: #bbb;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 0 0 1.5rem 0;
+    position: relative;
+    z-index: 2;
+}
+
+/* Form Elements */
+.season-select, .file-input {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    padding: 0.6rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    width: 100%;
+    transition: all 0.2s;
+}
+
+.season-select:focus, .file-input:focus {
+    outline: none;
+    border-color: #007bff;
+    background: #222;
+}
+
+.file-input {
+    padding: 0.5rem;
+}
+
+/* Action Groups */
+.cup-data-actions,
+.bracket-management-actions,
+.prognose-actions,
+.game-details-actions,
+.game-events-actions,
+.complete-delete-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.7rem 1.2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+    position: relative;
+    z-index: 2;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-small {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    flex: 1;
+}
+
+.btn-large {
+    padding: 1rem 2rem;
+    font-size: 1rem;
+}
+
+/* Button Variants */
+.btn-primary { background: #007bff; }
+.btn-primary:hover { background: #0056b3; }
+
+.btn-secondary { background: #6c757d; }
+.btn-secondary:hover { background: #545b62; }
+
+.btn-success { background: #28a745; }
+.btn-success:hover { background: #1e7e34; }
+
+.btn-warning { background: #ffc107; color: #212529; }
+.btn-warning:hover { background: #e0a800; }
+
+.btn-danger { background: #dc3545; }
+.btn-danger:hover { background: #c82333; }
+
+.btn-info { background: #17a2b8; }
+.btn-info:hover { background: #138496; }
+
+.btn-logout {
+    background: #dc3545;
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+}
+
+.btn-logout:hover {
+    background: #c82333;
+}
+
+/* Backend Status */
+.backend-status {
+    margin-top: 1rem;
+    padding: 0.7rem 1rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.3;
+    position: relative;
+    z-index: 2;
+}
+
+.backend-status.loading {
+    background: #1e3a5f;
+    color: #a8c5e0;
+    border: 1px solid #4a7db8;
+    animation: pulse 2s infinite;
+}
+
+.backend-status.success {
+    background: #1e4b33;
+    color: #a8e6cf;
+    border: 1px solid #28a745;
+}
+
+.backend-status.error {
+    background: #4a1e1e;
+    color: #f5c6cb;
+    border: 1px solid #dc3545;
+}
+
+/* Alert */
+.alert {
+    padding: 1rem 1.5rem;
+    border-radius: 6px;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    border-left: 4px solid;
+}
+
+.alert-info {
+    background: #1e3a5f;
+    color: #a8c5e0;
+    border-left-color: #17a2b8;
+}
+
+.alert strong {
+    font-weight: 600;
+}
+
+/* Admin Section */
+.admin-section {
+    background: #252525;
+    border-radius: 6px;
+    padding: 2rem;
+    border: 1px solid #333;
+}
+
+.admin-buttons {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .dashboard-main {
+        padding: 1.5rem;
+    }
+    
+    .backend-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-header {
+        padding: 1rem;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    
+    .header-content h1 {
+        font-size: 1.5rem;
+    }
+    
+    .dashboard-nav {
+        padding: 1rem;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .dashboard-main {
+        padding: 1rem;
+    }
+    
+    .backend-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .backend-card {
+        padding: 1rem;
+    }
+    
+    .cup-data-actions,
+    .bracket-management-actions,
+    .prognose-actions,
+    .game-details-actions,
+    .game-events-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .quick-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .admin-buttons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-header {
+        padding: 0.8rem;
+    }
+    
+    .header-content h1 {
+        font-size: 1.3rem;
+    }
+    
+    .user-info {
+        font-size: 0.8rem;
+    }
+    
+    .backend-card {
+        padding: 0.8rem;
+    }
+    
+    .backend-icon {
+        font-size: 2rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    .backend-card h3 {
+        font-size: 1rem;
+    }
+    
+    .quick-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+}

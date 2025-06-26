@@ -3,6 +3,9 @@
 const autoCrawl = require('./auto-crawl');
 const bracketSorting = require('./bracket-sorting');
 const prognoseGames = require('./prognose-games');
+const auth = require('./auth');
+
+const fetch = require('node-fetch');
 
 // Aktuelle Saison und Cups
 const CURRENT_SEASON = '2025/26';
@@ -20,7 +23,7 @@ function register(app, pool) {  // pool statt db
   console.log('🔧 Registriere Backend API Routes...');
 
   // POST /api/backend/quick-update
-  app.post('/api/backend/quick-update', async (req, res) => {
+  app.post('/api/backend/quick-update', auth.requireAuth, async (req, res) => {
     try {
       console.log(`🚀 Backend API: Quick Update für Saison ${CURRENT_SEASON}`);
       
@@ -75,7 +78,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // POST /api/backend/crawl-season
-  app.post('/api/backend/crawl-season', async (req, res) => {
+  app.post('/api/backend/crawl-season', auth.requireAuth, async (req, res) => {
     try {
       const { season } = req.body;
       const targetSeason = season || CURRENT_SEASON;
@@ -101,7 +104,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // POST /api/backend/crawl-all
-  app.post('/api/backend/crawl-all', async (req, res) => {
+  app.post('/api/backend/crawl-all', auth.requireAuth, async (req, res) => {
     try {
       console.log('📡 Backend API: Crawling alle Saisons');
       
@@ -123,7 +126,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // POST /api/backend/bracket-season
-  app.post('/api/backend/bracket-season', async (req, res) => {
+  app.post('/api/backend/bracket-season', auth.requireAuth, async (req, res) => {
     try {
       const { season } = req.body;
       const targetSeason = season || CURRENT_SEASON;
@@ -152,7 +155,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // POST /api/backend/bracket-all
-  app.post('/api/backend/bracket-all', async (req, res) => {
+  app.post('/api/backend/bracket-all', auth.requireAuth, async (req, res) => {
     try {
       console.log('🎯 Backend API: Bracket-Sortierung für alle Saisons');
       
@@ -174,7 +177,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // POST /api/backend/prognose-cleanup
-  app.post('/api/backend/prognose-cleanup', async (req, res) => {
+  app.post('/api/backend/prognose-cleanup', auth.requireAuth, async (req, res) => {
     try {
       console.log(`🗑️ Backend API: Prognose Cleanup für Saison ${CURRENT_SEASON}`);
       
@@ -201,7 +204,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // POST /api/backend/prognose-generate
-  app.post('/api/backend/prognose-generate', async (req, res) => {
+  app.post('/api/backend/prognose-generate', auth.requireAuth, async (req, res) => {
     try {
       console.log(`🔮 Backend API: Prognose-Generierung für Saison ${CURRENT_SEASON}`);
       
@@ -227,7 +230,7 @@ function register(app, pool) {  // pool statt db
   // ========== NEU: DELETE ROUTEN ==========
 
   // 1. Cup-Daten für Season löschen
-  app.delete('/api/backend/cup-data/season/:season', async (req, res) => {
+  app.delete('/api/backend/cup-data/season/:season', auth.requireAuth, async (req, res) => {
     try {
       const season = req.params.season;
       console.log(`🗑️ Backend API: Lösche Cup-Daten für Season ${season}`);
@@ -257,7 +260,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // 2. Prognose-Spiele für beliebige Season löschen  
-  app.delete('/api/backend/prognose/season/:season', async (req, res) => {
+  app.delete('/api/backend/prognose/season/:season', auth.requireAuth, async (req, res) => {
     try {
       const season = req.params.season;
       console.log(`🗑️ Backend API: Lösche Prognose-Spiele für Season ${season}`);
@@ -285,7 +288,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // 3. Komplette Season löschen (alle Daten)
-  app.delete('/api/backend/complete-season/:season', async (req, res) => {
+  app.delete('/api/backend/complete-season/:season', auth.requireAuth, async (req, res) => {
     try {
       const season = req.params.season;
       
@@ -360,7 +363,7 @@ function register(app, pool) {  // pool statt db
   });
 
   // 4. Bracket-Sortierung für Season zurücksetzen
-  app.delete('/api/backend/bracket-sorting/season/:season', async (req, res) => {
+  app.delete('/api/backend/bracket-sorting/season/:season', auth.requireAuth, async (req, res) => {
     try {
       const season = req.params.season;
       console.log(`🗑️ Backend API: Setze Bracket-Sortierung für Season ${season} zurück`);

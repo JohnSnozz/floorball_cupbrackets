@@ -116,11 +116,11 @@ function register(app, db) {
         `SELECT 
            "cuptype",
            season,
-           MAX("crawledAt") as "lastUpdate"
+           MAX("crawledat") as "lastupdate"
          FROM games 
          WHERE source != 'prognose'
          GROUP BY "cuptype", season
-         ORDER BY "lastUpdate" DESC
+         ORDER BY "lastupdate" DESC
          LIMIT 10`
       ];
       

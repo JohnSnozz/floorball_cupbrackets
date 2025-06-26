@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Backend Dashboard - Swiss Cup Crawler</title>
+    <link rel="stylesheet" href="/backend-dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>🔧 Backend Dashboard</h1>
+                <div class="header-actions">
+                    <span class="user-info">Eingeloggt seit: <span id="loginTime">Lädt...</span></span>
+                    <button class="btn btn-logout" onclick="logout()">🚪 Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <nav class="dashboard-nav">
+            <a href="/dev/dbreview.html" class="nav-item">📊 DB Review</a>
+            <a href="/dev/gamedetails.html" class="nav-item">🎮 Game Details</a>
+            <a href="/bracket" class="nav-item">🏆 Bracket View</a>
+        </nav>
+
+        <main class="dashboard-main">
+            <!-- System Status Section -->
+            <section class="status-section">
+                <h2>📈 System Status</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">Server Status</span>
+                        <span class="status-value status-active" id="serverStatus">🟢 Online</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Uptime</span>
+                        <span class="status-value" id="uptime">Lädt...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Letzte Aktualisierung</span>
+                        <span class="status-value" id="lastUpdate">-</span>
+                    </div>
+                </div>
+
+                <div class="quick-stats">
+                    <div class="stat-card">
+                        <span class="stat-value" id="totalGames">-</span>
+                        <span class="stat-label">Spiele Total</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="gameDetailsCount">-</span>
+                        <span class="stat-label">Game Details</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="gameEventsCount">-</span>
+                        <span class="stat-label">Game Events</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="bracketSorted">-</span>
+                        <span class="stat-label">Bracket-sortiert</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Backend Interface Section -->
+            <section class="backend-interface-section">
+                <h2>⚙️ Backend Management</h2>
+                
+                <div class="alert alert-info">
+                    <strong>Info:</strong> Hier können Sie alle Backend-Funktionen ausführen und verwalten.
+                </div>
+                
+                <div class="backend-grid">
+                    <!-- Quick Update -->
+                    <div class="backend-card">
+                        <div class="backend-icon">🏒</div>
+                        <h3>Quick Update</h3>
+                        <p>Aktuelle Saison crawlen + Bracket-Sortierung + Prognose-Spiele für alle 4 Cups</p>
+                        <button class="btn btn-warning" onclick="executeQuickUpdate()">
+                            ⚡ Quick Update starten
+                        </button>
+                        <div class="backend-status" id="quickUpdateStatus"></div>
+                    </div>
+                    
+                    <!-- Cup-Daten Management -->
+                    <div class="backend-card">
+                        <div class="backend-icon">📥</div>
+                        <h3>Cup-Daten Management</h3>
+                        <p>Crawle oder lösche Cup-Daten für gewählte Saison</p>
+                        <select class="season-select" id="crawlSeasonSelect">
+                            <option value="2025/26">2025/26 (Aktuell)</option>
+                            <option value="all">Alle Saisons</option>
+                            <option value="2024/25">2024/25</option>
+                            <option value="2023/24">2023/24</option>
+                            <option value="2022/23">2022/23</option>
+                        </select>
+                        <div class="cup-data-actions">
+                            <button class="btn btn-info btn-small" onclick="executeCrawling()">
+                                📡 Crawling starten
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="executeCupDataDelete()">
+                                🗑️ Season löschen
+                            </button>
+                        </div>
+                        <div class="backend-status" id="crawlingStatus"></div>
+                    </div>
+
+                    <!-- Teamshorts CSV Upload -->
+                    <div class="backend-card">
+                        <div class="backend-icon">🏷️</div>
+                        <h3>Teamshorts Management</h3>
+                        <p>Team-Abkürzungen per CSV hochladen und synchronisieren</p>
+                        <input type="file" id="teamshortsCsv" accept=".csv" class="file-input" />
+                        <button class="btn btn-primary btn-small" onclick="executeTeamshortsUpload()">
+                            📁 CSV Upload & Sync
+                        </button>
+                        <div class="backend-status" id="teamshortsStatus"></div>
+                    </div>
+                    
+                    <!-- Bracket-Sortierung Management -->
+                    <div class="backend-card">
+                        <div class="backend-icon">🎯</div>
+                        <h3>Bracket-Sortierung Management</h3>
+                        <p>Berechne oder setze Bracket-Sortierung zurück</p>
+                        <select class="season-select" id="bracketSeasonSelect">
+                            <option value="2025/26">2025/26 (Aktuell)</option>
+                            <option value="all">Alle Saisons</option>
+                            <option value="2024/25">2024/25</option>
+                            <option value="2023/24">2023/24</option>
+                            <option value="2022/23">2022/23</option>
+                        </select>
+                        <div class="bracket-management-actions">
+                            <button class="btn btn-success btn-small" onclick="executeBracketSorting()">
+                                🔢 Berechnung starten
+                            </button>
+                            <button class="btn btn-warning btn-small" onclick="executeBracketReset()">
+                                🔄 Sortierung zurücksetzen
+                            </button>
+                        </div>
+                        <div class="backend-status" id="bracketStatus"></div>
+                    </div>
+                    
+                    <!-- Prognose-Spiele Management -->
+                    <div class="backend-card">
+                        <div class="backend-icon">🔮</div>
+                        <h3>Prognose-Spiele Management</h3>
+                        <p>Generiere oder lösche Prognose-Spiele für gewählte Saison</p>
+                        <select class="season-select" id="prognoseSeasonSelect">
+                            <option value="2025/26">2025/26 (Aktuell)</option>
+                            <option value="2024/25">2024/25</option>
+                            <option value="2023/24">2023/24</option>
+                            <option value="2022/23">2022/23</option>
+                        </select>
+                        <div class="prognose-actions">
+                            <button class="btn btn-primary btn-small" onclick="executePrognoseGenerate()">
+                                ⚡ Generieren
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="executePrognoseCleanup()">
+                                🗑️ Cleanup aktuell
+                            </button>
+                            <button class="btn btn-warning btn-small" onclick="executePrognoseSeasonDelete()">
+                                🗑️ Season löschen
+                            </button>
+                        </div>
+                        <div class="backend-status" id="prognoseStatus"></div>
+                    </div>
+                    
+                    <!-- Game Details Crawling -->
+                    <div class="backend-card">
+                        <div class="backend-icon">🎮</div>
+                        <h3>Game Details Crawling</h3>
+                        <p>Crawle detaillierte Spielinformationen von Swiss Unihockey API für gewählte Saison</p>
+                        <select class="season-select" id="gameDetailsSeasonSelect">
+                            <option value="2025/26">2025/26 (Aktuell)</option>
+                            <option value="all">Alle verfügbaren Seasons</option>
+                            <option value="2024/25">2024/25</option>
+                            <option value="2023/24">2023/24</option>
+                            <option value="2022/23">2022/23</option>
+                        </select>
+                        <div class="game-details-actions">
+                            <button class="btn btn-info btn-small" onclick="executeGameDetailsCrawling()">
+                                🎯 Season crawlen
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="executeGameDetailsAllCrawling()">
+                                🌐 Legacy Crawl (alle)
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="executeGameDetailsDelete()">
+                                🗑️ Season löschen
+                            </button>
+                        </div>
+                        <div class="backend-status" id="gameDetailsStatus"></div>
+                    </div>
+
+                    <!-- Game Events Crawling -->
+                    <div class="backend-card">
+                        <div class="backend-icon">⚡</div>
+                        <h3>Game Events Crawling</h3>
+                        <p>Crawle Spielereignisse (Tore, Strafen, etc.) von Swiss Unihockey API für gewählte Saison</p>
+                        <select class="season-select" id="gameEventsSeasonSelect">
+                            <option value="2025/26">2025/26 (Aktuell)</option>
+                            <option value="all">Alle verfügbaren Seasons</option>
+                            <option value="2024/25">2024/25</option>
+                            <option value="2023/24">2023/24</option>
+                            <option value="2022/23">2022/23</option>
+                        </select>
+                        <div class="game-events-actions">
+                            <button class="btn btn-info btn-small" onclick="executeGameEventsCrawling()">
+                                ⚡ Season crawlen
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="executeGameEventsAllCrawling()">
+                                🌐 Legacy Crawl (alle)
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="executeGameEventsDelete()">
+                                🗑️ Season löschen
+                            </button>
+                        </div>
+                        <div class="backend-status" id="gameEventsStatus"></div>
+                    </div>
+
+                    <!-- Season Komplett-Löschung -->
+                    <div class="backend-card">
+                        <div class="backend-icon">💥</div>
+                        <h3>Season Komplett-Löschung</h3>
+                        <p>⚠️ ACHTUNG: Löscht ALLE Daten einer Season unwiderruflich</p>
+                        <select class="season-select" id="completeDeleteSeasonSelect">
+                            <option value="">-- Season wählen --</option>
+                            <option value="2024/25">2024/25</option>
+                            <option value="2023/24">2023/24</option>
+                            <option value="2022/23">2022/23</option>
+                        </select>
+                        <div class="complete-delete-actions">
+                            <button class="btn btn-danger" onclick="executeCompleteSeasonDelete()">
+                                💥 Season KOMPLETT löschen
+                            </button>
+                        </div>
+                        <div class="backend-status" id="completeDeleteStatus"></div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Admin Tools Section -->
+            <section class="admin-section">
+                <h2>⚙️ Admin Tools</h2>
+                <div class="admin-buttons">
+                    <a href="/stats" class="btn btn-info btn-small">📊 Statistiken</a>
+                    <a href="/games/all" class="btn btn-info btn-small">📋 Alle Spiele</a>
+                    <a href="/bracket-sorting-status" class="btn btn-info btn-small">🎯 Bracket Status</a>
+                    <a href="/health" class="btn btn-success btn-small">❤️ Health Check</a>
+                    <a href="/api/seasons" class="btn btn-secondary btn-small">📅 API: Seasons</a>
+                    <a href="/api/cups" class="btn btn-secondary btn-small">🏆 API: Cups</a>
+                    <a href="/api/stats" class="btn btn-secondary btn-small">📊 API: Stats</a>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/backend-functions.js"></script>
+    <script>
+        // Status beim Laden prüfen
+        checkStatus();
+        
+        // Status alle 30 Sekunden aktualisieren
+        setInterval(checkStatus, 30000);
+    </script>
+</body>
+</html>
