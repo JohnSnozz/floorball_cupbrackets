@@ -328,7 +328,8 @@ button:hover {
     }
 }
 
-/* Game Details CSS - Game Details Popup Styles */
+
+/* Game Details CSS - Füge diesen Code am Ende von smart-match-link.css hinzu */
 
 /* Game Details Container */
 .game-details {

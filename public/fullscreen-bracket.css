@@ -1,0 +1,344 @@
+/* Fullscreen Bracket CSS - FIXED VERSION */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    background-color: #000;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+}
+
+/* Vollbild Container */
+.fullscreen-bracket-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #1a1a1a;
+    overflow: hidden;
+    cursor: grab;
+    z-index: 1;
+}
+
+.fullscreen-bracket-container.dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+
+/* KRITISCHER FIX: Viewport für Zoom und Pan */
+.bracket-viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* ENTFERNT: right: 0; bottom: 0; - Diese verursachen Probleme */
+    overflow: visible; /* GEÄNDERT von hidden zu visible */
+    transform-origin: center center;
+    will-change: transform;
+}
+
+.bracket-viewport.smooth-transition {
+    transition: transform 0.3s ease-out;
+}
+
+/* KRITISCHER FIX: Bracket Content Container */
+.bracket-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* ENTFERNT alle Dimensionsbegrenzungen die das Problem verursachen */
+    /* GEÄNDERT: Lasse dem Bracket genug Platz sich auszudehnen */
+    width: auto;
+    height: auto;
+    min-width: max-content;
+    min-height: max-content;
+    /* ENTFERNT: pointer-events: none; */
+    /* ENTFERNT: display: flex; align-items: center; justify-content: center; */
+}
+
+/* WICHTIG: Stelle sicher dass Child-Elemente pointer events haben */
+.bracket-content > * {
+    pointer-events: auto;
+}
+
+/* KRITISCHER FIX: Smart Bracket spezifische Anpassungen */
+.bracket-content .smart-bracket {
+    position: relative;
+    display: block; /* GEÄNDERT von flex */
+    background-image: 
+        linear-gradient(to right, rgba(255, 107, 0, 0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 107, 0, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: 0 0;
+    padding: 40px;
+    border-radius: 8px;
+    margin: 0;
+    /* KRITISCHER FIX: Explizite Dimensionen */
+    width: auto;
+    height: auto;
+    overflow: visible; /* SEHR WICHTIG */
+    /* HINZUGEFÜGT: Sicherstellen dass Inhalt sichtbar bleibt */
+    min-width: max-content;
+    min-height: max-content;
+}
+
+/* Bracket Container für smart-match-link.js */
+.bracket-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    /* HINZUGEFÜGT: Overflow visible für vollständige Sichtbarkeit */
+    overflow: visible;
+}
+
+/* Smart Match Styling */
+.smart-match-absolute {
+    background-color: #333;
+    border-radius: 6px;
+    border: 1px solid #444;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    /* position: absolute; wird über style-Attribut gesetzt */
+}
+
+.smart-match-absolute:hover {
+    border-color: #555;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px);
+}
+
+/* Team Styling */
+.team {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background-color: #3a3a3a;
+    border-bottom: 1px solid #444;
+    transition: all 0.2s;
+    height: 50%;
+    flex: 1;
+    border-radius: 0;
+}
+
+.team:first-child {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+
+.team:last-child {
+    border-bottom: none;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+.team.winner {
+    background-color: #ff6b00;
+    color: #000;
+    font-weight: 600;
+}
+
+.team.winner:hover {
+    background-color: #ff7a1a;
+}
+
+.team-name {
+    flex: 1;
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    justify-content: flex-start;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.team-score {
+    font-weight: 600;
+    font-size: 13px;
+    min-width: 25px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-left: 10px;
+}
+
+.team.tbd {
+    color: #888;
+    font-style: italic;
+}
+
+.team.freilos-team {
+    background-color: #3a3a3a;
+    color: #888;
+    font-style: italic;
+    opacity: 0.6;
+}
+
+/* Freilos-Gewinner */
+.smart-match-absolute:has(.team.freilos-team) .team:not(.freilos-team) {
+    background-color: #ff6b00;
+    color: #000;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+/* Loading States */
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    font-size: 18px;
+}
+
+.error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #4a1f1f;
+    color: #ff9999;
+    padding: 20px 30px;
+    border-radius: 8px;
+    border: 1px solid #6a2f2f;
+    text-align: center;
+    font-size: 16px;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(26, 26, 26, 0.9);
+    z-index: 9998;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.loading-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #333;
+    border-top: 4px solid #ff6b00;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+.loading-text {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .bracket-content .smart-bracket {
+        padding: 20px;
+    }
+    
+    .team {
+        padding: 10px 12px;
+    }
+    
+    .team-name {
+        font-size: 11px;
+    }
+    
+    .team-score {
+        font-size: 12px;
+        min-width: 20px;
+        margin-left: 8px;
+    }
+    
+    .loading-text {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .bracket-content .smart-bracket {
+        padding: 15px;
+    }
+    
+    .team {
+        padding: 8px 10px;
+    }
+    
+    .team-name {
+        font-size: 10px;
+    }
+    
+    .team-score {
+        font-size: 11px;
+        min-width: 18px;
+        margin-left: 6px;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .smart-match-absolute {
+        border-width: 2px;
+    }
+    
+    .team {
+        border-bottom-width: 2px;
+    }
+    
+    .team.winner {
+        border: 2px solid #ff6b00;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .bracket-viewport {
+        transition: none;
+    }
+    
+    .bracket-content {
+        transition: none;
+    }
+    
+    .smart-match-absolute {

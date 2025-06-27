@@ -1,0 +1,287 @@
+/* Bottom Right Controls CSS */
+
+.bottom-right-controls {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 9997;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 280px;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.bottom-right-controls.collapsed {
+    transform: translateX(100%);
+}
+
+.bottom-right-controls.collapsed .toggle-bottom-controls {
+    transform: translateX(-50px);
+    border-radius: 8px 0 0 8px;
+    background-color: #ff6b00;
+    border-color: #ff6b00;
+    color: #000;
+}
+
+/* Controls Section */
+.controls-section {
+    background-color: rgba(45, 45, 45, 0.95);
+    border: 1px solid #555;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    min-width: 220px;
+}
+
+/* Section Header - VERSTECKT */
+.section-header {
+    display: none;
+}
+
+/* Cup Selection */
+.cup-selection {
+    margin-bottom: 10px;
+}
+
+.cup-buttons, .season-buttons {
+    margin-bottom: 8px;
+}
+
+.season-buttons {
+    margin-bottom: 0;
+}
+
+/* Cup und Season Dropdowns */
+.cup-dropdown, .season-dropdown {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #e0e0e0;
+    padding: 8px 12px;
+    font-size: 11px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    appearance: none;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23e0e0e0" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 10px;
+    padding-right: 25px;
+}
+
+.cup-dropdown:hover, .season-dropdown:hover {
+    background-color: #3a3a3a;
+    border-color: #666;
+}
+
+.cup-dropdown:focus, .season-dropdown:focus {
+    outline: none;
+    border-color: #ff6b00;
+    box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.2);
+    background-color: #3a3a3a;
+}
+
+/* Zoom Section */
+.zoom-section {
+    
+}
+
+.zoom-controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr;
+    gap: 8px;
+    align-items: center;
+}
+
+.control-btn {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    min-width: 40px;
+}
+
+.control-btn:hover {
+    background-color: #ff6b00;
+    border-color: #ff6b00;
+    color: #000;
+    transform: scale(1.05);
+}
+
+.control-btn:active {
+    transform: scale(0.95);
+}
+
+.zoom-level {
+    display: none; /* Zoom-Level % versteckt */
+}
+
+/* Toggle Button */
+.toggle-bottom-controls {
+    position: absolute;
+    top: 0;
+    left: -50px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(45, 45, 45, 0.95);
+    border: 1px solid #555;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.toggle-bottom-controls:hover {
+    background-color: #ff6b00;
+    border-color: #ff6b00;
+    color: #000;
+    transform: scale(1.05);
+}
+
+.toggle-bottom-controls:active {
+    transform: scale(0.95);
+}
+
+/* Loading State */
+.controls-section.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.controls-section.loading .cup-dropdown,
+.controls-section.loading .season-dropdown {
+    background-color: #555;
+    color: #888;
+    cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .bottom-right-controls {
+        bottom: 20px;
+        right: 20px;
+        max-width: calc(100vw - 40px);
+    }
+    
+    .controls-section {
+        padding: 12px;
+        min-width: 180px;
+    }
+    
+    .cup-dropdown, .season-dropdown {
+        padding: 6px 10px;
+        font-size: 10px;
+    }
+    
+    .control-btn {
+        height: 35px;
+        min-width: 35px;
+        font-size: 14px;
+    }
+    
+    .toggle-bottom-controls {
+        left: -45px;
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .bottom-right-controls {
+        bottom: 15px;
+        right: 15px;
+        max-width: calc(100vw - 30px);
+    }
+    
+    .controls-section {
+        padding: 10px;
+        min-width: 160px;
+    }
+    
+    .cup-dropdown, .season-dropdown {
+        padding: 5px 8px;
+        font-size: 9px;
+    }
+    
+    .control-btn {
+        height: 30px;
+        min-width: 30px;
+        font-size: 12px;
+    }
+    
+    .toggle-bottom-controls {
+        left: -40px;
+        width: 30px;
+        height: 30px;
+        font-size: 12px;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .controls-section {
+        border-width: 2px;
+        border-color: #fff;
+    }
+    
+    .cup-dropdown, .season-dropdown, .control-btn {
+        border-width: 2px;
+    }
+    
+    .toggle-bottom-controls {
+        border-width: 2px;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .bottom-right-controls {
+        transition: none;
+    }
+    
+    .toggle-bottom-controls {
+        transition: none;
+    }
+    
+    .cup-dropdown, .season-dropdown, .control-btn {
+        transition: none;
+    }
+}
+
+/* Dark mode optimizations */
+@media (prefers-color-scheme: dark) {
+    .controls-section {
+        background-color: rgba(26, 26, 26, 0.98);
+    }
+    
+    .toggle-bottom-controls {
+        background-color: rgba(26, 26, 26, 0.98);
+    }
+    
+    .cup-dropdown, .season-dropdown, .control-btn {
+        background-color: #222;
+    }
+    
+    .cup-dropdown:hover, .season-dropdown:hover, .control-btn:hover {
+        background-color: #2a2a2a;
+    }
+}

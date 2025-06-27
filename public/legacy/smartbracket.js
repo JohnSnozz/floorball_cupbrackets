@@ -1,4 +1,4 @@
-// Smart Bracket - Fixed version with proper sizing and connector integration
+// Smart Bracket - Updated with dynamic data loading
 let currentGames = [];
 let currentRounds = [];
 let debugData = {};
@@ -29,9 +29,9 @@ function isFreilosGame(game) {
 function getCurrentSeason() {
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth() + 1;
+    const month = now.getMonth() + 1; // JavaScript months are 0-indexed
     
-    // Saison wechselt im Mai (Monat 5) - KORREKT
+    // Saison wechselt im Juli (Monat 7)
     if (month >= 5) {
         return `${year}/${String(year + 1).slice(-2)}`;
     } else {
@@ -41,83 +41,62 @@ function getCurrentSeason() {
 
 async function loadAvailableOptions() {
     try {
+        // Lade verfügbare Seasons aus DB
         const seasonsResponse = await fetch('/api/seasons');
         if (seasonsResponse.ok) {
             const seasons = await seasonsResponse.json();
             const seasonselect = document.getElementById('seasonselect');
-            if (seasonselect) {
-                seasonselect.innerHTML = '';
-                const currentSeason = getCurrentSeason();
-                
-                // WICHTIG: Erstelle eine vollständige Saisons-Liste die immer 2025/26 enthält
-                const allSeasons = ['2025/26', '2024/25', '2023/24', '2022/23', '2021/22'];
-                
-                // Füge alle API-Seasons hinzu die noch nicht in der Liste sind
-                seasons.forEach(season => {
-                    if (!allSeasons.includes(season)) {
-                        allSeasons.push(season);
-                    }
-                });
-                
-                // Sortiere die Seasons absteigend (neueste zuerst)
-                allSeasons.sort((a, b) => {
-                    const yearA = parseInt(a.split('/')[0]);
-                    const yearB = parseInt(b.split('/')[0]);
-                    return yearB - yearA;
-                });
-                
-                allSeasons.forEach(season => {
-                    const option = document.createElement('option');
-                    option.value = season;
-                    option.textContent = season;
-                    if (season === currentSeason) option.selected = true;
-                    seasonselect.appendChild(option);
-                });
-                
-                console.log(`✅ Loaded seasons, current: ${currentSeason}, total: ${allSeasons.length}`);
-                console.log('Available seasons:', allSeasons);
-            }
+            seasonselect.innerHTML = '';
+            const currentSeason = getCurrentSeason();
+            
+            seasons.forEach(season => {
+                const option = document.createElement('option');
+                option.value = season;
+                option.textContent = season;
+                if (season === currentSeason) option.selected = true;
+                seasonselect.appendChild(option);
+            });
         } else {
             throw new Error('Seasons API not available');
         }
 
+        // Lade verfügbare Cups aus DB  
         const cupsResponse = await fetch('/api/cups');
         if (cupsResponse.ok) {
             const cups = await cupsResponse.json();
             const cupselect = document.getElementById('cupselect');
-            if (cupselect) {
-                cupselect.innerHTML = '';
-                
-                const cupOrder = [
-                    'herren_grossfeld',
-                    'damen_grossfeld', 
-                    'herren_kleinfeld',
-                    'damen_kleinfeld'
-                ];
-                
-                const sortedCups = cups.sort((a, b) => {
-                    const indexA = cupOrder.indexOf(a.id);
-                    const indexB = cupOrder.indexOf(b.id);
-                    if (indexA === -1) return 1;
-                    if (indexB === -1) return -1;
-                    return indexA - indexB;
-                });
-                
-                sortedCups.forEach((cup, index) => {
-                    const option = document.createElement('option');
-                    option.value = cup.id;
-                    option.textContent = cup.name;
-                    if (index === 0) option.selected = true;
-                    cupselect.appendChild(option);
-                });
-                
-                console.log(`✅ Loaded ${cups.length} cups from API`);
-            }
+            cupselect.innerHTML = '';
+            
+            // Definierte Reihenfolge
+            const cupOrder = [
+                'herren_grossfeld',
+                'damen_grossfeld', 
+                'herren_kleinfeld',
+                'damen_kleinfeld'
+            ];
+            
+            // Sortiere Cups nach gewünschter Reihenfolge
+            const sortedCups = cups.sort((a, b) => {
+                const indexA = cupOrder.indexOf(a.id);
+                const indexB = cupOrder.indexOf(b.id);
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+            
+            sortedCups.forEach((cup, index) => {
+                const option = document.createElement('option');
+                option.value = cup.id;
+                option.textContent = cup.name;
+                if (index === 0) option.selected = true; // Erster = Herren Grossfeld
+                cupselect.appendChild(option);
+            });
         } else {
             throw new Error('Cups API not available');
         }
     } catch (error) {
         console.error('Fehler beim Laden der Optionen:', error);
+        // Fallback zu hardcoded Optionen
         loadFallbackOptions();
     }
 }
@@ -127,38 +106,26 @@ function loadFallbackOptions() {
     const seasonselect = document.getElementById('seasonselect');
     const currentSeason = getCurrentSeason();
     
-    if (cupselect) {
-        cupselect.innerHTML = `
-            <option value="herren_grossfeld" selected>Mobiliar Cup Herren Grossfeld</option>
-            <option value="damen_grossfeld">Mobiliar Cup Damen Grossfeld</option>
-            <option value="herren_kleinfeld">Liga Cup Herren Kleinfeld</option>
-            <option value="damen_kleinfeld">Liga Cup Damen Kleinfeld</option>
-        `;
-    }
+    // Cups in gewünschter Reihenfolge
+    cupselect.innerHTML = `
+        <option value="herren_grossfeld" selected>Mobiliar Cup Herren Grossfeld</option>
+        <option value="damen_grossfeld">Mobiliar Cup Damen Grossfeld</option>
+        <option value="herren_kleinfeld">Liga Cup Herren Kleinfeld</option>
+        <option value="damen_kleinfeld">Liga Cup Damen Kleinfeld</option>
+    `;
     
-    if (seasonselect) {
-        seasonselect.innerHTML = `
-            <option value="${currentSeason}" selected>${currentSeason}</option>
-            <option value="2025/26">2025/26</option>
-            <option value="2024/25">2024/25</option>
-            <option value="2023/24">2023/24</option>
-            <option value="2022/23">2022/23</option>
-        `;
-    }
+    seasonselect.innerHTML = `
+        <option value="${currentSeason}" selected>${currentSeason}</option>
+        <option value="2024/25">2024/25</option>
+        <option value="2023/24">2023/24</option>
+        <option value="2022/23">2022/23</option>
+    `;
 }
 
 async function loadSmartBracket() {
-    const cuptype = document.getElementById('cupselect')?.value || 'herren_grossfeld';
-    const season = document.getElementById('seasonselect')?.value || getCurrentSeason();
-    
-    const bracketcontent = document.getElementById('bracketcontent') || 
-                          document.querySelector('.bracket-container') ||
-                          document.querySelector('#bracketContent .bracket-container');
-    
-    if (!bracketcontent) {
-        console.error('❌ Bracket container not found');
-        return;
-    }
+    const cuptype = document.getElementById('cupselect').value;
+    const season = document.getElementById('seasonselect').value;
+    const bracketcontent = document.getElementById('bracketcontent');
     
     console.log(`🏒 Loading Smart Bracket: ${cuptype} - ${season}`);
     bracketcontent.innerHTML = '<div class="loading">⏳ Lade Smart Bracket...</div>';
@@ -175,15 +142,16 @@ async function loadSmartBracket() {
         
         currentGames = games;
         
-        const gamesWithSort = games.filter(g => g.bracketsortorder);
+        const gamesWithSort = games.filter(g => g.bracketsortorder );
         if (gamesWithSort.length < games.length) {
-            bracketcontent.innerHTML = '<div class="error">bracketsortorder fehlt</div>';
+            bracketcontent.innerHTML = '<div class="error">bracketsortorder  fehlt</div>';
             return;
         }
         
         const smartRounds = processSmartBracket(games);
         currentRounds = smartRounds;
         
+        // Reset Link-Initialisierung für neues Bracket (HIER!)
         if (typeof resetSmartMatchLinks === 'function') {
             resetSmartMatchLinks();
             console.log('🔄 Smart match links reset for new bracket');
@@ -192,9 +160,23 @@ async function loadSmartBracket() {
         renderSmartBracket();
         
     } catch (error) {
-        console.error('❌ Error loading bracket:', error);
         bracketcontent.innerHTML = `<div class="error">Error: ${error.message}</div>`;
     }
+}
+
+function adjustContainerWidth() {
+    // Verzögerung um sicherzustellen, dass das Bracket vollständig gerendert ist
+    setTimeout(() => {
+        const container = document.querySelector('.container');
+        const bracket = document.querySelector('.smart-bracket');
+        
+        if (bracket && container) {
+            const bracketWidth = bracket.scrollWidth;
+            const padding = 60; // 30px auf jeder Seite
+            container.style.width = `${bracketWidth + padding}px`;
+            console.log(`📏 Container-Breite angepasst: ${bracketWidth + padding}px`);
+        }
+    }, 200);
 }
 
 function processSmartBracket(games) {
@@ -213,7 +195,7 @@ function processSmartBracket(games) {
     
     sortedRounds.forEach(([roundname, roundGames], roundIndex) => {
         const sortedGames = roundGames.sort((a, b) => 
-            parseInt(a.bracketsortorder) - parseInt(b.bracketsortorder)
+            parseInt(a.bracketsortorder ) - parseInt(b.bracketsortorder )
         );
         const visibleGames = sortedGames.filter(g => !isDoubleFreilosGame(g));
         
@@ -308,16 +290,16 @@ function processSmartPositioning(rounds) {
 
 function calculatePostMaxRound(currentGames, previousRound, roundX) {
     return currentGames.map((game, index) => {
-        const currentSortOrder = parseInt(game.bracketsortorder);
+        const currentSortOrder = parseInt(game.bracketsortorder );
         
         const pred1SortOrder = (currentSortOrder * 2) - 1;
         const pred2SortOrder = currentSortOrder * 2;
         
         const pred1 = previousRound.gamePositions.find(pos => 
-            parseInt(pos.game.bracketsortorder) === pred1SortOrder
+            parseInt(pos.game.bracketsortorder ) === pred1SortOrder
         );
         const pred2 = previousRound.gamePositions.find(pos => 
-            parseInt(pos.game.bracketsortorder) === pred2SortOrder
+            parseInt(pos.game.bracketsortorder ) === pred2SortOrder
         );
         
         let y;
@@ -346,7 +328,7 @@ function renderAbsoluteMatch(position) {
     const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
     const style = `position: absolute; top: ${y}px; left: ${x}px; width: ${width}px; height: ${height}px;`;
     
-    let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericgameid || ''}" data-bracket-sort="${game.bracketsortorder}">`;
+    let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericgameid || ''}" data-bracket-sort="${game.bracketsortorder }">`;
     
     if (!hasResult) {
         const team1Classes = getTeamClasses(game, game.team1, hasResult);
@@ -386,15 +368,7 @@ function getTeamClasses(game, teamName, hasResult) {
 }
 
 function renderSmartBracket() {
-    const bracketcontent = document.getElementById('bracketcontent') || 
-                          document.querySelector('.bracket-container') ||
-                          document.querySelector('#bracketContent .bracket-container');
-    
-    if (!bracketcontent) {
-        console.error('❌ Bracket container not found for rendering');
-        return;
-    }
-    
+    const bracketcontent = document.getElementById('bracketcontent');
     if (currentRounds.length === 0) {
         bracketcontent.innerHTML = '<div class="error">Keine Runden gefunden</div>';
         return;
@@ -404,8 +378,7 @@ function renderSmartBracket() {
     const totalWidth = smartRounds.length * TOTAL_ROUND_SPACING;
     const totalHeight = debugData.maxBracketHeight || 400;
     
-    // KRITISCHER FIX 1: Explizite Größenangabe für das Smart Bracket
-    let html = `<div class="smart-bracket" style="position: relative; width: ${totalWidth}px; height: ${totalHeight}px;">`;
+    let html = `<div class="smart-bracket" style="position: relative; width: ${totalWidth}px; height: ${totalHeight}px; margin: 0 auto;">`;
     
     smartRounds.forEach(round => {
         round.gamePositions.forEach(position => {
@@ -417,54 +390,29 @@ function renderSmartBracket() {
     
     bracketcontent.innerHTML = html;
     
-    console.log(`✅ Bracket rendered: ${totalWidth}x${totalHeight}px`);
+   setTimeout(() => {
+    adjustLongTeamNames();
     
-    setTimeout(() => {
-        adjustLongTeamNames();
-        
-        if (typeof initializeTeamHighlighting === 'function') {
-            initializeTeamHighlighting();
-        }
-        if (typeof initializeSmartMatchLinks === 'function') {
-            initializeSmartMatchLinks();
-        }
-        
-        // KRITISCHER FIX 2: Smart Connectors mit korrekten Daten initialisieren
-        if (typeof initializeSmartConnectors === 'function') {
-            console.log('🔗 Initializing Smart Connectors with processed rounds...');
-            initializeSmartConnectors(smartRounds);
-        } else {
-            console.log('⚠️ initializeSmartConnectors function not found');
-        }
-        
-        if (!document.getElementById('fullscreenContainer')) {
-            adjustContainerWidth();
-        }
-        
-        // Auto-fit das Bracket nach dem Laden
-        if (window.fullscreenInteraction && typeof window.fullscreenInteraction.autoFitBracket === 'function') {
-            setTimeout(() => {
-                window.fullscreenInteraction.autoFitBracket();
-                console.log('✅ Auto-fit bracket triggered');
-            }, 500);
-        }
-        
-        console.log('🎯 Bracket setup complete');
-    }, 150);
-}
-
-function adjustContainerWidth() {
-    setTimeout(() => {
-        const container = document.querySelector('.container');
-        const bracket = document.querySelector('.smart-bracket');
-        
-        if (bracket && container) {
-            const bracketWidth = bracket.scrollWidth;
-            const padding = 60;
-            container.style.width = `${bracketWidth + padding}px`;
-            console.log(`📏 Container-Breite angepasst: ${bracketWidth + padding}px`);
-        }
-    }, 200);
+    // Prüfe ob die Funktionen existieren bevor sie aufgerufen werden
+    if (typeof initializeTeamHighlighting === 'function') {
+        initializeTeamHighlighting();
+    }
+    if (typeof initializeSmartMatchLinks === 'function') {
+        initializeSmartMatchLinks();
+    }
+    if (typeof initializeSmartConnectors === 'function') {
+        initializeSmartConnectors(smartRounds);
+    }
+    
+    // Container-Breite nach allem anderen anpassen
+    adjustContainerWidth();
+    
+    // Auto-fit das Bracket nach dem Laden - NEU!
+    if (window.fullscreenInteraction && typeof window.fullscreenInteraction.autoFitBracket === 'function') {
+        window.fullscreenInteraction.autoFitBracket();
+        console.log('✅ Auto-fit bracket triggered');
+    }
+}, 150);
 }
 
 function isWinner(game, teamName) {
@@ -495,34 +443,32 @@ function adjustLongTeamNames() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Initializing Smart Bracket');
     
+    // Lade Optionen und dann automatisch das Bracket
     loadAvailableOptions().then(() => {
         console.log('✅ Options loaded, auto-loading bracket');
         loadSmartBracket();
     }).catch(error => {
         console.error('❌ Error loading options:', error);
+        // Auch bei Fehler versuchen das Bracket zu laden
         loadSmartBracket();
     });
     
+    // Verhindere excessive Processing bei Dropdown-Changes
     let loadTimeout;
     
-    const cupSelect = document.getElementById('cupselect');
-    const seasonSelect = document.getElementById('seasonselect');
+    // Dropdown Change Events mit Debouncing
+    document.getElementById('cupselect').addEventListener('change', function() {
+        clearTimeout(loadTimeout);
+        console.log('🔄 Cup selection changed');
+    });
     
-    if (cupSelect) {
-        cupSelect.addEventListener('change', function() {
-            clearTimeout(loadTimeout);
-            console.log('🔄 Cup selection changed');
-        });
-    }
-    
-    if (seasonSelect) {
-        seasonSelect.addEventListener('change', function() {
-            clearTimeout(loadTimeout);
-            console.log('🔄 Season selection changed');
-        });
-    }
+    document.getElementById('seasonselect').addEventListener('change', function() {
+        clearTimeout(loadTimeout);
+        console.log('🔄 Season selection changed');
+    });
 });
 
+// Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
     if (e.key === 'r' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -531,5 +477,6 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+// Global functions
 window.loadSmartBracket = loadSmartBracket;
 window.loadAvailableOptions = loadAvailableOptions;

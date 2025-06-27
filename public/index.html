@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swiss Unihockey Cup Bracket</title>
+    <link rel="stylesheet" href="fullscreen-bracket.css">
+    <link rel="stylesheet" href="team_highlight.css">
+    <link rel="stylesheet" href="smart-match-link.css">
+    <link rel="stylesheet" href="smart-connector.css">
+    <link rel="stylesheet" href="overlay-controls.css">
+    <link rel="stylesheet" href="bottom-controls.css">
+</head>
+<body>
+    <!-- Vollbild Bracket Container -->
+    <div class="fullscreen-bracket-container" id="fullscreenContainer">
+        <div class="bracket-viewport" id="bracketViewport">
+            <div class="bracket-content" id="bracketContent">
+                <div class="bracket-container">
+                    <div id="bracketcontent" class="loading">
+                        Lade aktuelles Bracket...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay Controls -->
+    <div class="overlay-controls" id="overlayControls">
+        <div class="controls-panel">
+            <h1>Swiss Unihockey Cup Bracket</h1>
+            
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="cupselect">Cup</label>
+                    <select id="cupselect" onchange="loadSmartBracket()">
+                        <!-- Wird dynamisch geladen -->
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="seasonselect">Saison</label>
+                    <select id="seasonselect" onchange="loadSmartBracket()">
+                        <!-- Wird dynamisch geladen -->
+                    </select>
+                </div>
+                
+                <button onclick="loadSmartBracket()" class="load-button">Neu laden</button>
+            </div>
+            
+            <div class="help-text">
+                Ziehen zum Verschieben • Mausrad zum Zoomen • Links funktionieren normal
+            </div>
+        </div>
+        
+        <button class="toggle-controls" id="toggleControls">⚙️</button>
+    </div>
+
+    <!-- Zoom und Cup Controls -->
+    <div class="bottom-right-controls" id="bottomRightControls">
+        <div class="controls-section cup-selection" id="cupSelection">
+            <div class="section-header">Cup & Saison</div>
+            <div class="cup-buttons" id="cupButtons">
+                <!-- Wird dynamisch geladen -->
+            </div>
+            <div class="season-buttons" id="seasonButtons">
+                <!-- Wird dynamisch geladen -->
+            </div>
+        </div>
+        
+        <div class="controls-section zoom-section">
+            <div class="section-header">Zoom</div>
+            <div class="zoom-controls-grid">
+                <button class="control-btn zoom-in" id="zoomIn">+</button>
+                <div class="zoom-level" id="zoomLevel">100%</div>
+                <button class="control-btn zoom-out" id="zoomOut">−</button>
+                <button class="control-btn zoom-reset" id="zoomReset">⌂</button>
+            </div>
+        </div>
+        
+        <button class="toggle-bottom-controls" id="toggleBottomControls">⚙️</button>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Lade Bracket...</div>
+    </div>
+
+    <!-- Scripts -->
+<script src="smartbracket.js"></script>
+<script src="fullscreen-interaction.js"></script>
+<script src="team_highlight.js"></script>
+<script src="smart-match-link.js"></script>
+<script src="smart-connector.js"></script>
+<script src="overlay-manager.js"></script>
+<script src="bottom-controls.js"></script>
+</body>
+</html>
