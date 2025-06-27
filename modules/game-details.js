@@ -189,8 +189,8 @@ class GameDetailsManager {
     return timeStr; // Original zurückgeben
   }
 
-  async fetchGameDetails(numericGameId) {
-    const url = `https://api-v2.swissunihockey.ch/api/games/${numericGameId}`;
+  async fetchGameDetails(numericgameid) {
+    const url = `https://api-v2.swissunihockey.ch/api/games/${numericgameid}`;
     
     try {
       const response = await fetch(url);
@@ -200,7 +200,7 @@ class GameDetailsManager {
       
       return await response.json();
     } catch (error) {
-      console.error(`❌ Fehler bei gameid ${numericGameId}:`, error.message);
+      console.error(`❌ Fehler bei gameid ${numericgameid}:`, error.message);
       return null;
     }
   }
@@ -268,11 +268,11 @@ class GameDetailsManager {
     }
   }
 
-  async saveGameDetails(numericGameId, gameData, season = null) {
+  async saveGameDetails(numericgameid, gameData, season = null) {
     const parsed = this.parseGameData(gameData);
     
     if (!parsed) {
-      console.log(`⚠️  Keine verwertbaren Daten für gameid ${numericGameId}`);
+      console.log(`⚠️  Keine verwertbaren Daten für gameid ${numericgameid}`);
       return;
     }
     
@@ -305,7 +305,7 @@ class GameDetailsManager {
 
     try {
       await this.runAsync(insertSQL, [
-        parseInt(numericGameId), // Integer conversion
+        parseInt(numericgameid), // Integer conversion
         season,
         parsed.home_name,
         parsed.away_name,
@@ -325,9 +325,9 @@ class GameDetailsManager {
         JSON.stringify(gameData)
       ]);
       
-      console.log(`✅ Game Details gespeichert: ${parsed.home_name} vs ${parsed.away_name} (${numericGameId}) - Season: ${season}`);
+      console.log(`✅ Game Details gespeichert: ${parsed.home_name} vs ${parsed.away_name} (${numericgameid}) - Season: ${season}`);
     } catch (error) {
-      console.error(`❌ Fehler beim Speichern von gameid ${numericGameId}:`, error);
+      console.error(`❌ Fehler beim Speichern von gameid ${numericgameid}:`, error);
     }
   }
 
@@ -349,94 +349,7 @@ class GameDetailsManager {
     }
   }
 
-  // Crawl für spezifische Season
-    async crawlGameDetailsForSeason(season) {
-    console.log(`🔍 Sammle GameIDs für Season ${season}...`);
-    
-    try {
-      // Prüfe ob games Tabelle existiert
-      const tableCheck = await this.queryAsync(
-        "SELECT to_regclass('games') as exists"
-      );
-      
-      if (!tableCheck?.exists) {
-        console.log('⚠️  Games Tabelle existiert nicht - gamedetails Crawling übersprungen');
-        return { success: 0, errors: 0 };
-      }
-
-      // KORRIGIERTE SQL-ABFRAGE:
-      const gamesSQL = `
-        select distinct numericgameid, team1, team2, cuptype, season
-        from games 
-        where numericgameid is not null 
-        and numericgameid != ''
-        and lower(team1) not like '%freilos%' 
-        and lower(team2) not like '%freilos%'
-        and season = $1
-        and numericgameid not in (
-          select numericgameid from gamedetails 
-          where lastupdated > now() - interval '1 day'
-        )
-        order by cuptype, numericgameid
-      `;
-
-      const games = await this.queryAllAsync(gamesSQL, [season]);
-      
-      if (!games || games.length === 0) {
-        console.log(`ℹ️  Keine Games für Season ${season} gefunden oder alle bereits aktuell`);
-        return { success: 0, errors: 0 };
-      }
-
-      console.log(`🎯 Crawle Game Details für ${games.length} Spiele der Season ${season}...`);
-      
-      let success = 0, errors = 0;
-
-      for (const game of games) {
-        const gameData = await this.fetchGameDetails(game.numericgameid);
-        
-        if (gameData) {
-          await this.saveGameDetails(game.numericgameid, gameData, season);
-          success++;
-          
-          // Progress anzeigen
-          if (success % 10 === 0) {
-            console.log(`📊 Progress Season ${season}: ${success}/${games.length} verarbeitet`);
-          }
-        } else {
-          errors++;
-          console.log(`❌ Fehler bei gameid ${game.numericgameid} (${game.team1} vs ${game.team2})`);
-        }
-
-        // Rate limiting - 1 Request pro Sekunde
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      console.log(`📊 Season ${season} Crawling abgeschlossen: ${success} erfolgreich, ${errors} Fehler`);
-      return { success, errors, season };
-      
-    } catch (error) {
-      console.error(`❌ Fehler beim Season ${season} Crawling:`, error.message);
-      return { success: 0, errors: 1, season };
-    }
-  }
-
-  // Delete gamedetails für spezifische Season
-  async deleteGameDetailsForSeason(season) {
-    try {
-      const deleteSQL = 'delete from gamedetails where season = $1';
-      const result = await this.runAsync(deleteSQL, [season]);
-      
-      console.log(`🗑️ ${result.changes || 0} gamedetails für Season ${season} gelöscht`);
-      return { deleted: result.changes || 0, season };
-    } catch (error) {
-      console.error(`❌ Fehler beim Löschen Season ${season}:`, error.message);
-      return { deleted: 0, season, error: error.message };
-    }
-  }
-
-  // Legacy: Crawl from all cups
- // Legacy: Crawl from all cups - AUCH KORRIGIERT
-// Crawl für spezifische Season - KORRIGIERTE VERSION
+// Verwende nur diese Version - lösche die zweite Kopie der Methode
 async crawlGameDetailsForSeason(season) {
   console.log(`🔍 Sammle GameIDs für Season ${season}...`);
   
@@ -451,26 +364,28 @@ async crawlGameDetailsForSeason(season) {
       return { success: 0, errors: 0 };
     }
 
-    // EINFACHE SQL: Nur echte Spiele (keine Prognose)
+    // SQL mit LEFT JOIN: Nur Spiele crawlen die älter als 1 Tag sind oder noch nicht existieren
     const gamesSQL = `
-      select distinct numericgameid, team1, team2, cuptype, season
-      from games 
-      where season = $1
-      and source != 'prognose'
-      and numericgameid is not null
-      and team2 != 'Freilos'
-      and team1 != 'Freilos' 
-      order by cuptype, numericgameid
+      select distinct g.numericgameid, g.team1, g.team2, g.cuptype, g.season
+      from games g
+      left join gamedetails gd on g.numericgameid = gd.numericgameid
+      where g.numericgameid is not null 
+      and lower(g.team1) not like '%freilos%' 
+      and lower(g.team2) not like '%freilos%'
+      and g.season = $1
+      and g.source != 'prognose'
+      and (gd.numericgameid is null or gd.lastupdated < now() - interval '1 day')
+      order by g.cuptype, g.numericgameid
     `;
 
     const games = await this.queryAllAsync(gamesSQL, [season]);
     
     if (!games || games.length === 0) {
-      console.log(`ℹ️  Keine echten Games für Season ${season} gefunden oder alle bereits aktuell`);
+      console.log(`ℹ️  Keine Games für Season ${season} gefunden oder alle bereits aktuell (< 1 Tag alt)`);
       return { success: 0, errors: 0 };
     }
 
-    console.log(`🎯 Crawle Game Details für ${games.length} echte Spiele der Season ${season}...`);
+    console.log(`🎯 Crawle Game Details für ${games.length} Spiele der Season ${season}...`);
     
     let success = 0, errors = 0;
 
@@ -491,7 +406,7 @@ async crawlGameDetailsForSeason(season) {
       }
 
       // Rate limiting - 1 Request pro Sekunde
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     console.log(`📊 Season ${season} Crawling abgeschlossen: ${success} erfolgreich, ${errors} Fehler`);
@@ -502,6 +417,22 @@ async crawlGameDetailsForSeason(season) {
     return { success: 0, errors: 1, season };
   }
 }
+
+  // Delete gamedetails für spezifische Season
+  async deleteGameDetailsForSeason(season) {
+    try {
+      const deleteSQL = 'delete from gamedetails where season = $1';
+      const result = await this.runAsync(deleteSQL, [season]);
+      
+      console.log(`🗑️ ${result.changes || 0} gamedetails für Season ${season} gelöscht`);
+      return { deleted: result.changes || 0, season };
+    } catch (error) {
+      console.error(`❌ Fehler beim Löschen Season ${season}:`, error.message);
+      return { deleted: 0, season, error: error.message };
+    }
+  }
+
+  
 
 // Legacy: Crawl from all cups - KORRIGIERTE VERSION
 async crawlGameDetailsFromCups() {
@@ -517,13 +448,12 @@ async crawlGameDetailsFromCups() {
       return { success: 0, errors: 0 };
     }
 
-    // EINFACHE SQL für Legacy: Nur echte Spiele (keine Prognose)
+    // KORRIGIERTE SQL: Entferne numericgameid != '' da Integer nicht leer sein kann
     const gamesSQL = `
       select distinct numericgameid, team1, team2, cuptype, season
       from games 
       where source != 'prognose'
       and numericgameid is not null 
-      and numericgameid != ''
       and numericgameid not in (
         select numericgameid from gamedetails 
         where lastupdated > now() - interval '1 day'
@@ -534,7 +464,7 @@ async crawlGameDetailsFromCups() {
     const games = await this.queryAllAsync(gamesSQL);
     
     if (!games || games.length === 0) {
-      console.log('ℹ️  Alle echten Games bereits aktuell oder keine neuen Cup-Games mit numericGameId vorhanden');
+      console.log('ℹ️  Alle echten Games bereits aktuell oder keine neuen Cup-Games mit numericgameid vorhanden');
       return { success: 0, errors: 0 };
     }
 
@@ -568,7 +498,6 @@ async crawlGameDetailsFromCups() {
     return { success: 0, errors: 1 };
   }
 }
-
 
   async getGameDetailsStats() {
     const statsSQL = `

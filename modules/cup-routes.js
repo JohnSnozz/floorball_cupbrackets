@@ -117,17 +117,17 @@ function register(app, pool) {  // pool statt db
           
           for (const game of uniqueGames) {
             // Erstelle konsistente gameid basierend auf Teams, Runde und Turnier ODER numerische ID
-            let uniqueGameId;
+            let uniquegameid;
             if (game.numericgameid) {
-              uniqueGameId = `game_${game.numericgameid}`;
+              uniquegameid = `game_${game.numericgameid}`;
             } else {
               const cleanTeam1 = game.team1.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
               const cleanTeam2 = game.team2.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-              uniqueGameId = `${cleanTeam1}_vs_${cleanTeam2}_r${round.id}_t${tournament.id}`;
+              uniquegameid = `${cleanTeam1}_vs_${cleanTeam2}_r${round.id}_t${tournament.id}`;
             }
             
             // 🎯 SMART LOGIC: Prüfe existierendes Spiel
-            const existingGame = await dbHelpers.getGameFromDB(pool, uniqueGameId);
+            const existingGame = await dbHelpers.getGameFromDB(pool, uniquegameid);
             
             if (existingGame) {
               // Spiel existiert bereits - prüfe ob es gespielt wurde
@@ -143,13 +143,13 @@ function register(app, pool) {  // pool statt db
                 // 🔄 UPDATE: Spiel hat neues/anderes Resultat
                 console.log(`🔄 UPDATE: ${game.team1} vs ${game.team2} - Resultat geändert: "${existingGame.result}" → "${currentresult}"`);
                 
-                await updateGameInDB(pool, uniqueGameId, {
+                await updateGameInDB(pool, uniquegameid, {
                   result: currentresult,
                   status: currentresult ? 'finished' : 'scheduled'
                 });
                 
                 game.fromcache = false;
-                game.gameid = uniqueGameId;
+                game.gameid = uniquegameid;
                 game.roundname = round.name;
                 game.tournamentname = tournament.name;
                 game.season = tournament.season;
@@ -160,13 +160,13 @@ function register(app, pool) {  // pool statt db
                 // 🆕 NEW RESULT: Spiel war unentschieden, hat jetzt Resultat
                 console.log(`🆕 NEW RESULT: ${game.team1} vs ${game.team2} - Neues Resultat: "${currentresult}"`);
                 
-                await updateGameInDB(pool, uniqueGameId, {
+                await updateGameInDB(pool, uniquegameid, {
                   result: currentresult,
                   status: 'finished'
                 });
                 
                 game.fromcache = false;
-                game.gameid = uniqueGameId;
+                game.gameid = uniquegameid;
                 game.roundname = round.name;
                 game.tournamentname = tournament.name;
                 game.season = tournament.season;
@@ -176,7 +176,7 @@ function register(app, pool) {  // pool statt db
               } else {
                 // 💾 CACHE: Unverändert, aus Cache
                 game.fromcache = true;
-                game.gameid = uniqueGameId;
+                game.gameid = uniquegameid;
                 game.roundname = round.name;
                 game.tournamentname = tournament.name;
                 game.season = tournament.season;
@@ -190,7 +190,7 @@ function register(app, pool) {  // pool statt db
               
               // Neue Spieldaten aufbereiten und speichern
               const gameData = {
-                gameid: uniqueGameId,
+                gameid: uniquegameid,
                 numericgameid: game.numericgameid || null,
                 team1: game.team1,
                 team2: game.team2,
@@ -224,7 +224,7 @@ function register(app, pool) {  // pool statt db
                 if (saveResult.changes > 0) {
                   console.log(`✅ SAVED: ${game.team1} vs ${game.team2} saved to DB`);
                   game.fromcache = false;
-                  game.gameid = uniqueGameId;
+                  game.gameid = uniquegameid;
                   game.roundname = round.name;
                   game.tournamentname = tournament.name;
                   game.season = tournament.season;
@@ -233,7 +233,7 @@ function register(app, pool) {  // pool statt db
                 } else {
                   console.log(`🟡 DUPLICATE via INSERT ON CONFLICT: ${game.team1} vs ${game.team2}`);
                   game.fromcache = true;
-                  game.gameid = uniqueGameId;
+                  game.gameid = uniquegameid;
                   game.roundname = round.name;
                   game.tournamentname = tournament.name;
                   game.season = tournament.season;
