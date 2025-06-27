@@ -212,11 +212,11 @@ async function updateNullValues() {
 
 async function createIndexes() {
   const indexes = [
-    'CREATE INDEX IF NOT EXISTS idx_season_cup ON games(season, cupType)',
+    'CREATE INDEX IF NOT EXISTS idx_season_cup ON games(season, cuptype)',
     'CREATE INDEX IF NOT EXISTS idx_tournament ON games(tournamentid)',
     'CREATE INDEX IF NOT EXISTS idx_status ON games(status)',
     'CREATE INDEX IF NOT EXISTS idx_numeric_game_id ON games(numericGameId)',
-    'CREATE INDEX IF NOT EXISTS idx_bracket_sort ON games(bracketSortOrder)'
+    'CREATE INDEX IF NOT EXISTS idx_bracket_sort ON games(bracketsortorder)'
   ];
 
   for (const indexQuery of indexes) {
@@ -231,17 +231,17 @@ async function createIndexes() {
 }
 
 // Helper-Funktionen für Datenbankoperationen
-async function getGameFromDB(db, gameId) {
+async function getGameFromDB(db, gameid) {
   try {
-    const result = await db.query('SELECT * FROM games WHERE gameId = $1', [gameId]);
+    const result = await db.query('SELECT * FROM games WHERE gameid = $1', [gameid]);
     return result.rows[0] || null;
   } catch (err) {
-    console.error(`❌ Error getting game ${gameId}:`, err.message);
+    console.error(`❌ Error getting game ${gameid}:`, err.message);
     throw err;
   }
 }
 
-async function saveGameToDB(db, gameData) {
+async function saveGameToDB(db, gamedata) {
   const insertQuery = `
     INSERT INTO games 
     ("gameid", team1, team2, "roundname", "roundid", "tournamentid", "tournamentname", 
@@ -254,29 +254,29 @@ async function saveGameToDB(db, gameData) {
   `;
   
   const values = [
-    gameData.gameId, gameData.team1, gameData.team2, gameData.roundName,
-    gameData.roundid, gameData.tournamentid, gameData.tournamentName,
-    gameData.season, gameData.cupType, gameData.gender, gameData.fieldtype,
-    gameData.gameDate, gameData.gameTime, gameData.venue, gameData.status,
-    gameData.result, gameData.source, gameData.apiEndpoint, gameData.link,
-    gameData.homeTeamScore || null, gameData.awayTeamScore || null,
-    gameData.gameLocation || null, gameData.referees || null,
-    gameData.spectators || null, gameData.notes || null,
-    gameData.numericGameId || null, gameData.bracketSortOrder || null
+    gamedata.gameid, gamedata.team1, gamedata.team2, gamedata.roundname,
+    gamedata.roundid, gamedata.tournamentid, gamedata.tournamentname,
+    gamedata.season, gamedata.cuptype, gamedata.gender, gamedata.fieldtype,
+    gamedata.gamedate, gamedata.gametime, gamedata.venue, gamedata.status,
+    gamedata.result, gamedata.source, gamedata.apiendpoint, gamedata.link,
+    gamedata.hometeamscore || null, gamedata.awayteamscore || null,
+    gamedata.gamelocation || null, gamedata.referees || null,
+    gamedata.spectators || null, gamedata.notes || null,
+    gamedata.numericgameid || null, gamedata.bracketsortorder || null
   ];
 
   try {
     const result = await db.query(insertQuery, values);
     
     if (result.rows.length > 0) {
-      console.log(`✅ Successfully inserted game ${gameData.gameId} (numeric ID: ${gameData.numericGameId || 'N/A'})`);
-      return { changes: 1, lastID: result.rows[0].gameId };
+      console.log(`✅ Successfully inserted game ${gamedata.gameid} (numeric ID: ${gamedata.numericGameId || 'N/A'})`);
+      return { changes: 1, lastID: result.rows[0].gameid };
     } else {
-      console.log(`🟡 Game ${gameData.gameId} already exists (INSERT IGNORED)`);
+      console.log(`🟡 Game ${gamedata.gameid} already exists (INSERT IGNORED)`);
       return { changes: 0, lastID: null };
     }
   } catch (err) {
-    console.error(`❌ Database error for game ${gameData.gameId}:`, err.message);
+    console.error(`❌ Database error for game ${gamedata.gameid}:`, err.message);
     throw err;
   }
 }

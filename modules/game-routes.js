@@ -62,7 +62,7 @@ function register(app, pool) {
       const queries = [
         'SELECT season, cuptype, COUNT(*) as count FROM games GROUP BY season, cuptype ORDER BY season DESC, cuptype',
         'SELECT COUNT(*) as totalgames FROM games',
-        'SELECT COUNT(DISTINCT tournamentId) as totaltournaments FROM games',
+        'SELECT COUNT(DISTINCT tournamentid) as totaltournaments FROM games',
         'SELECT status, COUNT(*) as count FROM games GROUP BY status'
       ];
       

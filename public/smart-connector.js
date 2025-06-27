@@ -208,8 +208,8 @@ function initializeConnectorHoverEvents() {
     const smartMatches = document.querySelectorAll('.smart-match-absolute');
     
     smartMatches.forEach(matchElement => {
-        const gameId = matchElement.getAttribute('data-bracket-sort');
-        if (!gameId) return;
+        const gameid = matchElement.getAttribute('data-bracket-sort');
+        if (!gameid) return;
         
         // Prüfe ob bereits Connector-Events existieren
         if (matchElement.hasAttribute('data-connector-events')) return;
@@ -219,7 +219,7 @@ function initializeConnectorHoverEvents() {
         
         // Event-Handler hinzufügen ohne bestehende zu überschreiben
         matchElement.addEventListener('mouseenter', function(e) {
-            highlightConnectorPath(gameId);
+            highlightConnectorPath(gameid);
         });
         
         matchElement.addEventListener('mouseleave', function(e) {
@@ -230,11 +230,11 @@ function initializeConnectorHoverEvents() {
     console.log(`✅ Connector hover events initialized for ${smartMatches.length} matches`);
 }
 
-function highlightConnectorPath(gameId) {
+function highlightConnectorPath(gameid) {
     if (!currentSmartRounds) return;
     
     // Finde alle Connector die zu diesem Spiel führen (rückwärts)
-    const pathGameIds = findPathToGame(gameId);
+    const pathGameIds = findPathToGame(gameid);
     
     // Entferne vorherige Highlights
     removeConnectorHighlight();

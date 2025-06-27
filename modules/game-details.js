@@ -9,11 +9,11 @@ class GameDetailsManager {
   }
 
   async setupTable() {
-    // GameDetails Tabelle für Game Info erstellen - mit season hinzugefügt
+    // gamedetails Tabelle für Game Info erstellen - mit season hinzugefügt
     const createTableSQL = `
       create table if not exists gamedetails (
         id serial primary key,
-        numericgameid text unique not null,
+        numericgameid integer unique not null,
         season text,
         home_name text,
         away_name text,
@@ -31,18 +31,16 @@ class GameDetailsManager {
         title text,
         subtitle text,
         rawdata text,
-        lastupdated timestamp default datetime('now'),
-        foreign key (numericgameid) references games(numericgameid) on delete cascade
+        lastupdated timestamp default now()
       )
     `;
-    
-    try {
+        try {
       await this.runAsync(createTableSQL);
-      console.log('✅ GameDetails Tabelle bereit (Game Info API)');
+      console.log('✅ gamedetails Tabelle bereit (Game Info API)');
       // Check if season column exists, add if not
       await this.addSeasonColumnIfMissing();
     } catch (err) {
-      console.error('❌ Fehler beim Erstellen der gameDetails Tabelle:', err);
+      console.error('❌ Fehler beim Erstellen der gamedetails Tabelle:', err);
     }
   }
 
@@ -78,7 +76,7 @@ class GameDetailsManager {
     
     try {
       const result = await this.runAsync(updateSQL);
-      console.log('✅ Seasons für bestehende GameDetails aktualisiert');
+      console.log('✅ Seasons für bestehende gamedetails aktualisiert');
     } catch (err) {
       console.error('❌ Fehler beim Update der Seasons:', err);
     }
@@ -102,6 +100,14 @@ class GameDetailsManager {
     }
     
     if (lowerDateStr === 'morgen') {
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      const year = tomorrow.getFullYear();
+      const month = (tomorrow.getMonth() + 1).toString().padStart(2, '0');
+      const day = tomorrow.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+        if (lowerDateStr === 'gestern') {
       const tomorrow = new Date(today);
       tomorrow.setDate(today.getDate() + 1);
       const year = tomorrow.getFullYear();
@@ -194,7 +200,7 @@ class GameDetailsManager {
       
       return await response.json();
     } catch (error) {
-      console.error(`❌ Fehler bei GameID ${numericGameId}:`, error.message);
+      console.error(`❌ Fehler bei gameid ${numericGameId}:`, error.message);
       return null;
     }
   }
@@ -266,36 +272,36 @@ class GameDetailsManager {
     const parsed = this.parseGameData(gameData);
     
     if (!parsed) {
-      console.log(`⚠️  Keine verwertbaren Daten für GameID ${numericGameId}`);
+      console.log(`⚠️  Keine verwertbaren Daten für gameid ${numericGameId}`);
       return;
     }
     
-    const insertSQL = `
-      insert into gamedetails 
-      (numericgameid, season, home_name, away_name, home_logo, away_logo, result, 
-       date, time, location, location_x, location_y, first_referee, 
-       second_referee, spectators, title, subtitle, rawdata, lastupdated)
-      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, datetime('now'))
-      on conflict (numericgameid) do update set
-        season = excluded.season,
-        home_name = excluded.home_name,
-        away_name = excluded.away_name,
-        home_logo = excluded.home_logo,
-        away_logo = excluded.away_logo,
-        result = excluded.result,
-        date = excluded.date,
-        time = excluded.time,
-        location = excluded.location,
-        location_x = excluded.location_x,
-        location_y = excluded.location_y,
-        first_referee = excluded.first_referee,
-        second_referee = excluded.second_referee,
-        spectators = excluded.spectators,
-        title = excluded.title,
-        subtitle = excluded.subtitle,
-        rawdata = excluded.rawdata,
-        lastupdated = datetime('now')
-    `;
+  const insertSQL = `
+    insert into gamedetails 
+    (numericgameid, season, home_name, away_name, home_logo, away_logo, result, 
+    date, time, location, location_x, location_y, first_referee, 
+    second_referee, spectators, title, subtitle, rawdata, lastupdated)
+    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now())
+    on conflict (numericgameid) do update set
+      season = excluded.season,
+      home_name = excluded.home_name,
+      away_name = excluded.away_name,
+      home_logo = excluded.home_logo,
+      away_logo = excluded.away_logo,
+      result = excluded.result,
+      date = excluded.date,
+      time = excluded.time,
+      location = excluded.location,
+      location_x = excluded.location_x,
+      location_y = excluded.location_y,
+      first_referee = excluded.first_referee,
+      second_referee = excluded.second_referee,
+      spectators = excluded.spectators,
+      title = excluded.title,
+      subtitle = excluded.subtitle,
+      rawdata = excluded.rawdata,
+      lastupdated = now()
+  `;
 
     try {
       await this.runAsync(insertSQL, [
@@ -321,7 +327,7 @@ class GameDetailsManager {
       
       console.log(`✅ Game Details gespeichert: ${parsed.home_name} vs ${parsed.away_name} (${numericGameId}) - Season: ${season}`);
     } catch (error) {
-      console.error(`❌ Fehler beim Speichern von GameID ${numericGameId}:`, error);
+      console.error(`❌ Fehler beim Speichern von gameid ${numericGameId}:`, error);
     }
   }
 
@@ -344,7 +350,7 @@ class GameDetailsManager {
   }
 
   // Crawl für spezifische Season
-  async crawlGameDetailsForSeason(season) {
+    async crawlGameDetailsForSeason(season) {
     console.log(`🔍 Sammle GameIDs für Season ${season}...`);
     
     try {
@@ -354,26 +360,30 @@ class GameDetailsManager {
       );
       
       if (!tableCheck?.exists) {
-        console.log('⚠️  Games Tabelle existiert nicht - GameDetails Crawling übersprungen');
+        console.log('⚠️  Games Tabelle existiert nicht - gamedetails Crawling übersprungen');
         return { success: 0, errors: 0 };
       }
 
-      // Hole alle Games für spezifische Season
+      // KORRIGIERTE SQL-ABFRAGE:
       const gamesSQL = `
         select distinct numericgameid, team1, team2, cuptype, season
         from games 
-        where season = $1
-        and numericgameid is not null 
-        and numericgameid > 0
+        where numericgameid is not null 
+        and numericgameid != ''
         and lower(team1) not like '%freilos%' 
         and lower(team2) not like '%freilos%'
+        and season = $1
+        and numericgameid not in (
+          select numericgameid from gamedetails 
+          where lastupdated > now() - interval '1 day'
+        )
         order by cuptype, numericgameid
       `;
 
       const games = await this.queryAllAsync(gamesSQL, [season]);
       
       if (!games || games.length === 0) {
-        console.log(`ℹ️  Keine Games für Season ${season} gefunden`);
+        console.log(`ℹ️  Keine Games für Season ${season} gefunden oder alle bereits aktuell`);
         return { success: 0, errors: 0 };
       }
 
@@ -394,7 +404,7 @@ class GameDetailsManager {
           }
         } else {
           errors++;
-          console.log(`❌ Fehler bei GameID ${game.numericgameid} (${game.team1} vs ${game.team2})`);
+          console.log(`❌ Fehler bei gameid ${game.numericgameid} (${game.team1} vs ${game.team2})`);
         }
 
         // Rate limiting - 1 Request pro Sekunde
@@ -410,13 +420,13 @@ class GameDetailsManager {
     }
   }
 
-  // Delete GameDetails für spezifische Season
+  // Delete gamedetails für spezifische Season
   async deleteGameDetailsForSeason(season) {
     try {
       const deleteSQL = 'delete from gamedetails where season = $1';
       const result = await this.runAsync(deleteSQL, [season]);
       
-      console.log(`🗑️ ${result.changes || 0} GameDetails für Season ${season} gelöscht`);
+      console.log(`🗑️ ${result.changes || 0} gamedetails für Season ${season} gelöscht`);
       return { deleted: result.changes || 0, season };
     } catch (error) {
       console.error(`❌ Fehler beim Löschen Season ${season}:`, error.message);
@@ -425,70 +435,140 @@ class GameDetailsManager {
   }
 
   // Legacy: Crawl from all cups
-  async crawlGameDetailsFromCups() {
-    console.log('🔍 Sammle GameIDs aus Cup-Daten...');
+ // Legacy: Crawl from all cups - AUCH KORRIGIERT
+// Crawl für spezifische Season - KORRIGIERTE VERSION
+async crawlGameDetailsForSeason(season) {
+  console.log(`🔍 Sammle GameIDs für Season ${season}...`);
+  
+  try {
+    // Prüfe ob games Tabelle existiert
+    const tableCheck = await this.queryAsync(
+      "SELECT to_regclass('games') as exists"
+    );
     
-    try {
-      const tableCheck = await this.queryAsync(
-        "select to_regclass('games') as exists"
-      );
-      
-      if (!tableCheck?.exists) {
-        console.log('⚠️  Games Tabelle existiert nicht - GameDetails Crawling übersprungen');
-        return { success: 0, errors: 0 };
-      }
-
-      const gamesSQL = `
-        select distinct numericgameid, team1, team2, cuptype, season
-        from games 
-        where numericgameid is not null 
-        and numericgameid > 0
-        and lower(team1) not like '%freilos%' 
-        and lower(team2) not like '%freilos%'
-        and numericgameid not in (
-          select numericgameid from gamedetails 
-          where lastupdated > datetime('now') - interval '1 day'
-        )
-        order by season desc, cuptype, numericgameid
-      `;
-
-      const games = await this.queryAllAsync(gamesSQL);
-      
-      if (!games || games.length === 0) {
-        console.log('ℹ️  Alle Games bereits aktuell oder keine neuen Cup-Games mit numericGameId vorhanden');
-        return { success: 0, errors: 0 };
-      }
-
-      console.log(`🎯 Crawle Game Details für ${games.length} Cup-Spiele...`);
-      
-      let success = 0, errors = 0;
-
-      for (const game of games) {
-        const gameData = await this.fetchGameDetails(game.numericgameid);
-        
-        if (gameData) {
-          await this.saveGameDetails(game.numericgameid, gameData, game.season);
-          success++;
-          
-          if (success % 10 === 0) {
-            console.log(`📊 Progress: ${success}/${games.length} verarbeitet`);
-          }
-        } else {
-          errors++;
-          console.log(`❌ Fehler bei GameID ${game.numericgameid} (${game.team1} vs ${game.team2})`);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      console.log(`📊 Game Details Crawling abgeschlossen: ${success} erfolgreich, ${errors} Fehler`);
-      return { success, errors };
-      
-    } catch (error) {
-      console.error('❌ Fehler beim Game Details Crawling:', error.message);
-      return { success: 0, errors: 1 };
+    if (!tableCheck?.exists) {
+      console.log('⚠️  Games Tabelle existiert nicht - gamedetails Crawling übersprungen');
+      return { success: 0, errors: 0 };
     }
+
+    // EINFACHE SQL: Nur echte Spiele (keine Prognose)
+    const gamesSQL = `
+      select distinct numericgameid, team1, team2, cuptype, season
+      from games 
+      where season = $1
+      and source != 'prognose'
+      and numericgameid is not null
+      and team2 != 'Freilos'
+      and team1 != 'Freilos' 
+      order by cuptype, numericgameid
+    `;
+
+    const games = await this.queryAllAsync(gamesSQL, [season]);
+    
+    if (!games || games.length === 0) {
+      console.log(`ℹ️  Keine echten Games für Season ${season} gefunden oder alle bereits aktuell`);
+      return { success: 0, errors: 0 };
+    }
+
+    console.log(`🎯 Crawle Game Details für ${games.length} echte Spiele der Season ${season}...`);
+    
+    let success = 0, errors = 0;
+
+    for (const game of games) {
+      const gameData = await this.fetchGameDetails(game.numericgameid);
+      
+      if (gameData) {
+        await this.saveGameDetails(game.numericgameid, gameData, season);
+        success++;
+        
+        // Progress anzeigen
+        if (success % 10 === 0) {
+          console.log(`📊 Progress Season ${season}: ${success}/${games.length} verarbeitet`);
+        }
+      } else {
+        errors++;
+        console.log(`❌ Fehler bei gameid ${game.numericgameid} (${game.team1} vs ${game.team2})`);
+      }
+
+      // Rate limiting - 1 Request pro Sekunde
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    console.log(`📊 Season ${season} Crawling abgeschlossen: ${success} erfolgreich, ${errors} Fehler`);
+    return { success, errors, season };
+    
+  } catch (error) {
+    console.error(`❌ Fehler beim Season ${season} Crawling:`, error.message);
+    return { success: 0, errors: 1, season };
   }
+}
+
+// Legacy: Crawl from all cups - KORRIGIERTE VERSION
+async crawlGameDetailsFromCups() {
+  console.log('🔍 Sammle GameIDs aus Cup-Daten...');
+  
+  try {
+    const tableCheck = await this.queryAsync(
+      "select to_regclass('games') as exists"
+    );
+    
+    if (!tableCheck?.exists) {
+      console.log('⚠️  Games Tabelle existiert nicht - gamedetails Crawling übersprungen');
+      return { success: 0, errors: 0 };
+    }
+
+    // EINFACHE SQL für Legacy: Nur echte Spiele (keine Prognose)
+    const gamesSQL = `
+      select distinct numericgameid, team1, team2, cuptype, season
+      from games 
+      where source != 'prognose'
+      and numericgameid is not null 
+      and numericgameid != ''
+      and numericgameid not in (
+        select numericgameid from gamedetails 
+        where lastupdated > now() - interval '1 day'
+      )
+      order by season desc, cuptype, numericgameid
+    `;
+
+    const games = await this.queryAllAsync(gamesSQL);
+    
+    if (!games || games.length === 0) {
+      console.log('ℹ️  Alle echten Games bereits aktuell oder keine neuen Cup-Games mit numericGameId vorhanden');
+      return { success: 0, errors: 0 };
+    }
+
+    console.log(`🎯 Crawle Game Details für ${games.length} echte Cup-Spiele...`);
+    
+    let success = 0, errors = 0;
+
+    for (const game of games) {
+      const gameData = await this.fetchGameDetails(game.numericgameid);
+      
+      if (gameData) {
+        await this.saveGameDetails(game.numericgameid, gameData, game.season);
+        success++;
+        
+        if (success % 10 === 0) {
+          console.log(`📊 Progress: ${success}/${games.length} verarbeitet`);
+        }
+      } else {
+        errors++;
+        console.log(`❌ Fehler bei gameid ${game.numericgameid} (${game.team1} vs ${game.team2})`);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    console.log(`📊 Game Details Crawling abgeschlossen: ${success} erfolgreich, ${errors} Fehler`);
+    return { success, errors };
+    
+  } catch (error) {
+    console.error('❌ Fehler beim Game Details Crawling:', error.message);
+    return { success: 0, errors: 1 };
+  }
+}
+
 
   async getGameDetailsStats() {
     const statsSQL = `
@@ -542,11 +622,11 @@ module.exports = {
     const manager = new GameDetailsManager(db);
 
     // Game Details für einzelnes Spiel
-    app.get('/api/game-details/:gameId', async (req, res) => {
+    app.get('/api/game-details/:gameid', async (req, res) => {
       try {
         const result = await manager.queryAsync(
           'select * from gamedetails where numericgameid = $1', 
-          [parseInt(req.params.gameId)]
+          [parseInt(req.params.gameid)]
         );
         
         if (result && result.rawdata) {
@@ -610,7 +690,7 @@ module.exports = {
       }
     });
 
-    // Delete GameDetails für Season
+    // Delete gamedetails für Season
     app.delete('/api/game-details/season/:season', async (req, res) => {
       try {
         const season = req.params.season;
@@ -655,6 +735,6 @@ module.exports = {
       }
     });
 
-    console.log('🎯 GameDetails API-Routes mit Season-Management registriert');
+    console.log('🎯 gamedetails API-Routes mit Season-Management registriert');
   }
 };

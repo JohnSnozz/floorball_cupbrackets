@@ -123,15 +123,15 @@ function loadFallbackOptions() {
 }
 
 async function loadSmartBracket() {
-    const cupType = document.getElementById('cupselect').value;
+    const cuptype = document.getElementById('cupselect').value;
     const season = document.getElementById('seasonselect').value;
     const bracketcontent = document.getElementById('bracketcontent');
     
-    console.log(`🏒 Loading Smart Bracket: ${cupType} - ${season}`);
+    console.log(`🏒 Loading Smart Bracket: ${cuptype} - ${season}`);
     bracketcontent.innerHTML = '<div class="loading">⏳ Lade Smart Bracket...</div>';
     
     try {
-        const response = await fetch(`/games?cup=${cupType}&season=${season}&limit=1000`);
+        const response = await fetch(`/games?cup=${cuptype}&season=${season}&limit=1000`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const games = await response.json();

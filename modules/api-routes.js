@@ -57,7 +57,7 @@ function register(app, db) {
       
       // Prüfe welche Cups tatsächlich Daten in der DB haben
       const query = `
-        SELECT DISTINCT "cuptype", COUNT(*) as "gameCount"
+        SELECT DISTINCT "cuptype", COUNT(*) as "gamecount"
         FROM games 
         WHERE "cuptype" IS NOT NULL AND "cuptype" != ''
         GROUP BY "cuptype"
@@ -73,11 +73,11 @@ function register(app, db) {
         .map(row => ({
           id: row.cuptype,
           name: CUP_CONFIGS[row.cuptype].name,
-          gameCount: parseInt(row.gameCount)
+          gamecount: parseInt(row.gamecount)
         }));
       
       console.log(`✅ Found ${availableCups.length} cups with data:`, 
-                 availableCups.map(c => `${c.name} (${c.gameCount})`));
+                 availableCups.map(c => `${c.name} (${c.gamecount})`));
       
       res.json(availableCups);
       
@@ -97,18 +97,18 @@ function register(app, db) {
         `SELECT 
            "cuptype", 
            season, 
-           COUNT(*) as "totalGames",
-           COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as "playedGames",
-           COUNT(CASE WHEN source = 'prognose' THEN 1 END) as "prognoseGames"
+           COUNT(*) as "totalgames",
+           COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as "playedgames",
+           COUNT(CASE WHEN source = 'prognose' THEN 1 END) as "prognosegames"
          FROM games 
          GROUP BY "cuptype", season 
          ORDER BY season DESC, "cuptype"`,
         
         // Aktuelle Season Statistiken
         `SELECT 
-           COUNT(*) as "totalGames",
-           COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as "playedGames",
-           COUNT(CASE WHEN source = 'prognose' THEN 1 END) as "prognoseGames"
+           COUNT(*) as "totalgames",
+           COUNT(CASE WHEN result IS NOT NULL AND result != '' AND result != 'TBD' THEN 1 END) as "playedgames",
+           COUNT(CASE WHEN source = 'prognose' THEN 1 END) as "prognosegames"
          FROM games 
          WHERE season = '2025/26'`,
          
@@ -129,21 +129,21 @@ function register(app, db) {
       const stats = {
         byCupSeason: results[0].rows,
         currentSeason: results[1].rows[0] || { 
-          totalGames: 0, 
-          playedGames: 0, 
-          prognoseGames: 0 
+          totalgames: 0, 
+          playedgames: 0, 
+          prognosegames: 0 
         },
         recentUpdates: results[2].rows
       };
       
       // Konvertiere String-Zahlen zu Integers
-      if (stats.currentSeason.totalGames) {
-        stats.currentSeason.totalGames = parseInt(stats.currentSeason.totalGames);
-        stats.currentSeason.playedGames = parseInt(stats.currentSeason.playedGames);
-        stats.currentSeason.prognoseGames = parseInt(stats.currentSeason.prognoseGames);
+      if (stats.currentSeason.totalgames) {
+        stats.currentSeason.totalgames = parseInt(stats.currentSeason.totalgames);
+        stats.currentSeason.playedgames = parseInt(stats.currentSeason.playedgames);
+        stats.currentSeason.prognosegames = parseInt(stats.currentSeason.prognosegames);
       }
       
-      console.log(`✅ Stats generated: ${stats.currentSeason.totalGames} games in current season`);
+      console.log(`✅ Stats generated: ${stats.currentSeason.totalgames} games in current season`);
       res.json(stats);
       
     } catch (error) {

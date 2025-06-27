@@ -39,13 +39,13 @@ function register(app, pool) {  // pool statt db
 
   // GET /crawl-cup - Hauptcrawler für spezifische Cups
   app.get('/crawl-cup', async (req, res) => {
-    const cupType = req.query.cup || 'herren_grossfeld';
+    const cuptype = req.query.cup || 'herren_grossfeld';
     const requestedSeason = req.query.season || null;
     const skipPlayed = req.query.skipPlayed === 'true'; // Neuer Parameter
-    const cupConfig = CUP_CONFIGS[cupType];
+    const cupConfig = CUP_CONFIGS[cuptype];
     
     if (!cupConfig) {
-      return res.status(400).json({ error: 'Unbekannter Cup-Typ: ' + cupType });
+      return res.status(400).json({ error: 'Unbekannter Cup-Typ: ' + cuptype });
     }
     
     console.log(`🏆 Crawling ${cupConfig.name} (Saison: ${requestedSeason || 'Auto'})${skipPlayed ? ' [Skip Played]' : ''}...`);
@@ -54,20 +54,20 @@ function register(app, pool) {  // pool statt db
       // 1. Hole aktuelle Cup-Übersicht von API
       const cupData = await fetchCupOverview();
       
-      // 2. Finde relevanten Cup basierend auf cupType und Saison
-      const tournament = findRelevantTournament(cupData, cupType, requestedSeason);
+      // 2. Finde relevanten Cup basierend auf cuptype und Saison
+      const tournament = findRelevantTournament(cupData, cuptype, requestedSeason);
       
       if (!tournament) {
         return res.json({
-          cupName: cupConfig.name,
+          cupname: cupConfig.name,
           season: requestedSeason,
           tournaments: [],
           matches: [],
-          totalGames: 0,
-          newGames: 0,
-          cacheGames: 0,
-          skippedPlayed: 0,
-          updatedGames: 0,
+          totalgames: 0,
+          newgames: 0,
+          cachegames: 0,
+          skippedplayed: 0,
+          updatedgames: 0,
           success: false,
           errors: [`Kein passendes Turnier für ${cupConfig.name} in Saison ${requestedSeason || 'Auto'} gefunden`]
         });
@@ -81,10 +81,10 @@ function register(app, pool) {  // pool statt db
       
       // 4. Crawle alle Spiele aus allen Runden mit Smart Logic
       let allMatches = [];
-      let newGames = 0;
-      let cacheGames = 0;
-      let skippedPlayed = 0;
-      let updatedGames = 0;
+      let newgames = 0;
+      let cachegames = 0;
+      let skippedplayed = 0;
+      let updatedgames = 0;
       let errors = [];
       
       for (let i = 0; i < rounds.length; i++) {
@@ -118,8 +118,8 @@ function register(app, pool) {  // pool statt db
           for (const game of uniqueGames) {
             // Erstelle konsistente gameid basierend auf Teams, Runde und Turnier ODER numerische ID
             let uniqueGameId;
-            if (game.numericGameId) {
-              uniqueGameId = `game_${game.numericGameId}`;
+            if (game.numericgameid) {
+              uniqueGameId = `game_${game.numericgameid}`;
             } else {
               const cleanTeam1 = game.team1.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
               const cleanTeam2 = game.team2.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
@@ -131,57 +131,57 @@ function register(app, pool) {  // pool statt db
             
             if (existingGame) {
               // Spiel existiert bereits - prüfe ob es gespielt wurde
-              const hasResult = existingGame.result && existingGame.result.trim() !== '';
-              const currentResult = game.result || '';
+              const hasresult = existingGame.result && existingGame.result.trim() !== '';
+              const currentresult = game.result || '';
               
-              if (skipPlayed && hasResult && currentResult === existingGame.result) {
+              if (skipPlayed && hasresult && currentresult === existingGame.result) {
                 // ⏭️ SKIP: Spiel bereits gespielt und Resultat unverändert
-                skippedPlayed++;
+                skippedplayed++;
                 continue; // Spiel wird NICHT zur allMatches Liste hinzugefügt
                 
-              } else if (hasResult && currentResult !== existingGame.result && currentResult.trim() !== '') {
+              } else if (hasresult && currentresult !== existingGame.result && currentresult.trim() !== '') {
                 // 🔄 UPDATE: Spiel hat neues/anderes Resultat
-                console.log(`🔄 UPDATE: ${game.team1} vs ${game.team2} - Resultat geändert: "${existingGame.result}" → "${currentResult}"`);
+                console.log(`🔄 UPDATE: ${game.team1} vs ${game.team2} - Resultat geändert: "${existingGame.result}" → "${currentresult}"`);
                 
                 await updateGameInDB(pool, uniqueGameId, {
-                  result: currentResult,
-                  status: currentResult ? 'finished' : 'scheduled'
+                  result: currentresult,
+                  status: currentresult ? 'finished' : 'scheduled'
                 });
                 
-                game.fromCache = false;
+                game.fromcache = false;
                 game.gameid = uniqueGameId;
-                game.roundName = round.name;
-                game.tournamentName = tournament.name;
+                game.roundname = round.name;
+                game.tournamentname = tournament.name;
                 game.season = tournament.season;
                 allMatches.push(game);
-                updatedGames++;
+                updatedgames++;
                 
-              } else if (!hasResult && currentResult.trim() !== '') {
+              } else if (!hasresult && currentresult.trim() !== '') {
                 // 🆕 NEW RESULT: Spiel war unentschieden, hat jetzt Resultat
-                console.log(`🆕 NEW RESULT: ${game.team1} vs ${game.team2} - Neues Resultat: "${currentResult}"`);
+                console.log(`🆕 NEW RESULT: ${game.team1} vs ${game.team2} - Neues Resultat: "${currentresult}"`);
                 
                 await updateGameInDB(pool, uniqueGameId, {
-                  result: currentResult,
+                  result: currentresult,
                   status: 'finished'
                 });
                 
-                game.fromCache = false;
+                game.fromcache = false;
                 game.gameid = uniqueGameId;
-                game.roundName = round.name;
-                game.tournamentName = tournament.name;
+                game.roundname = round.name;
+                game.tournamentname = tournament.name;
                 game.season = tournament.season;
                 allMatches.push(game);
-                updatedGames++;
+                updatedgames++;
                 
               } else {
                 // 💾 CACHE: Unverändert, aus Cache
-                game.fromCache = true;
+                game.fromcache = true;
                 game.gameid = uniqueGameId;
-                game.roundName = round.name;
-                game.tournamentName = tournament.name;
+                game.roundname = round.name;
+                game.tournamentname = tournament.name;
                 game.season = tournament.season;
                 allMatches.push(game);
-                cacheGames++;
+                cachegames++;
               }
               
             } else {
@@ -191,54 +191,54 @@ function register(app, pool) {  // pool statt db
               // Neue Spieldaten aufbereiten und speichern
               const gameData = {
                 gameid: uniqueGameId,
-                numericGameId: game.numericGameId || null,
+                numericgameid: game.numericgameid || null,
                 team1: game.team1,
                 team2: game.team2,
-                roundName: round.name,
-                roundId: round.id,
-                tournamentId: tournament.id,
-                tournamentName: tournament.name,
+                roundname: round.name,
+                roundid: round.id,
+                tournamentid: tournament.id,
+                tournamentname: tournament.name,
                 season: tournament.season,
-                cupType: cupType,
+                cuptype: cuptype,
                 gender: cupConfig.gender,
-                fieldType: cupConfig.field_type,
-                gameDate: game.gameDate || '',
-                gameTime: game.gameTime || '',
+                fieldtype: cupConfig.field_type,
+                gamedate: game.gamedate || '',
+                gametime: game.gametime || '',
                 venue: game.venue || '',
                 status: game.result ? 'finished' : 'scheduled',
                 result: game.result || '',
                 source: 'api',
-                apiEndpoint: `/api/games?mode=cup&tournament_id=${tournament.id}&round=${round.id}`,
+                apiendpoint: `/api/games?mode=cup&tournament_id=${tournament.id}&round=${round.id}`,
                 link: game.link || '',
-                homeTeamScore: game.homeTeamScore || null,
-                awayTeamScore: game.awayTeamScore || null,
-                gameLocation: game.gameLocation || null,
+                hometeamscore: game.hometeamscore || null,
+                awayteamscore: game.awayteamscore || null,
+                gamelocation: game.gamelocation || null,
                 referees: game.referees || null,
                 spectators: game.spectators || null,
                 notes: game.notes || null,
-                bracketSortOrder: game.numericGameId || null
+                bracketsortorder: game.numericgameid || null
               };
               
               try {
                 const saveResult = await dbHelpers.saveGameToDB(pool, gameData);
                 if (saveResult.changes > 0) {
                   console.log(`✅ SAVED: ${game.team1} vs ${game.team2} saved to DB`);
-                  game.fromCache = false;
+                  game.fromcache = false;
                   game.gameid = uniqueGameId;
-                  game.roundName = round.name;
-                  game.tournamentName = tournament.name;
+                  game.roundname = round.name;
+                  game.tournamentname = tournament.name;
                   game.season = tournament.season;
                   allMatches.push(game);
-                  newGames++;
+                  newgames++;
                 } else {
                   console.log(`🟡 DUPLICATE via INSERT ON CONFLICT: ${game.team1} vs ${game.team2}`);
-                  game.fromCache = true;
+                  game.fromcache = true;
                   game.gameid = uniqueGameId;
-                  game.roundName = round.name;
-                  game.tournamentName = tournament.name;
+                  game.roundname = round.name;
+                  game.tournamentname = tournament.name;
                   game.season = tournament.season;
                   allMatches.push(game);
-                  cacheGames++;
+                  cachegames++;
                 }
               } catch (saveError) {
                 console.error(`❌ SAVE ERROR: ${saveError.message}`);
@@ -255,26 +255,26 @@ function register(app, pool) {  // pool statt db
       
       // 📊 SUMMARY LOGGING
       console.log(`🎯 Crawling complete for ${cupConfig.name}:`);
-      console.log(`   📊 Total verarbeitet: ${allMatches.length + skippedPlayed} Spiele`);
-      console.log(`   🆕 Neu hinzugefügt: ${newGames}`);
-      console.log(`   🔄 Aktualisiert: ${updatedGames}`);
-      console.log(`   💾 Aus Cache: ${cacheGames}`);
-      console.log(`   ⏭️ Übersprungen (bereits gespielt): ${skippedPlayed}`);
+      console.log(`   📊 Total verarbeitet: ${allMatches.length + skippedplayed} Spiele`);
+      console.log(`   🆕 Neu hinzugefügt: ${newgames}`);
+      console.log(`   🔄 Aktualisiert: ${updatedgames}`);
+      console.log(`   💾 Aus Cache: ${cachegames}`);
+      console.log(`   ⏭️ Übersprungen (bereits gespielt): ${skippedplayed}`);
       if (errors.length > 0) {
         console.log(`   ❌ Fehler: ${errors.length}`);
       }
       
       res.json({
         success: true,
-        cupName: cupConfig.name,
+        cupname: cupConfig.name,
         season: tournament.season,
         tournaments: [tournament],
         matches: allMatches,
-        totalGames: allMatches.length,
-        newGames: newGames,
-        cacheGames: cacheGames,
-        skippedPlayed: skippedPlayed,
-        updatedGames: updatedGames,
+        totalgames: allMatches.length,
+        newgames: newgames,
+        cachegames: cachegames,
+        skippedplayed: skippedplayed,
+        updatedgames: updatedgames,
         errors: errors
       });
       
@@ -283,13 +283,13 @@ function register(app, pool) {  // pool statt db
       res.status(500).json({ 
         success: false,
         error: error.message,
-        cupName: cupConfig.name,
+        cupname: cupConfig.name,
         season: requestedSeason,
-        totalGames: 0,
-        newGames: 0,
-        cacheGames: 0,
-        skippedPlayed: 0,
-        updatedGames: 0,
+        totalgames: 0,
+        newgames: 0,
+        cachegames: 0,
+        skippedplayed: 0,
+        updatedgames: 0,
         errors: [error.message]
       });
     }
@@ -335,7 +335,7 @@ async function fetchCupOverview() {
   }
 }
 
-function findRelevantTournament(cupData, cupType, requestedSeason = null) {
+function findRelevantTournament(cupData, cuptype, requestedSeason = null) {
   try {
     if (!cupData.data || !cupData.data.tabs) {
       throw new Error('Invalid cup data structure');
@@ -395,16 +395,16 @@ function findRelevantTournament(cupData, cupType, requestedSeason = null) {
       }
     };
     
-    const tournamentId = knownTournamentIds[cupType]?.[currentSeason.text];
+    const tournamentid = knownTournamentIds[cuptype]?.[currentSeason.text];
     
-    if (tournamentId) {
+    if (tournamentid) {
       const tournament = currentSeason.entries?.find(entry => 
-        entry.set_in_context.tournament_id.toString() === tournamentId
+        entry.set_in_context.tournament_id.toString() === tournamentid
       );
       
       return {
-        id: tournamentId,
-        name: tournament?.text || `Unknown Tournament ${tournamentId}`,
+        id: tournamentid,
+        name: tournament?.text || `Unknown Tournament ${tournamentid}`,
         season: currentSeason.text,
         gameCount: 0
       };
@@ -418,11 +418,11 @@ function findRelevantTournament(cupData, cupType, requestedSeason = null) {
   }
 }
 
-async function getCupRounds(tournamentId) {
+async function getCupRounds(tournamentid) {
   try {
-    console.log(`🔍 Getting rounds for tournament ${tournamentId}...`);
+    console.log(`🔍 Getting rounds for tournament ${tournamentid}...`);
     
-    const response = await fetch(`https://api-v2.swissunihockey.ch/api/cups/?tournament_id=${tournamentId}`, {
+    const response = await fetch(`https://api-v2.swissunihockey.ch/api/cups/?tournament_id=${tournamentid}`, {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'SwissCup-Crawler/1.0'
@@ -437,12 +437,12 @@ async function getCupRounds(tournamentId) {
         
         data.data.regions[0].rows.forEach(row => {
           if (row.cells && row.cells[0] && row.cells[0].link) {
-            const roundId = row.cells[0].link.set_in_context.round;
-            const roundName = row.cells[0].text[0];
+            const roundid = row.cells[0].link.set_in_context.round;
+            const roundname = row.cells[0].text[0];
             
             rounds.push({
-              id: roundId.toString(),
-              name: roundName,
+              id: roundid.toString(),
+              name: roundname,
               order: rounds.length + 1
             });
           }
@@ -453,7 +453,7 @@ async function getCupRounds(tournamentId) {
       }
     }
     
-    throw new Error(`Failed to get rounds for tournament ${tournamentId}`);
+    throw new Error(`Failed to get rounds for tournament ${tournamentid}`);
     
   } catch (error) {
     console.error(`❌ Error getting rounds: ${error.message}`);
@@ -461,11 +461,11 @@ async function getCupRounds(tournamentId) {
   }
 }
 
-async function getCupGamesByRound(tournamentId, roundId, side = 'left') {
+async function getCupGamesByRound(tournamentid, roundid, side = 'left') {
   try {
-    console.log(`🎮 Getting games for tournament ${tournamentId}, round ${roundId}, side ${side}...`);
+    console.log(`🎮 Getting games for tournament ${tournamentid}, round ${roundid}, side ${side}...`);
     
-    const endpoint = `/api/games?mode=cup&tournament_id=${tournamentId}&round=${roundId}&side=${side}`;
+    const endpoint = `/api/games?mode=cup&tournament_id=${tournamentid}&round=${roundid}&side=${side}`;
     
     const response = await fetch(`https://api-v2.swissunihockey.ch${endpoint}`, {
       headers: {
@@ -489,12 +489,12 @@ async function getCupGamesByRound(tournamentId, roundId, side = 'left') {
       
       return parseGamesFromAPI(data);
     } else {
-      console.log(`⚪ No games found for round ${roundId} side ${side} (Status: ${response.status})`);
+      console.log(`⚪ No games found for round ${roundid} side ${side} (Status: ${response.status})`);
       return [];
     }
     
   } catch (error) {
-    console.log(`❌ Error getting games for round ${roundId}: ${error.message}`);
+    console.log(`❌ Error getting games for round ${roundid}: ${error.message}`);
     return [];
   }
 }
@@ -526,8 +526,8 @@ function parseGamesFromAPI(data) {
       
       console.log(`    Processing row ${rowIndex}:`, row.cells.map(c => c.text).join(' | '));
       
-      const numericGameId = row.id;
-      console.log(`    🎯 Found numeric game ID from row.id: ${numericGameId}`);
+      const numericgameid = row.id;
+      console.log(`    🎯 Found numeric game ID from row.id: ${numericgameid}`);
       
       const cells = row.cells;
       
@@ -546,13 +546,13 @@ function parseGamesFromAPI(data) {
         
         if (team1 && team2) {
           const game = {
-            gameid: numericGameId ? `game_${numericGameId}` : `${team1}-${team2}-${Date.now()}`,
-            numericGameId: numericGameId,
+            gameid: numericgameid ? `game_${numericgameid}` : `${team1}-${team2}-${Date.now()}`,
+            numericgameid: numericgameid,
             team1: team1,
             team2: team2,
             result: result,
-            gameDate: '',
-            gameTime: '',
+            gamedate: '',
+            gametime: '',
             venue: '',
             status: result ? 'finished' : 'scheduled',
             link: gameLink || '',
@@ -561,7 +561,7 @@ function parseGamesFromAPI(data) {
           
           games.push(game);
           console.log(`    ✅ Created game: ${team1} vs ${team2}`);
-          console.log(`       - Numeric ID: ${numericGameId}`);
+          console.log(`       - Numeric ID: ${numericgameid}`);
           console.log(`       - Game ID: ${game.gameid}`);
           console.log(`       - Link: ${gameLink || 'NONE'}`);
         }
@@ -571,7 +571,7 @@ function parseGamesFromAPI(data) {
   
   console.log(`🎯 Parsed ${games.length} games total`);
   
-  const gamesWithNumericId = games.filter(g => g.numericGameId);
+  const gamesWithNumericId = games.filter(g => g.numericgameid);
   console.log(`📊 Games with numeric ID: ${gamesWithNumericId.length}/${games.length}`);
   
   return games;

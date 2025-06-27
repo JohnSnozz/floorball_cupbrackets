@@ -7,14 +7,14 @@
 // Schritte
 // 1. Bestimme die höchste bereits erfasste Runde (am nächsten zum
 //    Finale) und sortiere sie strikt nach `numericgameid`. Jedes Spiel
-//    erhält dabei den `bracketSortOrder` 1 … N.
+//    erhält dabei den `bracketsortorder` 1 … N.
 // 2. Baue aus dieser Basisrunde eine Team-Liste in genau dieser
 //    Reihenfolge (Heimteam, Auswärtsteam). Jedes Team erhält implizit
 //    eine Positions-Nummer 1 … 2N.
 // 3. Gehe nun Runde für Runde zurück. Für jede vorherige Runde wird
 //    der erste noch unbelegte Eintrag der Team-Liste gesucht und das
 //    dazugehörige Spiel an die Ergebnisliste angehängt. So erhält jedes
-//    Spiel der älteren Runde die richtige `bracketSortOrder`.
+//    Spiel der älteren Runde die richtige `bracketsortorder`.
 // 4. Spiele mit Freilos werden dabei an jener Position einsortiert, an
 //    der der Freilos-Platz in der Team-Liste erscheint. Enthält eine
 //    Runde mehrere „Freilos vs Freilos"-Partien, werden sie in der
@@ -280,7 +280,7 @@ async function sortRoundBasedOnNextRound(poolordb, cuptype, season, currentround
     }
   });
 
-  // 5. Persistiere bracketSortOrder
+  // 5. Persistiere bracketsortorder
   for (let i = 0; i < sortedGames.length; i += 1) {
     if (isPostgreSQL) {
       await poolordb.query(

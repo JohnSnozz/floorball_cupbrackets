@@ -36,8 +36,8 @@ function register(app, pool) {  // pool statt db
 
       // 1. Prognose Cleanup
       console.log('Step 1/4: Prognose Cleanup...');
-      for (const cupType of CURRENT_CUPS) {
-        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, CURRENT_SEASON);
+      for (const cuptype of CURRENT_CUPS) {
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cuptype, CURRENT_SEASON);
         results.prognoseCleanup += deleted;
       }
 
@@ -182,8 +182,8 @@ function register(app, pool) {  // pool statt db
       console.log(`🗑️ Backend API: Prognose Cleanup für Saison ${CURRENT_SEASON}`);
       
       let totalDeleted = 0;
-      for (const cupType of CURRENT_CUPS) {
-        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, CURRENT_SEASON);
+      for (const cuptype of CURRENT_CUPS) {
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cuptype, CURRENT_SEASON);
         totalDeleted += deleted;
       }
       
@@ -266,8 +266,8 @@ function register(app, pool) {  // pool statt db
       console.log(`🗑️ Backend API: Lösche Prognose-Spiele für Season ${season}`);
       
       let totalDeleted = 0;
-      for (const cupType of CURRENT_CUPS) {
-        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, season);
+      for (const cuptype of CURRENT_CUPS) {
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cuptype, season);
         totalDeleted += deleted;
       }
       
@@ -316,8 +316,8 @@ function register(app, pool) {  // pool statt db
       results.cupData = cupDataResult.rowCount || 0;
 
       // 2. Prognose-Spiele löschen
-      for (const cupType of CURRENT_CUPS) {
-        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cupType, season);
+      for (const cuptype of CURRENT_CUPS) {
+        const deleted = await prognoseGames.deleteAllPrognoseGames(pool, cuptype, season);
         results.prognoseGames += deleted;
       }
 

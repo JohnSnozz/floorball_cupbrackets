@@ -86,8 +86,8 @@ class GameEventsManager {
     }
   }
 
-  async fetchGameEvents(gameId) {
-    const url = `https://api-v2.swissunihockey.ch/api/game_events/${gameId}`;
+  async fetchGameEvents(gameid) {
+    const url = `https://api-v2.swissunihockey.ch/api/game_events/${gameid}`;
     
     try {
       const response = await fetch(url);
@@ -97,12 +97,12 @@ class GameEventsManager {
       
       return await response.json();
     } catch (error) {
-      console.error(`❌ Fehler bei GameID ${gameId}:`, error.message);
+      console.error(`❌ Fehler bei gameid ${gameid}:`, error.message);
       return null;
     }
   }
 
-  parseGameEventsData(gameData, gameId) {
+  parseGameEventsData(gameData, gameid) {
     if (!gameData?.data?.regions?.[0]?.rows) {
       return [];
     }
@@ -115,8 +115,8 @@ class GameEventsManager {
       
       const cells = row.cells;
       
-      // Event-ID generieren (gameId + index)
-      const eventId = `${gameId}_${index.toString().padStart(3, '0')}`;
+      // Event-ID generieren (gameid + index)
+      const eventId = `${gameid}_${index.toString().padStart(3, '0')}`;
       
       const event = {
         event_id: eventId,
@@ -135,11 +135,11 @@ class GameEventsManager {
     return events;
   }
 
-  async saveGameEvents(gameId, gameData, season = null) {
-    const events = this.parseGameEventsData(gameData, gameId);
+  async saveGameEvents(gameid, gameData, season = null) {
+    const events = this.parseGameEventsData(gameData, gameid);
     
     if (!events || events.length === 0) {
-      console.log(`⚠️  Keine Events für GameID ${gameId} gefunden`);
+      console.log(`⚠️  Keine Events für gameid ${gameid} gefunden`);
       return 0;
     }
     
@@ -163,7 +163,7 @@ class GameEventsManager {
     try {
       for (const event of events) {
         await this.pool.query(insertSQL, [
-          gameId,
+          gameid,
           event.event_id,
           season,
           event.minute,
@@ -175,10 +175,10 @@ class GameEventsManager {
         saved++;
       }
       
-      console.log(`✅ ${saved} Events gespeichert für GameID ${gameId} - Season: ${season}`);
+      console.log(`✅ ${saved} Events gespeichert für gameid ${gameid} - Season: ${season}`);
       return saved;
     } catch (error) {
-      console.error(`❌ Fehler beim Speichern von Events für GameID ${gameId}:`, error);
+      console.error(`❌ Fehler beim Speichern von Events für gameid ${gameid}:`, error);
       return 0;
     }
   }
@@ -249,7 +249,7 @@ class GameEventsManager {
           }
         } else {
           errors++;
-          console.log(`❌ Fehler bei GameID ${game.numericgameid} (${game.team1} vs ${game.team2})`);
+          console.log(`❌ Fehler bei gameid ${game.numericgameid} (${game.team1} vs ${game.team2})`);
         }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -329,7 +329,7 @@ class GameEventsManager {
           }
         } else {
           errors++;
-          console.log(`❌ Fehler bei GameID ${game.numericgameid} (${game.team1} vs ${game.team2})`);
+          console.log(`❌ Fehler bei gameid ${game.numericgameid} (${game.team1} vs ${game.team2})`);
         }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -400,11 +400,11 @@ module.exports = {
     const manager = new GameEventsManager(pool);
 
     // Game Events für einzelnes Spiel
-    app.get('/api/game-events/:gameId', async (req, res) => {
+    app.get('/api/game-events/:gameid', async (req, res) => {
       try {
         const result = await manager.pool.query(
           'SELECT * FROM gameevents WHERE game_id = $1 ORDER BY id', 
-          [req.params.gameId]
+          [req.params.gameid]
         );
         
         res.json(result.rows || []);
@@ -481,7 +481,7 @@ module.exports = {
         const limit = parseInt(req.query.limit) || 50;
         const offset = parseInt(req.query.offset) || 0;
         const season = req.query.season;
-        const gameId = req.query.game_id;
+        const gameid = req.query.game_id;
         
         let sql = `
           SELECT game_id, event_id, season, minute, event_type, team, 
@@ -497,9 +497,9 @@ module.exports = {
           params.push(season);
         }
         
-        if (gameId) {
+        if (gameid) {
           conditions.push(`game_id = $${params.length + 1}`);
-          params.push(gameId);
+          params.push(gameid);
         }
         
         if (conditions.length > 0) {
