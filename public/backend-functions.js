@@ -325,6 +325,8 @@ async function executePrognoseSeasonDelete() {
     }
 }
 
+// Ersetze die executeGameDetailsCrawling Funktion in backend-functions.js
+
 async function executeGameDetailsCrawling() {
     const season = document.getElementById('gameDetailsSeasonSelect').value;
     
@@ -343,10 +345,14 @@ async function executeGameDetailsCrawling() {
             
             let totalSuccess = 0;
             let totalErrors = 0;
+            let totalRetries = 0;
             
-            // Jede Season einzeln crawlen
+            // Jede Season einzeln mit Retry-Logik crawlen
             for (const seasonToCrawl of seasons) {
-                updateBackendStatus('gameDetailsStatus', `⏳ Crawle Details Season ${seasonToCrawl}... (${seasons.indexOf(seasonToCrawl) + 1}/${seasons.length})`, 'loading');
+                updateBackendStatus('gameDetailsStatus', 
+                    `⏳ Robustes Crawling Season ${seasonToCrawl}... (${seasons.indexOf(seasonToCrawl) + 1}/${seasons.length})`, 
+                    'loading'
+                );
                 
                 const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(seasonToCrawl)}`, {
                     method: 'POST'
@@ -357,13 +363,27 @@ async function executeGameDetailsCrawling() {
                 if (result.success !== undefined) {
                     totalSuccess += result.success;
                     totalErrors += result.errors;
+                    totalRetries += result.retries || 0;
+                    
+                    // Zwischenstatus anzeigen
+                    const retryInfo = result.retries > 0 ? ` (${result.retries} Retries)` : '';
+                    const failureInfo = result.consecutiveFailures > 0 ? `, ${result.consecutiveFailures} consec. failures` : '';
+                    
+                    updateBackendStatus('gameDetailsStatus', 
+                        `⏳ Season ${seasonToCrawl}: ${result.success} OK, ${result.errors} Fehler${retryInfo}${failureInfo} - Fortsetzung...`, 
+                        'loading'
+                    );
                 }
                 
                 // Kurze Pause zwischen Seasons
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
             
-            updateBackendStatus('gameDetailsStatus', `✅ Alle Details Seasons gecrawlt: ${totalSuccess} Games, ${totalErrors} Fehler`, 'success');
+            const retryInfo = totalRetries > 0 ? ` (${totalRetries} Retry-Durchläufe)` : '';
+            updateBackendStatus('gameDetailsStatus', 
+                `✅ Alle Details Seasons gecrawlt: ${totalSuccess} Games, ${totalErrors} Fehler${retryInfo}`, 
+                'success'
+            );
             setTimeout(checkStatus, 2000);
             
         } catch (error) {
@@ -371,8 +391,8 @@ async function executeGameDetailsCrawling() {
         }
         
     } else {
-        // Einzelne Season crawlen
-        updateBackendStatus('gameDetailsStatus', `⏳ Game Details für Season ${season} werden gecrawlt...`, 'loading');
+        // Einzelne Season mit robuster Retry-Logik crawlen
+        updateBackendStatus('gameDetailsStatus', `⏳ Robustes Crawling für Season ${season} startet...`, 'loading');
         
         try {
             const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(season)}`, {
@@ -382,7 +402,21 @@ async function executeGameDetailsCrawling() {
             const result = await response.json();
             
             if (result.success !== undefined) {
-                updateBackendStatus('gameDetailsStatus', `✅ Details Season ${season} gecrawlt: ${result.success} Games, ${result.errors} Fehler`, 'success');
+                const retryInfo = result.retries > 0 ? ` (${result.retries} Retry-Durchläufe)` : '';
+                const failureInfo = result.consecutiveFailures > 0 ? ` - ${result.consecutiveFailures} consecutive failures` : '';
+                
+                if (result.errors === 0) {
+                    updateBackendStatus('gameDetailsStatus', 
+                        `✅ Season ${season} erfolgreich abgeschlossen: ${result.success} Games${retryInfo}`, 
+                        'success'
+                    );
+                } else {
+                    updateBackendStatus('gameDetailsStatus', 
+                        `⚠️ Season ${season} mit Fehlern: ${result.success} OK, ${result.errors} Fehler${retryInfo}${failureInfo}`, 
+                        'warning'
+                    );
+                }
+                
                 setTimeout(checkStatus, 2000);
             } else {
                 updateBackendStatus('gameDetailsStatus', `❌ Fehler: ${result.error}`, 'error');
@@ -445,6 +479,50 @@ async function executeGameDetailsDelete() {
         updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
     }
 }
+
+async function executeGameDetailsRetryCrawling() {
+    const season = document.getElementById('gameDetailsSeasonSelect').value;
+    
+    if (season === 'all') {
+        updateBackendStatus('gameDetailsStatus', '❌ Retry-Crawling nur für einzelne Seasons verfügbar', 'error');
+        return;
+    }
+    
+    // Robuste Season mit Retry-Logik crawlen
+    updateBackendStatus('gameDetailsStatus', `⏳ Robustes Retry-Crawling für Season ${season} startet...`, 'loading');
+    
+    try {
+        const response = await fetch(`/api/crawl-game-details/${encodeURIComponent(season)}/retry`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success !== undefined) {
+            const retryInfo = result.retries > 0 ? ` (${result.retries} Retry-Durchläufe)` : '';
+            const failureInfo = result.consecutiveFailures > 0 ? ` - ${result.consecutiveFailures} consecutive failures` : '';
+            
+            if (result.errors === 0) {
+                updateBackendStatus('gameDetailsStatus', 
+                    `✅ Retry-Crawling Season ${season} erfolgreich: ${result.success} Games${retryInfo}`, 
+                    'success'
+                );
+            } else {
+                updateBackendStatus('gameDetailsStatus', 
+                    `⚠️ Retry-Crawling Season ${season}: ${result.success} OK, ${result.errors} Fehler${retryInfo}${failureInfo}`, 
+                    'warning'
+                );
+            }
+            
+            setTimeout(checkStatus, 2000);
+        } else {
+            updateBackendStatus('gameDetailsStatus', `❌ Fehler: ${result.error}`, 'error');
+        }
+    } catch (error) {
+        updateBackendStatus('gameDetailsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+    }
+}
+
 
 async function executeGameEventsCrawling() {
     const season = document.getElementById('gameEventsSeasonSelect').value;

@@ -16,14 +16,6 @@
     transform: translateX(100%);
 }
 
-.bottom-right-controls.collapsed .toggle-bottom-controls {
-    transform: translateX(-50px);
-    border-radius: 8px 0 0 8px;
-    background-color: #ff6b00;
-    border-color: #ff6b00;
-    color: #000;
-}
-
 /* Controls Section */
 .controls-section {
     background-color: rgba(45, 45, 45, 0.95);
@@ -131,15 +123,14 @@
 /* Toggle Button */
 .toggle-bottom-controls {
     position: absolute;
-    top: 0;
-    left: -50px;
-    width: 40px;
-    height: 40px;
+    top: 0px;
+    left: -40px;
+    width: 36px;
+    height: 36px;
     background-color: rgba(45, 45, 45, 0.95);
     border: 1px solid #555;
     border-radius: 8px;
-    color: #fff;
-    font-size: 16px;
+    color: #e0e0e0;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
@@ -147,17 +138,38 @@
     justify-content: center;
     backdrop-filter: blur(10px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
 }
 
 .toggle-bottom-controls:hover {
     background-color: #ff6b00;
     border-color: #ff6b00;
     color: #000;
-    transform: scale(1.05);
+    }
+
+/* Abgerundete Dreieck-Icons */
+.toggle-bottom-controls::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    background: currentColor;
+    transition: all 0.3s ease;
 }
 
-.toggle-bottom-controls:active {
-    transform: scale(0.95);
+/* Dreieck nach rechts (zum Einklappen) - abgerundet */
+.bottom-right-controls:not(.collapsed) .toggle-bottom-controls::before {
+    clip-path: polygon(0% 20%, 0% 80%, 60% 50%);
+    border-radius: 4px;
+}
+
+/* Dreieck nach links (zum Aufklappen) - abgerundet */
+.bottom-right-controls.collapsed .toggle-bottom-controls::before {
+    clip-path: polygon(40% 50%, 100% 20%, 100% 80%);
+    border-radius: 4px;
+}
+
+.bottom-right-controls.collapsed .toggle-bottom-controls {
+    border-radius: 8px 0 0 8px;
 }
 
 /* Loading State */
@@ -198,10 +210,14 @@
     }
     
     .toggle-bottom-controls {
-        left: -45px;
-        width: 35px;
-        height: 35px;
-        font-size: 14px;
+        left: -35px;
+        width: 32px;
+        height: 32px;
+    }
+    
+    .toggle-bottom-controls::before {
+        width: 12px;
+        height: 12px;
     }
 }
 
@@ -229,10 +245,14 @@
     }
     
     .toggle-bottom-controls {
-        left: -40px;
-        width: 30px;
-        height: 30px;
-        font-size: 12px;
+        left: -30px;
+        width: 28px;
+        height: 28px;
+    }
+    
+    .toggle-bottom-controls::before {
+        width: 10px;
+        height: 10px;
     }
 }
 

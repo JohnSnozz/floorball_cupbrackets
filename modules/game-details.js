@@ -538,8 +538,173 @@ async crawlGameDetailsFromCups() {
       return [];
     }
   }
-}
 
+
+
+// Neue Funktion für GameDetailsManager Klasse hinzufügen
+
+// Neue Funktion für GameDetailsManager Klasse hinzufügen
+
+async crawlGameDetailsForSeasonWithRetry(season) {
+  console.log(`🔄 Starte robustes Crawling für Season ${season} (unbegrenzte Retries bis 3 consecutive Failure-Runden)...`);
+  
+  let retryCount = 0;
+  let failedGameIds = new Set();
+  let consecutiveFailureRounds = 0;
+  
+  while (consecutiveFailureRounds < 3) {
+    console.log(`\n🔍 Durchlauf ${retryCount + 1} für Season ${season}...`);
+    
+    try {
+      // Prüfe ob games Tabelle existiert
+      const tableCheck = await this.queryAsync(
+        "SELECT to_regclass('games') as exists"
+      );
+      
+      if (!tableCheck?.exists) {
+        console.log('⚠️  Games Tabelle existiert nicht - Crawling abgebrochen');
+        return { success: 0, errors: 0, retries: retryCount };
+      }
+
+      let gamesSQL;
+      let params;
+
+      if (retryCount === 0) {
+        // Erster Durchlauf: Alle Spiele der Season
+        gamesSQL = `
+          select distinct g.numericgameid, g.team1, g.team2, g.cuptype, g.season
+          from games g
+          left join gamedetails gd on g.numericgameid = gd.numericgameid
+          where g.numericgameid is not null 
+          and lower(g.team1) not like '%freilos%' 
+          and lower(g.team2) not like '%freilos%'
+          and g.season = $1
+          and g.source != 'prognose'
+          and (gd.numericgameid is null or gd.lastupdated < now() - interval '1 day')
+          order by g.cuptype, g.numericgameid
+        `;
+        params = [season];
+      } else {
+        // Retry-Durchläufe: Nur fehlgeschlagene Spiele
+        if (failedGameIds.size === 0) {
+          console.log(`✅ Keine fehlgeschlagenen Spiele mehr - Crawling erfolgreich beendet`);
+          break;
+        }
+        
+        const failedIds = Array.from(failedGameIds);
+        const placeholders = failedIds.map((_, index) => `$${index + 2}`).join(',');
+        
+        gamesSQL = `
+          select distinct g.numericgameid, g.team1, g.team2, g.cuptype, g.season
+          from games g
+          where g.numericgameid in (${placeholders})
+          and g.season = $1
+          order by g.cuptype, g.numericgameid
+        `;
+        params = [season, ...failedIds];
+        
+        console.log(`🔄 Retry für ${failedGameIds.size} fehlgeschlagene Spiele...`);
+        
+        // 5 Sekunden warten vor Retry
+        console.log('⏳ Warte 5 Sekunden vor Retry...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+
+      const games = await this.queryAllAsync(gamesSQL, params);
+      
+      if (!games || games.length === 0) {
+        if (retryCount === 0) {
+          console.log(`ℹ️  Keine Games für Season ${season} gefunden oder alle bereits aktuell`);
+          return { success: 0, errors: 0, retries: retryCount };
+        } else {
+          console.log(`✅ Alle Retry-Spiele erfolgreich verarbeitet`);
+          break;
+        }
+      }
+
+      console.log(`🎯 Verarbeite ${games.length} Spiele in Durchlauf ${retryCount + 1}...`);
+      
+      let success = 0, errors = 0;
+      const currentFailures = new Set();
+
+      for (const game of games) {
+        const gameData = await this.fetchGameDetails(game.numericgameid);
+        
+        if (gameData) {
+          await this.saveGameDetails(game.numericgameid, gameData, season);
+          success++;
+          
+          // Aus failed list entfernen falls erfolgreich
+          failedGameIds.delete(game.numericgameid);
+          
+          // Progress anzeigen
+          if (success % 10 === 0) {
+            console.log(`📊 Progress Durchlauf ${retryCount + 1}: ${success}/${games.length} erfolgreich`);
+          }
+        } else {
+          errors++;
+          currentFailures.add(game.numericgameid);
+          failedGameIds.add(game.numericgameid);
+          console.log(`❌ Fehler bei gameid ${game.numericgameid} (${game.team1} vs ${game.team2})`);
+        }
+
+        // Rate limiting - 1 Request pro Sekunde
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      console.log(`📊 Durchlauf ${retryCount + 1} abgeschlossen: ${success} erfolgreich, ${errors} Fehler`);
+      
+      // Prüfe auf consecutive failures: Nur wenn ALLE Spiele fehlgeschlagen sind
+      if (errors > 0 && success === 0 && games.length > 0) {
+        consecutiveFailureRounds++;
+        console.log(`⚠️  Consecutive Failure Round ${consecutiveFailureRounds}/3 - Nur Fehler in diesem Durchlauf`);
+      } else if (success > 0) {
+        consecutiveFailureRounds = 0; // Reset bei mindestens einem Erfolg
+        console.log(`✅ Erfolg erkannt - Consecutive Failure Counter zurückgesetzt`);
+      }
+      
+      retryCount++;
+      
+    } catch (error) {
+      console.error(`❌ Fehler in Durchlauf ${retryCount + 1}:`, error.message);
+      consecutiveFailureRounds++;
+      retryCount++;
+    }
+  }
+
+  // Final summary
+  const totalSuccess = await this.queryAsync(`
+    select count(*) as count from gamedetails 
+    where season = $1 and lastupdated > now() - interval '1 hour'
+  `, [season]);
+
+  const finalFailedCount = failedGameIds.size;
+
+  if (consecutiveFailureRounds >= 3) {
+    console.log(`🛑 Crawling abgebrochen nach 3 consecutiven Nur-Fehler-Runden`);
+  }
+
+  if (finalFailedCount === 0) {
+    console.log(`🎉 Robustes Crawling für Season ${season} erfolgreich abgeschlossen!`);
+  } else {
+    console.log(`⚠️  Crawling für Season ${season} beendet mit ${finalFailedCount} verbleibenden Fehlern`);
+  }
+
+  console.log(`📊 Final Summary Season ${season}:`);
+  console.log(`   - Durchläufe insgesamt: ${retryCount}`);
+  console.log(`   - Erfolgreich gespeichert: ${totalSuccess?.count || 0}`);
+  console.log(`   - Verbleibende Fehler: ${finalFailedCount}`);
+  console.log(`   - Consecutive Nur-Fehler-Runden: ${consecutiveFailureRounds}`);
+
+  return { 
+    success: totalSuccess?.count || 0, 
+    errors: finalFailedCount, 
+    retries: retryCount,
+    consecutiveFailures: consecutiveFailureRounds,
+    season 
+  };
+}
+}
 module.exports = {
   GameDetailsManager,
   
@@ -619,6 +784,17 @@ module.exports = {
       }
     });
 
+    // Robustes Crawling mit Retry für spezifische Season
+app.post('/api/crawl-game-details/:season/retry', async (req, res) => {
+  try {
+    const season = req.params.season;
+    const result = await manager.crawlGameDetailsForSeasonWithRetry(season);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
     // Delete gamedetails für Season
     app.delete('/api/game-details/season/:season', async (req, res) => {
       try {
@@ -663,6 +839,11 @@ module.exports = {
         res.status(500).json({ error: error.message });
       }
     });
+
+  app.post('/api/crawl-game-details/:season/retry', async (req, res) => {
+  const result = await manager.crawlGameDetailsForSeasonWithRetry(req.params.season);
+  res.json(result);
+});
 
     console.log('🎯 gamedetails API-Routes mit Season-Management registriert');
   }

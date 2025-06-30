@@ -17,12 +17,7 @@ class BottomControlsManager {
             { id: 'damen_kleinfeld', name: 'Damen Kleinfeld', short: 'D-KF' }
         ];
         
-        this.seasons = [
-            '2024/25',
-            '2023/24', 
-            '2022/23',
-            '2021/22'
-        ];
+        this.seasons = this.generateSeasons();
         
         // Current Selection
         this.currentCup = 'herren_grossfeld';
@@ -50,6 +45,31 @@ class BottomControlsManager {
         
         // KORRIGIERT: Keine automatische Ladung hier, da smartbracket.js bereits lädt
         console.log('✅ Bottom Controls Manager initialized');
+    }
+    
+generateSeasons() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        
+        // Aktuelle Saison bestimmen
+        let currentSeasonYear;
+        if (month >= 5) {
+            currentSeasonYear = year;
+        } else {
+            currentSeasonYear = year - 1;
+        }
+        
+        // Generiere Saisons: aktuelle + 2 zukünftige + 2 vergangene
+        const seasons = [];
+        for (let i = 0; i >= -3; i--) {
+            const seasonStart = currentSeasonYear + i;
+            const seasonEnd = seasonStart + 1;
+            seasons.push(`${seasonStart}/${String(seasonEnd).slice(-2)}`);
+        }
+        
+        console.log('📅 Generated seasons:', seasons);
+        return seasons;
     }
     
     getCurrentSeason() {
