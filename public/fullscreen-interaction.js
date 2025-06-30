@@ -1,5 +1,4 @@
-// Fullscreen Interaction - Pan und Zoom für Bracket
-// Behandelt Maus-Interaktionen für das Bracket ohne Links zu beeinträchtigen
+// Fullscreen Interaction - Einfache, funktionierende Version
 
 class FullscreenInteraction {
     constructor() {
@@ -7,47 +6,48 @@ class FullscreenInteraction {
         this.viewport = null;
         this.content = null;
         
-        // Pan State - Vereinfacht für bessere Performance
+        // Pan State
         this.isPanning = false;
         this.panStart = { x: 0, y: 0 };
-        this.panOffset = { x: 0, y: 0 };
-        this.lastPanOffset = { x: 0, y: 0 };
+        this.currentPan = { x: 0, y: 0 };
         
         // Zoom State
-        this.zoomLevel = 1;
-        this.minZoom = 0.1;
-        this.maxZoom = 3;
+        this.currentZoom = 1;
+        this.minZoom = 0.3;
+        this.maxZoom = 2.0;
         this.zoomStep = 0.1;
         
-        // Touch State für Mobile
+        // Touch State
         this.lastTouchDistance = 0;
-        this.touchCenter = { x: 0, y: 0 };
         
         this.init();
     }
     
-init() {
-    console.log('🎯 Initializing Fullscreen Interaction...');
-    
-    this.container = document.getElementById('fullscreenContainer');
-    this.viewport = document.getElementById('bracketViewport');
-    this.content = document.getElementById('bracketContent');
-    
-    if (!this.container || !this.viewport || !this.content) {
-        console.error('❌ Required elements not found');
-        return;
+    init() {
+        console.log('🎯 Initializing Fullscreen Interaction...');
+        
+        this.container = document.getElementById('fullscreenContainer');
+        this.viewport = document.getElementById('bracketViewport');
+        this.content = document.getElementById('bracketContent');
+        
+        if (!this.container || !this.viewport || !this.content) {
+            console.error('❌ Required elements not found');
+            return;
+        }
+        
+        // Setze transform-origin explizit
+        this.viewport.style.transformOrigin = 'top left';
+        
+        this.setupEventListeners();
+        this.updateZoomDisplay();
+        
+        // Auto-fit nach kurzer Verzögerung
+        setTimeout(() => {
+            this.autoFitBracket();
+        }, 500);
+        
+        console.log('✅ Fullscreen Interaction initialized');
     }
-    
-    this.setupEventListeners();
-    this.updateZoomDisplay();
-    
-    // Initial auto-fit nach kurzer Verzögerung - NEU!
-    setTimeout(() => {
-        this.autoFitBracket();
-    }, 1000);
-    
-    console.log('✅ Fullscreen Interaction initialized');
-}
     
     setupEventListeners() {
         // Mouse Events
@@ -55,16 +55,22 @@ init() {
         document.addEventListener('mousemove', this.handleMouseMove.bind(this));
         document.addEventListener('mouseup', this.handleMouseUp.bind(this));
         
-        // Wheel Event für Zoom
+        // Wheel Event
         this.container.addEventListener('wheel', this.handleWheel.bind(this));
         
-        // Touch Events für Mobile
+        // Touch Events
         this.container.addEventListener('touchstart', this.handleTouchStart.bind(this));
         this.container.addEventListener('touchmove', this.handleTouchMove.bind(this));
         this.container.addEventListener('touchend', this.handleTouchEnd.bind(this));
         
-        // Zoom Button Events
-        this.setupZoomButtons();
+        // Zoom Buttons
+        const zoomIn = document.getElementById('zoomIn');
+        const zoomOut = document.getElementById('zoomOut');
+        const zoomReset = document.getElementById('zoomReset');
+        
+        if (zoomIn) zoomIn.addEventListener('click', () => this.zoomIn());
+        if (zoomOut) zoomOut.addEventListener('click', () => this.zoomOut());
+        if (zoomReset) zoomReset.addEventListener('click', () => this.autoFitBracket());
         
         // Prevent context menu
         this.container.addEventListener('contextmenu', e => e.preventDefault());
@@ -73,29 +79,109 @@ init() {
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
     }
     
-    setupZoomButtons() {
-        const zoomIn = document.getElementById('zoomIn');
-        const zoomOut = document.getElementById('zoomOut');
-        const zoomReset = document.getElementById('zoomReset');
+    getBracketDimensions() {
+        const bracketElement = this.content.querySelector('.smart-bracket');
+        if (!bracketElement) {
+            return { width: 1400, height: 800 };
+        }
         
-        if (zoomIn) zoomIn.addEventListener('click', () => this.zoomIn());
-        if (zoomOut) zoomOut.addEventListener('click', () => this.zoomOut());
-        if (zoomReset) zoomReset.addEventListener('click', () => this.resetView());
+        // Hole die CSS-Dimensionen (die ursprünglichen, ungezooomten Werte)
+        const style = window.getComputedStyle(bracketElement);
+        const width = parseFloat(style.width) || 1400;
+        const height = parseFloat(style.height) || 800;
+        
+        return { width, height };
+    }
+    
+    getPanLimits() {
+        const viewportRect = this.viewport.getBoundingClientRect();
+        const bracketDims = this.getBracketDimensions();
+        
+        // Skalierte Bracket-Größe (mit aktuellem Zoom)
+        const scaledWidth = bracketDims.width * this.currentZoom;
+        const scaledHeight = bracketDims.height * this.currentZoom;
+        
+        // Berechne wie viel das Bracket über den Viewport hinausragt
+        const overflowX = Math.max(0, scaledWidth - viewportRect.width);
+        const overflowY = Math.max(0, scaledHeight - viewportRect.height);
+        
+        // Pan-Limits erklärt:
+        // Positive Y-Werte = Bracket nach unten verschieben = oberen Teil sehen
+        // Negative Y-Werte = Bracket nach oben verschieben = unteren Teil sehen
+        const limits = {
+            minX: overflowX > 0 ? -overflowX : 0,
+            maxX: 0,
+            minY: overflowY > 0 ? -overflowY : 0,  // Kann nach oben verschieben um unteren Teil zu sehen
+            maxY: 0   // Kann nicht über den oberen Rand hinaus
+        };
+        
+        // Debug-Ausgabe
+        console.log('Pan Limits:', {
+            zoom: `${Math.round(this.currentZoom * 100)}%`,
+            bracketHeight: bracketDims.height,
+            scaledHeight: Math.round(scaledHeight),
+            viewportHeight: Math.round(viewportRect.height),
+            overflowY: Math.round(overflowY),
+            currentPanY: Math.round(this.currentPan.y),
+            limits: {
+                minY: Math.round(limits.minY),
+                maxY: Math.round(limits.maxY)
+            }
+        });
+        
+        return limits;
+    }
+    
+    constrainPan(x, y) {
+        const limits = this.getPanLimits();
+        
+        return {
+            x: Math.max(limits.minX, Math.min(limits.maxX, x)),
+            y: Math.max(limits.minY, Math.min(limits.maxY, y))
+        };
+    }
+    
+    updateTransform() {
+        const constrained = this.constrainPan(this.currentPan.x, this.currentPan.y);
+        this.currentPan = constrained;
+        
+        // Transform mit transform-origin top left
+        const transform = `translate(${constrained.x}px, ${constrained.y}px) scale(${this.currentZoom})`;
+        this.viewport.style.transform = transform;
+        this.viewport.style.transformOrigin = 'top left';
+        
+        // Debug info
+        this.debugPanInfo();
+    }
+    
+    debugPanInfo() {
+        const bracketElement = this.content.querySelector('.smart-bracket');
+        if (!bracketElement) return;
+        
+        const bracketRect = bracketElement.getBoundingClientRect();
+        const viewportRect = this.viewport.getBoundingClientRect();
+        
+        console.log('🔍 Debug Pan Info:', {
+            currentPan: { x: Math.round(this.currentPan.x), y: Math.round(this.currentPan.y) },
+            bracketTop: Math.round(bracketRect.top),
+            bracketBottom: Math.round(bracketRect.bottom),
+            viewportTop: Math.round(viewportRect.top),
+            viewportBottom: Math.round(viewportRect.bottom),
+            visibleTop: Math.round(bracketRect.top - viewportRect.top),
+            visibleBottom: Math.round(bracketRect.bottom - viewportRect.bottom)
+        });
     }
     
     // Mouse Events
     handleMouseDown(e) {
-        // Ignore if clicking on links or buttons
-        if (this.isClickableElement(e.target)) {
-            return;
-        }
-        
-        // Nur linke Maustaste für Panning
+        if (this.isClickableElement(e.target)) return;
         if (e.button !== 0) return;
         
         this.isPanning = true;
-        this.panStart.x = e.clientX - this.panOffset.x;
-        this.panStart.y = e.clientY - this.panOffset.y;
+        this.panStart = {
+            x: e.clientX - this.currentPan.x,
+            y: e.clientY - this.currentPan.y
+        };
         
         this.container.classList.add('dragging');
         e.preventDefault();
@@ -104,8 +190,10 @@ init() {
     handleMouseMove(e) {
         if (!this.isPanning) return;
         
-        this.panOffset.x = e.clientX - this.panStart.x;
-        this.panOffset.y = e.clientY - this.panStart.y;
+        this.currentPan = {
+            x: e.clientX - this.panStart.x,
+            y: e.clientY - this.panStart.y
+        };
         
         this.updateTransform();
         e.preventDefault();
@@ -115,44 +203,59 @@ init() {
         if (!this.isPanning) return;
         
         this.isPanning = false;
-        this.lastPanOffset.x = this.panOffset.x;
-        this.lastPanOffset.y = this.panOffset.y;
-        
         this.container.classList.remove('dragging');
     }
     
-    // Wheel Event für Zoom
     handleWheel(e) {
-        if (this.isClickableElement(e.target)) {
-            return;
-        }
+        if (this.isClickableElement(e.target)) return;
         
         e.preventDefault();
         
+        // Mausposition relativ zum Container
         const rect = this.container.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         
+        // Zoom-Richtung
         const delta = e.deltaY > 0 ? -this.zoomStep : this.zoomStep;
-        this.zoomAt(mouseX, mouseY, delta);
+        
+        // Alten Zoom speichern
+        const oldZoom = this.currentZoom;
+        
+        // Neuen Zoom berechnen
+        this.currentZoom = Math.max(this.minZoom, Math.min(this.maxZoom, oldZoom + delta));
+        
+        if (this.currentZoom !== oldZoom) {
+            // Zoom-Verhältnis
+            const zoomRatio = this.currentZoom / oldZoom;
+            
+            // Mausposition relativ zum Viewport-Center
+            const viewportCenterX = rect.width / 2;
+            const viewportCenterY = rect.height / 2;
+            
+            // Anpassen der Pan-Position, um an der Mausposition zu zoomen
+            this.currentPan.x = mouseX - (mouseX - this.currentPan.x) * zoomRatio;
+            this.currentPan.y = mouseY - (mouseY - this.currentPan.y) * zoomRatio;
+            
+            this.updateTransform();
+            this.updateZoomDisplay();
+        }
     }
     
-    // Touch Events für Mobile
+    // Touch Events
     handleTouchStart(e) {
         if (e.touches.length === 1) {
-            // Single touch - Pan
             const touch = e.touches[0];
             this.isPanning = true;
-            this.panStart.x = touch.clientX - this.panOffset.x;
-            this.panStart.y = touch.clientY - this.panOffset.y;
+            this.panStart = {
+                x: touch.clientX - this.currentPan.x,
+                y: touch.clientY - this.currentPan.y
+            };
         } else if (e.touches.length === 2) {
-            // Two touches - Zoom
             this.isPanning = false;
             const touch1 = e.touches[0];
             const touch2 = e.touches[1];
-            
             this.lastTouchDistance = this.getTouchDistance(touch1, touch2);
-            this.touchCenter = this.getTouchCenter(touch1, touch2);
         }
         
         e.preventDefault();
@@ -160,30 +263,25 @@ init() {
     
     handleTouchMove(e) {
         if (e.touches.length === 1 && this.isPanning) {
-            // Single touch - Pan
             const touch = e.touches[0];
-            this.panOffset.x = touch.clientX - this.panStart.x;
-            this.panOffset.y = touch.clientY - this.panStart.y;
+            this.currentPan = {
+                x: touch.clientX - this.panStart.x,
+                y: touch.clientY - this.panStart.y
+            };
             this.updateTransform();
         } else if (e.touches.length === 2) {
-            // Two touches - Zoom
             const touch1 = e.touches[0];
             const touch2 = e.touches[1];
-            
             const currentDistance = this.getTouchDistance(touch1, touch2);
-            const currentCenter = this.getTouchCenter(touch1, touch2);
             
             if (this.lastTouchDistance > 0) {
-                const zoomDelta = (currentDistance - this.lastTouchDistance) * 0.01;
-                const rect = this.container.getBoundingClientRect();
-                const mouseX = currentCenter.x - rect.left;
-                const mouseY = currentCenter.y - rect.top;
-                
-                this.zoomAt(mouseX, mouseY, zoomDelta);
+                const scale = currentDistance / this.lastTouchDistance;
+                this.currentZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.currentZoom * scale));
+                this.updateTransform();
+                this.updateZoomDisplay();
             }
             
             this.lastTouchDistance = currentDistance;
-            this.touchCenter = currentCenter;
         }
         
         e.preventDefault();
@@ -193,30 +291,30 @@ init() {
         if (e.touches.length === 0) {
             this.isPanning = false;
             this.lastTouchDistance = 0;
-            this.lastPanOffset.x = this.panOffset.x;
-            this.lastPanOffset.y = this.panOffset.y;
         } else if (e.touches.length === 1) {
-            // Switch from zoom to pan
             this.lastTouchDistance = 0;
             const touch = e.touches[0];
             this.isPanning = true;
-            this.panStart.x = touch.clientX - this.panOffset.x;
-            this.panStart.y = touch.clientY - this.panOffset.y;
+            this.panStart = {
+                x: touch.clientX - this.currentPan.x,
+                y: touch.clientY - this.currentPan.y
+            };
         }
     }
     
-    // Keyboard Shortcuts
     handleKeyDown(e) {
-        // Ignore if typing in input fields
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
-            return;
-        }
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
         
         switch (e.key) {
             case '+':
             case '=':
                 e.preventDefault();
                 this.zoomIn();
+            case 'd':
+                if (e.ctrlKey || e.shiftKey) {
+                    e.preventDefault();
+                    this.debugCurrentState();
+                }
                 break;
             case '-':
                 e.preventDefault();
@@ -225,104 +323,87 @@ init() {
             case '0':
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    this.resetView();
+                    this.autoFitBracket();
                 }
                 break;
-            case 'Home':
+            case 'f':
                 e.preventDefault();
-                this.centerView();
+                this.autoFitBracket();
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                this.currentPan.x += 50;
+                this.updateTransform();
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                this.currentPan.x -= 50;
+                this.updateTransform();
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                this.currentPan.y += 50;
+                this.updateTransform();
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                this.currentPan.y -= 50;
+                this.updateTransform();
                 break;
         }
     }
     
     // Zoom Functions
     zoomIn() {
-        const rect = this.container.getBoundingClientRect();
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        this.zoomAt(centerX, centerY, this.zoomStep);
+        this.currentZoom = Math.min(this.maxZoom, this.currentZoom + this.zoomStep);
+        this.updateTransform();
+        this.updateZoomDisplay();
     }
     
     zoomOut() {
-        const rect = this.container.getBoundingClientRect();
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        this.zoomAt(centerX, centerY, -this.zoomStep);
-    }
-    
-    zoomAt(mouseX, mouseY, delta) {
-        const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoomLevel + delta));
-        
-        if (newZoom === this.zoomLevel) return;
-        
-        // Berechne Zoom-Center relativ zum Viewport
-        const zoomFactor = newZoom / this.zoomLevel;
-        
-        // Anpassung der Pan-Offset für Zoom am Maus-Punkt
-        const rect = this.viewport.getBoundingClientRect();
-        const viewportCenterX = rect.width / 2;
-        const viewportCenterY = rect.height / 2;
-        
-        // Berechne neuen Offset um den Zoom-Punkt
-        const deltaX = (mouseX - viewportCenterX) * (1 - zoomFactor);
-        const deltaY = (mouseY - viewportCenterY) * (1 - zoomFactor);
-        
-        this.panOffset.x += deltaX;
-        this.panOffset.y += deltaY;
-        this.lastPanOffset.x = this.panOffset.x;
-        this.lastPanOffset.y = this.panOffset.y;
-        
-        this.zoomLevel = newZoom;
+        this.currentZoom = Math.max(this.minZoom, this.currentZoom - this.zoomStep);
         this.updateTransform();
         this.updateZoomDisplay();
+    }
+    
+    autoFitBracket() {
+        console.log('🎯 Auto-fitting bracket...');
+        
+        const viewportRect = this.viewport.getBoundingClientRect();
+        const bracketDims = this.getBracketDimensions();
+        
+        // Berechne Zoom um das Bracket in den Viewport zu passen
+        const scaleX = viewportRect.width / bracketDims.width;
+        const scaleY = viewportRect.height / bracketDims.height;
+        
+        // Nimm das Minimum aber mit etwas Padding
+        this.currentZoom = Math.min(scaleX, scaleY) * 0.9;
+        this.currentZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.currentZoom));
+        
+        // Zentriere das Bracket
+        this.currentPan = { x: 0, y: 0 };
+        
+        this.viewport.classList.add('smooth-transition');
+        this.updateTransform();
+        this.updateZoomDisplay();
+        
+        setTimeout(() => {
+            this.viewport.classList.remove('smooth-transition');
+        }, 300);
     }
     
     resetView() {
-        this.zoomLevel = 0.8;
-        this.panOffset.x = 0;
-        this.panOffset.y = 0;
-        this.lastPanOffset.x = 0;
-        this.lastPanOffset.y = 0;
-        
-        this.viewport.classList.add('smooth-transition');
-        this.updateTransform();
-        this.updateZoomDisplay();
-        
-        setTimeout(() => {
-            this.viewport.classList.remove('smooth-transition');
-        }, 300);
-    }
-    
-    centerView() {
-        this.panOffset.x = 0;
-        this.panOffset.y = 0;
-        this.lastPanOffset.x = 0;
-        this.lastPanOffset.y = 0;
-        
-        this.viewport.classList.add('smooth-transition');
-        this.updateTransform();
-        
-        setTimeout(() => {
-            this.viewport.classList.remove('smooth-transition');
-        }, 300);
-    }
-    
-    // Transform Update
-    updateTransform() {
-        const transform = `translate(${this.panOffset.x}px, ${this.panOffset.y}px) scale(${this.zoomLevel})`;
-        this.viewport.style.transform = transform;
+        this.autoFitBracket();
     }
     
     updateZoomDisplay() {
         const zoomDisplay = document.getElementById('zoomLevel');
         if (zoomDisplay) {
-            zoomDisplay.textContent = `${Math.round(this.zoomLevel * 100)}%`;
+            zoomDisplay.textContent = `${Math.round(this.currentZoom * 100)}%`;
         }
     }
     
-    // Helper Functions
     isClickableElement(element) {
-        // Prüfe ob Element oder Parent ein Link/Button ist
         let current = element;
         while (current && current !== this.container) {
             if (current.tagName === 'A' || 
@@ -343,119 +424,52 @@ init() {
         return Math.sqrt(dx * dx + dy * dy);
     }
     
-    getTouchCenter(touch1, touch2) {
-        return {
-            x: (touch1.clientX + touch2.clientX) / 2,
-            y: (touch1.clientY + touch2.clientY) / 2
-        };
+    debugCurrentState() {
+        const viewportRect = this.viewport.getBoundingClientRect();
+        const bracketElement = this.content.querySelector('.smart-bracket');
+        const bracketRect = bracketElement ? bracketElement.getBoundingClientRect() : null;
+        const limits = this.getPanLimits();
+        
+        console.log('🔍 VOLLSTÄNDIGER DEBUG STATE:');
+        console.log('=====================================');
+        console.log('Zoom:', `${Math.round(this.currentZoom * 100)}%`);
+        console.log('Current Pan:', { x: Math.round(this.currentPan.x), y: Math.round(this.currentPan.y) });
+        console.log('Pan Limits:', limits);
+        
+        if (bracketRect) {
+            console.log('Bracket Position:', {
+                top: Math.round(bracketRect.top),
+                bottom: Math.round(bracketRect.bottom),
+                height: Math.round(bracketRect.height)
+            });
+            console.log('Viewport Position:', {
+                top: Math.round(viewportRect.top),
+                bottom: Math.round(viewportRect.bottom),
+                height: Math.round(viewportRect.height)
+            });
+            console.log('Sichtbarkeit:', {
+                'Pixel über Viewport': Math.round(viewportRect.top - bracketRect.top),
+                'Pixel unter Viewport': Math.round(bracketRect.bottom - viewportRect.bottom)
+            });
+        }
+        console.log('=====================================');
     }
     
-    // Public API
-    setZoom(level) {
-        this.zoomLevel = Math.max(this.minZoom, Math.min(this.maxZoom, level));
+    // Public API für andere Scripts
+    refreshLimits() {
+        // Nach Bracket-Änderungen aufrufen
         this.updateTransform();
-        this.updateZoomDisplay();
     }
-    
-    getZoom() {
-        return this.zoomLevel;
-    }
-    
-    setPan(x, y) {
-        this.panOffset.x = x;
-        this.panOffset.y = y;
-        this.lastPanOffset.x = x;
-        this.lastPanOffset.y = y;
-        this.updateTransform();
-    }
-    
-    getPan() {
-        return { x: this.panOffset.x, y: this.panOffset.y };
-    }
-    
-    // Auto-fit Bracket nach dem Laden - VERBESSERTE VERSION
-autoFitBracket() {
-    console.log('🎯 Auto-fitting bracket...');
-    
-    const bracketElement = document.querySelector('.smart-bracket');
-    if (!bracketElement) {
-        console.log('❌ No bracket element found for auto-fit');
-        return;
-    }
-    
-    // Warte bis Bracket vollständig gerendert ist
-    setTimeout(() => {
-        // Force reflow um sicherzustellen dass Dimensionen korrekt sind
-        bracketElement.offsetHeight;
-        
-        const bracketRect = bracketElement.getBoundingClientRect();
-        const containerRect = this.container.getBoundingClientRect();
-        
-        console.log('📏 Bracket dimensions:', {
-            bracket: { width: bracketRect.width, height: bracketRect.height },
-            container: { width: containerRect.width, height: containerRect.height },
-            bracketStyle: { 
-                width: bracketElement.style.width, 
-                height: bracketElement.style.height 
-            }
-        });
-        
-        // Verwende Style-Dimensionen falls vorhanden, sonst getBoundingClientRect
-        let bracketWidth = bracketRect.width;
-        let bracketHeight = bracketRect.height;
-        
-        // Fallback zu Style-Dimensionen wenn getBoundingClientRect 0 zurückgibt
-        if (bracketWidth === 0 && bracketElement.style.width) {
-            bracketWidth = parseFloat(bracketElement.style.width);
-        }
-        if (bracketHeight === 0 && bracketElement.style.height) {
-            bracketHeight = parseFloat(bracketElement.style.height);
-        }
-        
-        console.log('📏 Final dimensions:', { width: bracketWidth, height: bracketHeight });
-        
-        if (bracketWidth > 0 && bracketHeight > 0) {
-            // Berechne optimalen Zoom um das ganze Bracket zu sehen
-            const padding = 100; // Padding für bessere Sicht
-            const scaleX = (containerRect.width - padding) / bracketWidth;
-            const scaleY = (containerRect.height - padding) / bracketHeight;
-            const optimalZoom = Math.min(scaleX, scaleY, 1.0); // Max 100%
-            
-            // Mindest-Zoom für Lesbarkeit
-            const finalZoom = Math.max(this.minZoom, optimalZoom);
-            
-            this.zoomLevel = finalZoom;
-            this.panOffset.x = 0;
-            this.panOffset.y = 0;
-            this.lastPanOffset.x = 0;
-            this.lastPanOffset.y = 0;
-            
-            this.viewport.classList.add('smooth-transition');
-            this.updateTransform();
-            this.updateZoomDisplay();
-            
-            setTimeout(() => {
-                this.viewport.classList.remove('smooth-transition');
-            }, 300);
-            
-            console.log(`✅ Auto-fit complete: ${Math.round(finalZoom * 100)}% (scale factors: ${scaleX.toFixed(2)}, ${scaleY.toFixed(2)})`);
-        } else {
-            console.log('❌ Invalid bracket dimensions for auto-fit');
-            // Fallback zu Standard-Reset
-            this.resetView();
-        }
-    }, 300); // Längere Verzögerung für vollständiges Rendering
-}
 }
 
 // Initialize when DOM is ready
 let fullscreenInteraction = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Initializing Fullscreen Interaction on DOMContentLoaded');
+    console.log('🚀 Initializing Fullscreen Interaction');
     fullscreenInteraction = new FullscreenInteraction();
+    window.fullscreenInteraction = fullscreenInteraction;
 });
 
 // Export for global access
 window.FullscreenInteraction = FullscreenInteraction;
-window.fullscreenInteraction = fullscreenInteraction;
