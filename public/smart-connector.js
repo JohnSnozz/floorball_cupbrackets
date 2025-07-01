@@ -97,7 +97,7 @@ class SmartConnector {
         const targetCenterY = targetPos.y + (targetPos.height / 2);
         
         // KRITISCHER FIX: Korrekte Berechnung der Verbindungsgeometrie
-        const bridgeX = sourceRight + 20; // 20px Abstand vom Source-Match
+        const bridgeX = sourceRight + 30; // 30px Abstand vom Source-Match
         
         // 1. Horizontale Linie vom Source-Match zur Bridge
         this.createHorizontalLine(sourceRight, sourceCenterY, bridgeX, sourceGame, targetGame, 'out');

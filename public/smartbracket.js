@@ -4,8 +4,8 @@ let currentRounds = [];
 let debugData = {};
 
 const MATCH_HEIGHT = 62;
-const ROUND_WIDTH = 180;
-const ROUND_GAP = 40;
+const ROUND_WIDTH = 240;
+const ROUND_GAP = 60;
 const TOTAL_ROUND_SPACING = ROUND_WIDTH + ROUND_GAP;
 
 function getUnifiedRoundPriority(roundname) {
@@ -490,6 +490,175 @@ function adjustLongTeamNames() {
         if (el.textContent.length > 15) el.classList.add('long-name');
     });
 }
+
+// Verbesserte dynamische Schriftgrößenanpassung für Team-Namen
+function adjustTeamNameSizes() {
+    console.log('🔧 Adjusting team name sizes...');
+    
+    const teamNames = document.querySelectorAll('.team-name');
+    
+    teamNames.forEach((teamNameElement, index) => {
+        // Reset alle Klassen und Attribute
+        teamNameElement.classList.remove('long-name', 'very-long-name', 'extra-long-name');
+        teamNameElement.removeAttribute('data-length');
+        
+        const text = teamNameElement.textContent.trim();
+        const textLength = text.length;
+        
+        // Bestimme Schriftgröße basierend auf Textlänge
+        let lengthCategory = 'short';
+        
+        if (textLength >= 30) {
+            lengthCategory = 'extra-long';
+            teamNameElement.classList.add('extra-long-name');
+        } else if (textLength >= 25) {
+            lengthCategory = 'very-long';
+            teamNameElement.classList.add('very-long-name');
+        } else if (textLength >= 20) {
+            lengthCategory = 'long';
+            teamNameElement.classList.add('long-name');
+        } else if (textLength >= 15) {
+            lengthCategory = 'medium';
+        }
+        
+        // Setze data-attribute für CSS-Selektor
+        teamNameElement.setAttribute('data-length', lengthCategory);
+        
+        // Zusätzliche Prüfung auf tatsächliche Container-Breite
+        setTimeout(() => {
+            const team = teamNameElement.closest('.team');
+            if (team) {
+                const teamRect = team.getBoundingClientRect();
+                const scoreElement = team.querySelector('.team-score');
+                const scoreWidth = scoreElement ? scoreElement.getBoundingClientRect().width : 22;
+                
+                // Verfügbare Breite berechnen (Container - Score - Info-Button - Padding)
+                const availableWidth = teamRect.width - scoreWidth - 30 - 20; // 30px für Info-Button, 20px Padding
+                
+                // Setze maximale Breite
+                teamNameElement.style.maxWidth = `${Math.max(availableWidth, 80)}px`;
+                
+                // Prüfe Overflow und reduziere Schriftgröße weiter falls nötig
+                const nameRect = teamNameElement.getBoundingClientRect();
+                if (nameRect.width >= availableWidth - 5) { // 5px Buffer
+                    if (lengthCategory === 'short') {
+                        teamNameElement.setAttribute('data-length', 'medium');
+                    } else if (lengthCategory === 'medium') {
+                        teamNameElement.setAttribute('data-length', 'long');
+                        teamNameElement.classList.add('long-name');
+                    } else if (lengthCategory === 'long') {
+                        teamNameElement.setAttribute('data-length', 'very-long');
+                        teamNameElement.classList.remove('long-name');
+                        teamNameElement.classList.add('very-long-name');
+                    } else if (lengthCategory === 'very-long') {
+                        teamNameElement.setAttribute('data-length', 'extra-long');
+                        teamNameElement.classList.remove('very-long-name');
+                        teamNameElement.classList.add('extra-long-name');
+                    }
+                }
+            }
+        }, 50);
+        
+        console.log(`Team ${index + 1}: "${text}" (${textLength} chars) -> ${lengthCategory}`);
+    });
+    
+    console.log(`✅ Adjusted ${teamNames.length} team names`);
+}
+
+// Beobachter für DOM-Änderungen um dynamisch zu reagieren
+function initializeFontSizeObserver() {
+    const bracketContainer = document.querySelector('.bracket-container');
+    if (!bracketContainer) return;
+    
+    const observer = new MutationObserver((mutations) => {
+        let shouldAdjust = false;
+        
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                // Prüfe ob neue Smart Matches hinzugefügt wurden
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE && 
+                        (node.classList.contains('smart-match-absolute') || 
+                         node.querySelector('.smart-match-absolute'))) {
+                        shouldAdjust = true;
+                    }
+                });
+            }
+        });
+        
+        if (shouldAdjust) {
+            setTimeout(adjustTeamNameSizes, 100);
+        }
+    });
+    
+    observer.observe(bracketContainer, {
+        childList: true,
+        subtree: true
+    });
+    
+    console.log('👁️ Font size observer initialized');
+}
+
+// Integration in bestehende Funktionen
+// Diese Funktion sollte in der renderSmartBracket() Funktion aufgerufen werden
+function enhancedBracketSetup() {
+    // Nach dem Bracket-Rendering:
+    setTimeout(() => {
+        adjustTeamNameSizes();
+        initializeFontSizeObserver();
+        
+        // Bestehende Funktionen
+        if (typeof initializeTeamHighlighting === 'function') {
+            initializeTeamHighlighting();
+        }
+        if (typeof initializeSmartMatchLinks === 'function') {
+            initializeSmartMatchLinks();
+        }
+        if (typeof initializeSmartConnectors === 'function') {
+            console.log('🔗 Initializing Smart Connectors...');
+            initializeSmartConnectors(smartRounds);
+        }
+        
+        console.log('🎯 Enhanced bracket setup complete with improved font sizing');
+    }, 200);
+}
+
+// Resize-Handler für responsive Anpassungen
+window.addEventListener('resize', () => {
+    clearTimeout(window.resizeTimeout);
+    window.resizeTimeout = setTimeout(() => {
+        adjustTeamNameSizes();
+    }, 250);
+});
+
+// Export für globale Verwendung
+window.adjustTeamNameSizes = adjustTeamNameSizes;
+window.enhancedBracketSetup = enhancedBracketSetup;
+
+// Fügen Sie diese Zeile zur bestehenden renderSmartBracket() Funktion hinzu:
+// Rufen Sie adjustTeamNameSizes() nach dem Rendering auf
+function enhancedRenderSmartBracket() {
+    // Ihr bestehender renderSmartBracket Code hier...
+    
+    // Nach dem Rendering:
+    setTimeout(() => {
+        adjustLongTeamNames(); // Bestehende Funktion
+        adjustTeamNameSizes(); // Neue Funktion
+        
+        if (typeof initializeTeamHighlighting === 'function') {
+            initializeTeamHighlighting();
+        }
+        if (typeof initializeSmartMatchLinks === 'function') {
+            initializeSmartMatchLinks();
+        }
+        if (typeof initializeSmartConnectors === 'function') {
+            initializeSmartConnectors(smartRounds);
+        }
+        
+        console.log('🎯 Enhanced bracket setup complete with dynamic font sizing');
+    }, 150);
+}
+
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
