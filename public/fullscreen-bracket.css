@@ -1,4 +1,4 @@
-/* Fullscreen Bracket CSS - FIXED VERSION */
+/* Fullscreen Bracket CSS - KORRIGIERTE VERSION mit zentraler Positionierung */
 
 * {
     box-sizing: border-box;
@@ -15,93 +15,83 @@ html, body {
     font-size: 13px;
 }
 
-/* Vollbild Container */
+/* VOLLBILD CONTAINER - KORRIGIERT */
 .fullscreen-bracket-container {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
+    width: 100vw;
+    height: 100vh;
     background-color: #1a1a1a;
     overflow: hidden;
     cursor: grab;
     z-index: 1;
+    user-select: none; /* Verhindert Text-Selektion beim Pannen */
 }
 
 .fullscreen-bracket-container.dragging {
     cursor: grabbing;
-    user-select: none;
 }
 
-/* KRITISCHER FIX: Viewport für Zoom und Pan */
+/* VIEWPORT - TRANSFORM-ORIGIN LINKS OBEN FÜR KORREKTE SKALIERUNG */
 .bracket-viewport {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    /* ENTFERNT: right: 0; bottom: 0; - Diese verursachen Probleme */
-    overflow: visible; /* GEÄNDERT von hidden zu visible */
-    transform-origin: center center;
+    transform-origin: 0 0; /* Wichtig: Transform-Origin links oben */
     will-change: transform;
+    pointer-events: none; /* Verhindert dass Viewport Events abfängt */
 }
 
 .bracket-viewport.smooth-transition {
     transition: transform 0.3s ease-out;
 }
 
-/* KRITISCHER FIX: Bracket Content Container */
+/* BRACKET CONTENT - NICHT MEHR ZENTRIERT, DAS MACHT JS */
 .bracket-content {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    /* ENTFERNT alle Dimensionsbegrenzungen die das Problem verursachen */
-    /* GEÄNDERT: Lasse dem Bracket genug Platz sich auszudehnen */
+    top: 0;
+    left: 0;
+    width: auto; /* GEÄNDERT: auto statt 100% */
+    height: auto; /* GEÄNDERT: auto statt 100% */
+    pointer-events: auto; /* Erlaubt Interaktion mit Bracket-Inhalten */
+}
+
+/* BRACKET CONTAINER - KOMPAKTER */
+.bracket-container {
     width: auto;
     height: auto;
-    min-width: max-content;
-    min-height: max-content;
-    /* ENTFERNT: pointer-events: none; */
-    /* ENTFERNT: display: flex; align-items: center; justify-content: center; */
-}
-
-/* WICHTIG: Stelle sicher dass Child-Elemente pointer events haben */
-.bracket-content > * {
-    pointer-events: auto;
-}
-
-/* KRITISCHER FIX: Smart Bracket spezifische Anpassungen */
-.bracket-content .smart-bracket {
     position: relative;
-    display: block; /* GEÄNDERT von flex */
+    overflow: visible;
+    background-color: #2d2d2d;
+    border-radius: 6px;
+    padding: 20px;
+    /* ENTFERNT: display: flex, align-items, justify-content */
+}
+
+/* SMART BRACKET - INLINE-BLOCK FÜR KORREKTE DIMENSIONIERUNG */
+.smart-bracket {
+    position: relative;
+    display: inline-block; /* GEÄNDERT: von block zu inline-block */
     background-image: 
         linear-gradient(to right, rgba(255, 107, 0, 0.1) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(255, 107, 0, 0.1) 1px, transparent 1px);
     background-size: 20px 20px;
     background-position: 0 0;
-    padding: 40px;
+    padding: 20px;
     border-radius: 8px;
     margin: 0;
-    /* KRITISCHER FIX: Explizite Dimensionen */
     width: auto;
     height: auto;
-    overflow: visible; /* SEHR WICHTIG */
-    /* HINZUGEFÜGT: Sicherstellen dass Inhalt sichtbar bleibt */
+    overflow: visible;
     min-width: max-content;
     min-height: max-content;
+    /* ENTFERNT: flex-Properties die Probleme verursachen können */
 }
 
-/* Bracket Container für smart-match-link.js */
-.bracket-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    /* HINZUGEFÜGT: Overflow visible für vollständige Sichtbarkeit */
-    overflow: visible;
-}
-
-/* Smart Match Styling */
+/* Smart Match Styling - UNVERÄNDERT */
 .smart-match-absolute {
     background-color: #333;
     border-radius: 6px;
@@ -111,7 +101,8 @@ html, body {
     flex-direction: column;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    /* position: absolute; wird über style-Attribut gesetzt */
+    position: absolute;
+    pointer-events: auto; /* Sicherstellen dass Matches klickbar sind */
 }
 
 .smart-match-absolute:hover {
@@ -120,7 +111,7 @@ html, body {
     transform: translateY(-1px);
 }
 
-/* Team Styling */
+/* Team Styling - UNVERÄNDERT */
 .team {
     display: flex;
     justify-content: space-between;
@@ -132,6 +123,7 @@ html, body {
     height: 50%;
     flex: 1;
     border-radius: 0;
+    pointer-events: auto;
 }
 
 .team:first-child {
@@ -167,6 +159,7 @@ html, body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    pointer-events: none; /* Verhindert dass Text-Selektion das Pannen stört */
 }
 
 .team-score {
@@ -179,6 +172,7 @@ html, body {
     justify-content: center;
     flex-shrink: 0;
     margin-left: 10px;
+    pointer-events: none;
 }
 
 .team.tbd {
@@ -211,6 +205,7 @@ html, body {
     color: #888;
     font-style: italic;
     font-size: 18px;
+    pointer-events: none;
 }
 
 .error {
@@ -225,6 +220,7 @@ html, body {
     border: 1px solid #6a2f2f;
     text-align: center;
     font-size: 16px;
+    pointer-events: auto;
 }
 
 /* Loading Overlay */
@@ -243,11 +239,13 @@ html, body {
     opacity: 0;
     visibility: hidden;
     transition: all 0.3s ease;
+    pointer-events: none;
 }
 
 .loading-overlay.visible {
     opacity: 1;
     visibility: visible;
+    pointer-events: auto;
 }
 
 .loading-spinner {
@@ -264,6 +262,7 @@ html, body {
     color: #fff;
     font-size: 18px;
     font-weight: 500;
+    pointer-events: none;
 }
 
 @keyframes spin {
@@ -271,10 +270,37 @@ html, body {
     100% { transform: rotate(360deg); }
 }
 
+/* NEUE KLASSEN FÜR DEBUGGING */
+.debug-fullscreen .bracket-container {
+    border: 2px dashed rgba(255, 107, 0, 0.5);
+}
+
+.debug-fullscreen .smart-bracket {
+    border: 2px dashed rgba(0, 255, 0, 0.5);
+}
+
+.debug-fullscreen .bracket-viewport {
+    border: 1px solid rgba(255, 0, 0, 0.3);
+}
+
+/* Performance-Optimierungen */
+.fullscreen-bracket-container * {
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
+
+.bracket-viewport {
+    transform: translateZ(0); /* Hardware-Acceleration aktivieren */
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
-    .bracket-content .smart-bracket {
-        padding: 20px;
+    .bracket-container {
+        padding: 15px;
+    }
+    
+    .smart-bracket {
+        padding: 15px;
     }
     
     .team {
@@ -297,8 +323,12 @@ html, body {
 }
 
 @media (max-width: 480px) {
-    .bracket-content .smart-bracket {
-        padding: 15px;
+    .bracket-container {
+        padding: 10px;
+    }
+    
+    .smart-bracket {
+        padding: 10px;
     }
     
     .team {
@@ -334,11 +364,22 @@ html, body {
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
     .bracket-viewport {
-        transition: none;
-    }
-    
-    .bracket-content {
-        transition: none;
+        transition: none !important;
     }
     
     .smart-match-absolute {
+        transition: none !important;
+    }
+    
+    .team {
+        transition: none !important;
+    }
+    
+    .loading-overlay {
+        transition: none !important;
+    }
+    
+    .loading-spinner {
+        animation: none !important;
+    }
+}

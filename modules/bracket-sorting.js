@@ -156,20 +156,31 @@ async function sortRoundByNumericGameId(poolordb, cuptype, season, roundname, is
 // --------------------------------------------------------------
 //   🗺️  Hilfsfunktion: Team-Liste der „nächsten" Runde erzeugen
 // --------------------------------------------------------------
+// --------------------------------------------------------------
+//   🗺️  Erweiterte Hilfsfunktion: Team-Liste der „nächsten" Runde erzeugen
+//       mit intelligenter Behandlung von "Keine Angabe"-Einträgen
+// --------------------------------------------------------------
+// --------------------------------------------------------------
+//   🗺️  Erweiterte Hilfsfunktion: Team-Liste der „nächsten" Runde erzeugen
+//       mit intelligenter Behandlung von "Keine Angabe"-Einträgen
+// --------------------------------------------------------------
+// --------------------------------------------------------------
+//   🗺️  Hilfsfunktion: Team-Liste der „nächsten" Runde erzeugen
+//       mit intelligenter Lücken-Erkennung für "Keine Angabe"-Einträge
+// --------------------------------------------------------------
 async function buildTeamOrder(poolordb, cuptype, season, nextroundname, isPostgreSQL) {
   let nextRoundGames;
   
   if (isPostgreSQL) {
     const result = await poolordb.query(
-      `SELECT team1, team2 FROM games WHERE cuptype = $1 AND season = $2 AND roundname = $3 ORDER BY bracketsortorder ASC`,
+      `SELECT team1, team2, numericgameid FROM games WHERE cuptype = $1 AND season = $2 AND roundname = $3 ORDER BY bracketsortorder ASC`,
       [cuptype, season, nextroundname]
     );
     nextRoundGames = result.rows;
   } else {
-    // SQLite Fallback
     nextRoundGames = await new Promise((resolve, reject) => {
       poolordb.all(
-        `SELECT team1, team2 FROM games WHERE cuptype = ? AND season = ? AND roundname = ? ORDER BY bracketsortorder ASC`,
+        `SELECT team1, team2, numericgameid FROM games WHERE cuptype = ? AND season = ? AND roundname = ? ORDER BY bracketsortorder ASC`,
         [cuptype, season, nextroundname],
         (err, rows) => {
           if (err) reject(err);
@@ -179,12 +190,199 @@ async function buildTeamOrder(poolordb, cuptype, season, nextroundname, isPostgr
     });
   }
   
-  const list = [];
-  nextRoundGames.forEach((g) => {
-    list.push(g.team1 || 'freilos');
-    list.push(g.team2 || 'freilos');
+  // Prüfe ob "Keine Angabe"-Einträge vorhanden sind
+  const hasKeineAngabe = nextRoundGames.some(game => 
+    (game.team1 && game.team1.toLowerCase().includes('keine angabe')) ||
+    (game.team2 && game.team2.toLowerCase().includes('keine angabe'))
+  );
+  
+  if (hasKeineAngabe) {
+    console.log(`   ⚠️  "Keine Angabe"-Einträge in ${nextroundname} gefunden - intelligente Lücken-Erkennung wird angewendet`);
+    
+    // Ermittle die vorherige Runde
+    const previousRoundName = await getPreviousRoundName(poolordb, cuptype, season, nextroundname, isPostgreSQL);
+    
+    if (previousRoundName) {
+      let previousRoundGames;
+      
+      if (isPostgreSQL) {
+        const result = await poolordb.query(
+          `SELECT team1, team2, numericgameid FROM games WHERE cuptype = $1 AND season = $2 AND roundname = $3 ORDER BY CAST(numericgameid AS INTEGER) ASC`,
+          [cuptype, season, previousRoundName]
+        );
+        previousRoundGames = result.rows;
+      } else {
+        previousRoundGames = await new Promise((resolve, reject) => {
+          poolordb.all(
+            `SELECT team1, team2, numericgameid FROM games WHERE cuptype = ? AND season = ? AND roundname = ? ORDER BY CAST(numericgameid AS INTEGER) ASC`,
+            [cuptype, season, previousRoundName],
+            (err, rows) => {
+              if (err) reject(err);
+              else resolve(rows);
+            }
+          );
+        });
+      }
+      
+      // Phase 1: Sammle alle konkreten Team-Namen (nicht "Keine Angabe")
+      const concreteTeams = [];
+      const keineAngabePositions = [];
+      
+      nextRoundGames.forEach((game, gameIndex) => {
+        // Team 1
+        if (game.team1 && game.team1.toLowerCase().includes('keine angabe')) {
+          keineAngabePositions.push(gameIndex * 2);
+        } else if (game.team1) {
+          concreteTeams.push(game.team1);
+        }
+        
+        // Team 2
+        if (game.team2 && game.team2.toLowerCase().includes('keine angabe')) {
+          keineAngabePositions.push(gameIndex * 2 + 1);
+        } else if (game.team2) {
+          concreteTeams.push(game.team2);
+        }
+      });
+      
+      // Phase 2: Finde zugeordnete Spiele der vorherigen Runde über Team-Namen
+      const usedPreviousGames = new Set();
+      
+      concreteTeams.forEach(teamName => {
+        const matchingGame = previousRoundGames.find(prevGame => {
+          if (usedPreviousGames.has(prevGame.numericgameid)) return false;
+          return prevGame.team1 === teamName || prevGame.team2 === teamName;
+        });
+        
+        if (matchingGame) {
+          usedPreviousGames.add(matchingGame.numericgameid);
+        }
+      });
+      
+      // Phase 3: Identifiziere nicht zugeordnete Spiele der vorherigen Runde
+      const unassignedPreviousGames = previousRoundGames.filter(prevGame => 
+        !usedPreviousGames.has(prevGame.numericgameid)
+      );
+      
+      // Phase 4: Erstelle die finale Team-Liste
+      const teamOrder = [];
+      let keineAngabeIndex = 0;
+      
+      nextRoundGames.forEach((game, gameIndex) => {
+        // Team 1 verarbeiten
+        if (game.team1 && game.team1.toLowerCase().includes('keine angabe')) {
+          // Verwende das nächste nicht zugeordnete Spiel
+          if (keineAngabeIndex < unassignedPreviousGames.length) {
+            const unassignedGame = unassignedPreviousGames[keineAngabeIndex];
+            teamOrder.push(`${unassignedGame.team1} / ${unassignedGame.team2}`);
+            keineAngabeIndex++;
+          } else {
+            teamOrder.push(game.team1);
+          }
+        } else if (game.team1) {
+          teamOrder.push(game.team1);
+        }
+        
+        // Team 2 verarbeiten
+        if (game.team2 && game.team2.toLowerCase().includes('keine angabe')) {
+          // Verwende das nächste nicht zugeordnete Spiel
+          if (keineAngabeIndex < unassignedPreviousGames.length) {
+            const unassignedGame = unassignedPreviousGames[keineAngabeIndex];
+            teamOrder.push(`${unassignedGame.team1} / ${unassignedGame.team2}`);
+            keineAngabeIndex++;
+          } else {
+            teamOrder.push(game.team2);
+          }
+        } else if (game.team2) {
+          teamOrder.push(game.team2);
+        }
+      });
+      
+      console.log(`      ↳ ${concreteTeams.length} Teams über Namen zugeordnet, ${unassignedPreviousGames.length} Spiele über Lücken-Erkennung`);
+      return teamOrder;
+    }
+  }
+  
+  // Standard-Fall ohne "Keine Angabe"-Einträge: einfache Team-Reihenfolge basierend auf bracketsortorder
+  const teamOrder = [];
+  nextRoundGames.forEach((game) => {
+    if (game.team1) teamOrder.push(game.team1);
+    if (game.team2) teamOrder.push(game.team2);
   });
-  return list; // Länge = 2 * Spiele der nächsten Runde
+  
+  return teamOrder;
+}
+
+// --------------------------------------------------------------
+//   🔍  Hilfsfunktion: Ermittle die vorherige Runde
+// --------------------------------------------------------------
+async function getPreviousRoundName(poolordb, cuptype, season, currentRoundName, isPostgreSQL) {
+  let roundRows;
+  
+  if (isPostgreSQL) {
+    const result = await poolordb.query(
+      'SELECT DISTINCT roundname FROM games WHERE cuptype = $1 AND season = $2',
+      [cuptype, season]
+    );
+    roundRows = result.rows;
+  } else {
+    roundRows = await new Promise((resolve, reject) => {
+      poolordb.all(
+        'SELECT DISTINCT roundname FROM games WHERE cuptype = ? AND season = ?',
+        [cuptype, season],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+  
+  // Sortiere Runden nach Priorität (Finale zuerst)
+  roundRows.sort((a, b) => getUnifiedRoundPriority(b.roundname || b.roundname) - getUnifiedRoundPriority(a.roundname || a.roundname));
+  const orderedRoundNames = roundRows.map((r) => r.roundname || r.roundname);
+  
+  // Finde aktuelle Runde und gib die nächste zurück
+  const currentIndex = orderedRoundNames.indexOf(currentRoundName);
+  if (currentIndex !== -1 && currentIndex < orderedRoundNames.length - 1) {
+    return orderedRoundNames[currentIndex + 1];
+  }
+  
+  return null;
+}
+
+// --------------------------------------------------------------
+//   🎮  Hilfsfunktion: Hole unvollständige Spiele einer Runde
+// --------------------------------------------------------------
+async function getIncompleteGames(poolordb, cuptype, season, roundname, isPostgreSQL) {
+  let games;
+  
+  if (isPostgreSQL) {
+    // Hole Spiele die noch nicht abgeschlossen sind (kein Gewinner ermittelt)
+    // Annahme: Ein Spiel ist unvollständig wenn beide Teams noch existieren
+    // und keine der beiden Teams als "Keine Angabe" in der nächsten Runde steht
+    const result = await poolordb.query(
+      `SELECT team1, team2, numericgameid FROM games 
+       WHERE cuptype = $1 AND season = $2 AND roundname = $3 
+       ORDER BY CAST(numericgameid AS INTEGER) ASC`,
+      [cuptype, season, roundname]
+    );
+    games = result.rows;
+  } else {
+    games = await new Promise((resolve, reject) => {
+      poolordb.all(
+        `SELECT team1, team2, numericgameid FROM games 
+         WHERE cuptype = ? AND season = ? AND roundname = ? 
+         ORDER BY CAST(numericgameid AS INTEGER) ASC`,
+        [cuptype, season, roundname],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+  
+  return games;
 }
 
 // --------------------------------------------------------------
@@ -256,7 +454,33 @@ async function sortRoundBasedOnNextRound(poolordb, cuptype, season, currentround
         game = freilosGames[freilosPtr];
         freilosPtr += 1;
       }
+    } else if (t.includes(' / ')) {
+      // Platzhalter-String wie "Team A / Team B" - finde Spiel mit einem der beiden Teams
+      const [teamA, teamB] = t.split(' / ').map(team => team.trim());
+      
+      // Suche nach Spiel mit teamA oder teamB
+      game = teamToGame.get(teamA) || teamToGame.get(teamB);
+      
+      // Falls nicht gefunden, suche in allen verfügbaren Spielen nach Teilübereinstimmungen
+      if (!game) {
+        for (const [teamName, gameCandidate] of teamToGame.entries()) {
+          if (!usedGameIds.has(gameCandidate.gameid)) {
+            // Prüfe ob teamName einer der beiden Platzhalter-Teams ist
+            if (teamName === teamA || teamName === teamB) {
+              game = gameCandidate;
+              break;
+            }
+            // Erweiterte Suche: prüfe ob das Spiel eines der Platzhalter-Teams enthält
+            if (gameCandidate.team1 === teamA || gameCandidate.team1 === teamB ||
+                gameCandidate.team2 === teamA || gameCandidate.team2 === teamB) {
+              game = gameCandidate;
+              break;
+            }
+          }
+        }
+      }
     } else {
+      // Exakter Team-Name
       game = teamToGame.get(t);
     }
 
@@ -304,6 +528,8 @@ async function sortRoundBasedOnNextRound(poolordb, cuptype, season, currentround
   
   console.log(`      ↳ ${sortedGames.length} Spiele sortiert (davon ${freilosGames.length} mit Freilos)`);
 }
+
+
 
 // --------------------------------------------------------------
 //            🏗️  DB-Vorbereitung & Exporte
