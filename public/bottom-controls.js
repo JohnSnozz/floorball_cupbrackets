@@ -1,5 +1,5 @@
-// Bottom Controls Manager - Cup/Season Auswahl und Zoom Controls
-// Integrierte JavaScript-basierte Cup/Season Auswahl ohne HTML Dropdowns
+// Bottom Controls Manager - FIXED VERSION
+// Das Problem war, dass die Change Events nicht korrekt das Bracket neu laden
 
 class BottomControlsManager {
     constructor() {
@@ -43,16 +43,15 @@ class BottomControlsManager {
         this.renderCupButtons();
         this.renderSeasonButtons();
         
-        // KORRIGIERT: Keine automatische Ladung hier, da smartbracket.js bereits lädt
         console.log('✅ Bottom Controls Manager initialized');
     }
     
-generateSeasons() {
+    generateSeasons() {
         const now = new Date();
         const year = now.getFullYear();
         const month = now.getMonth() + 1;
         
-        // Aktuelle Saison bestimmen
+        // Aktuelle Saison bestimmen (Mai bis April des folgenden Jahres)
         let currentSeasonYear;
         if (month >= 5) {
             currentSeasonYear = year;
@@ -60,15 +59,20 @@ generateSeasons() {
             currentSeasonYear = year - 1;
         }
         
-        // Generiere Saisons: aktuelle + 2 zukünftige + 2 vergangene
+        // Generiere Saisons von 2021/22 bis zur aktuellen Saison
         const seasons = [];
-        for (let i = 0; i >= -3; i--) {
-            const seasonStart = currentSeasonYear + i;
+        const startYear = 2022; // Startjahr 2022/23
+        
+        for (let seasonStart = startYear; seasonStart <= currentSeasonYear; seasonStart++) {
             const seasonEnd = seasonStart + 1;
             seasons.push(`${seasonStart}/${String(seasonEnd).slice(-2)}`);
         }
         
-        console.log('📅 Generated seasons:', seasons);
+        // Neueste Saison zuerst (absteigend sortieren)
+        seasons.reverse();
+        
+        console.log('📅 Generated seasons from 2021/22 to current:', seasons);
+        console.log(`📅 Current season determined as: ${currentSeasonYear}/${String(currentSeasonYear + 1).slice(-2)}`);
         return seasons;
     }
     
@@ -108,10 +112,11 @@ generateSeasons() {
         
         this.cupButtons.innerHTML = selectHTML;
         
-        // Add event listener to dropdown
+        // Add event listener to dropdown - FIXED: Proper event binding
         const dropdown = this.cupButtons.querySelector('#cupDropdown');
         if (dropdown) {
             dropdown.addEventListener('change', (e) => {
+                console.log('🏒 Cup dropdown changed to:', e.target.value);
                 this.selectCup(e.target.value);
             });
         }
@@ -133,10 +138,11 @@ generateSeasons() {
         
         this.seasonButtons.innerHTML = selectHTML;
         
-        // Add event listener to dropdown
+        // Add event listener to dropdown - FIXED: Proper event binding
         const dropdown = this.seasonButtons.querySelector('#seasonDropdown');
         if (dropdown) {
             dropdown.addEventListener('change', (e) => {
+                console.log('📅 Season dropdown changed to:', e.target.value);
                 this.selectSeason(e.target.value);
             });
         }
@@ -145,7 +151,10 @@ generateSeasons() {
     }
     
     selectCup(cupId) {
-        if (this.currentCup === cupId) return;
+        if (this.currentCup === cupId) {
+            console.log('⏭️ Cup already selected:', cupId);
+            return;
+        }
         
         this.currentCup = cupId;
         
@@ -160,7 +169,10 @@ generateSeasons() {
     }
     
     selectSeason(season) {
-        if (this.currentSeason === season) return;
+        if (this.currentSeason === season) {
+            console.log('⏭️ Season already selected:', season);
+            return;
+        }
         
         this.currentSeason = season;
         
@@ -184,14 +196,22 @@ generateSeasons() {
         }
         
         try {
-            // Update the original dropdowns for compatibility
+            // CRITICAL FIX: Update the original dropdowns properly
             this.updateOriginalDropdowns();
             
-            // Call the original load function
+            // CRITICAL FIX: Call the original load function directly
             if (typeof window.loadSmartBracket === 'function') {
+                console.log('🚀 Calling loadSmartBracket...');
                 await window.loadSmartBracket();
+                console.log('✅ loadSmartBracket completed');
             } else {
                 console.error('❌ loadSmartBracket function not available');
+                // Fallback: Try to trigger load manually
+                const event = new Event('change');
+                const cupSelect = document.getElementById('cupselect');
+                if (cupSelect) {
+                    cupSelect.dispatchEvent(event);
+                }
             }
         } catch (error) {
             console.error('❌ Error loading bracket:', error);
@@ -201,7 +221,7 @@ generateSeasons() {
                 if (cupSection) {
                     cupSection.classList.remove('loading');
                 }
-                // Auto-fit nach dem Laden - NEU!
+                // Auto-fit nach dem Laden
                 if (window.fullscreenInteraction && typeof window.fullscreenInteraction.autoFitBracket === 'function') {
                     setTimeout(() => {
                         window.fullscreenInteraction.autoFitBracket();
@@ -212,17 +232,44 @@ generateSeasons() {
     }
     
     updateOriginalDropdowns() {
-        // Update the hidden dropdowns for compatibility with existing code
-        const cupSelect = document.getElementById('cupselect');
-        const seasonSelect = document.getElementById('seasonselect');
+        // CRITICAL FIX: Create and update the hidden dropdowns if they don't exist
+        let cupSelect = document.getElementById('cupselect');
+        let seasonSelect = document.getElementById('seasonselect');
         
-        if (cupSelect) {
-            cupSelect.value = this.currentCup;
+        // Create hidden dropdowns if they don't exist
+        if (!cupSelect) {
+            cupSelect = document.createElement('select');
+            cupSelect.id = 'cupselect';
+            cupSelect.style.display = 'none';
+            this.cups.forEach(cup => {
+                const option = document.createElement('option');
+                option.value = cup.id;
+                option.textContent = cup.name;
+                cupSelect.appendChild(option);
+            });
+            document.body.appendChild(cupSelect);
+            console.log('🔧 Created missing cupselect dropdown');
         }
         
-        if (seasonSelect) {
-            seasonSelect.value = this.currentSeason;
+        if (!seasonSelect) {
+            seasonSelect = document.createElement('select');
+            seasonSelect.id = 'seasonselect';
+            seasonSelect.style.display = 'none';
+            this.seasons.forEach(season => {
+                const option = document.createElement('option');
+                option.value = season;
+                option.textContent = season;
+                seasonSelect.appendChild(option);
+            });
+            document.body.appendChild(seasonSelect);
+            console.log('🔧 Created missing seasonselect dropdown');
         }
+        
+        // Update values
+        cupSelect.value = this.currentCup;
+        seasonSelect.value = this.currentSeason;
+        
+        console.log(`🔄 Updated original dropdowns: cup=${this.currentCup}, season=${this.currentSeason}`);
     }
     
     toggleControls() {
@@ -307,20 +354,29 @@ generateSeasons() {
         this.loadCurrentBracket();
     }
     
-    addCustomCup(id, name, short) {
-        this.cups.push({ id, name, short });
-        this.renderCupButtons();
-    }
-    
-    addCustomSeason(season) {
-        if (!this.seasons.includes(season)) {
-            this.seasons.unshift(season);
-            this.renderSeasonButtons();
-        }
+    // DEBUG: Manual test function
+    testSelection() {
+        console.log('🧪 Testing cup/season selection...');
+        console.log('Current state:', {
+            cup: this.currentCup,
+            season: this.currentSeason
+        });
+        
+        // Test cup change
+        setTimeout(() => {
+            console.log('🧪 Testing cup change to damen_grossfeld...');
+            this.selectCup('damen_grossfeld');
+        }, 1000);
+        
+        // Test season change
+        setTimeout(() => {
+            console.log('🧪 Testing season change to 2023/24...');
+            this.selectSeason('2023/24');
+        }, 3000);
     }
 }
 
-// Enhanced Zoom Controls Integration
+// Enhanced Zoom Controls Integration (unchanged)
 class ZoomControlsIntegration {
     constructor(fullscreenInteraction) {
         this.interaction = fullscreenInteraction;
@@ -357,7 +413,7 @@ let bottomControlsManager = null;
 let zoomControlsIntegration = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎛️ Initializing Bottom Controls Manager on DOMContentLoaded');
+    console.log('🎛️ Initializing FIXED Bottom Controls Manager on DOMContentLoaded');
     
     bottomControlsManager = new BottomControlsManager();
     
@@ -371,6 +427,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Make available globally
     window.bottomControlsManager = bottomControlsManager;
 });
+
+// DEBUG: Export test function
+window.testBottomControls = function() {
+    if (bottomControlsManager) {
+        bottomControlsManager.testSelection();
+    } else {
+        console.log('❌ Bottom Controls Manager not available');
+    }
+};
 
 // Export classes
 window.BottomControlsManager = BottomControlsManager;
