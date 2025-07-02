@@ -6,9 +6,6 @@
     <title>Swiss Unihockey Cup Bracket</title>
     <link rel="stylesheet" href="fullscreen-bracket.css">
     <link rel="stylesheet" href="team_highlight.css">
-    <link rel="stylesheet" href="smart-match-link.css">
-    <link rel="stylesheet" href="smart-connector.css">
-    <link rel="stylesheet" href="overlay-controls.css">
     <link rel="stylesheet" href="bottom-controls.css">
 </head>
 <body>
@@ -23,37 +20,6 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Overlay Controls -->
-    <div class="overlay-controls" id="overlayControls">
-        <div class="controls-panel">
-            <h1>Swiss Unihockey Cup Bracket</h1>
-            
-            <div class="control-row">
-                <div class="control-group">
-                    <label for="cupselect">Cup</label>
-                    <select id="cupselect" onchange="loadSmartBracket()">
-                        <!-- Wird dynamisch geladen -->
-                    </select>
-                </div>
-                
-                <div class="control-group">
-                    <label for="seasonselect">Saison</label>
-                    <select id="seasonselect" onchange="loadSmartBracket()">
-                        <!-- Wird dynamisch geladen -->
-                    </select>
-                </div>
-                
-                <button onclick="loadSmartBracket()" class="load-button">Neu laden</button>
-            </div>
-            
-            <div class="help-text">
-                Ziehen zum Verschieben • Mausrad zum Zoomen • Links funktionieren normal
-            </div>
-        </div>
-        
-        <button class="toggle-controls" id="toggleControls"></button>
     </div>
 
     <!-- Zoom und Cup Controls -->
@@ -88,12 +54,12 @@
     </div>
 
     <!-- Scripts -->
-<script src="smartbracket.js"></script>
-<script src="fullscreen-interaction.js"></script>
-<script src="team_highlight.js"></script>
-<script src="smart-match-link.js"></script>
-<script src="smart-connector.js"></script>
-<script src="overlay-manager.js"></script>
-<script src="bottom-controls.js"></script>
+    <script src="smartbracket.js"></script>
+    <script src="fullscreen-interaction.js"></script>
+    <script src="team_highlight.js"></script>
+    <script src="smart-match-link.js"></script>
+    <script src="smart-connector.js"></script>
+    <script src="bottom-controls.js"></script>
+    <script src="round-headers.js"></script>
 </body>
 </html>

@@ -90,9 +90,8 @@ html, body {
 /* Smart Match Styling - MINIMAL INSPIRED DESIGN */
 .smart-match-absolute {
     background: #2a2a2a;
-    border-radius: 3px;
+    border-radius: 0px;
     border: 1px solid #1f1f1f;
-    transition: border-color 0.1s ease;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -100,10 +99,6 @@ html, body {
     pointer-events: auto;
     min-width: 220px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.smart-match-absolute:hover {
-    border-color: #4a4a4a;
 }
 
 /* FREILOS MATCH STYLING */
@@ -118,13 +113,11 @@ html, body {
     display: flex;
     justify-content: flex-start;
     align-items: center;
-    padding: 12px 10px 12px 10px;
+    padding: 12px 12px 12px 12px;
     background: transparent;
     border-bottom: 1px solid #1f1f1f;
-    transition: all 0.2s ease;
     height: 50%;
     flex: 1;
-    border-radius: 0;
     pointer-events: auto;
     position: relative;
 }
@@ -140,11 +133,6 @@ html, body {
     border-bottom-right-radius: 6px;
 }
 
-/* TEAM HOVER - SUBTLE OUTER GLOW */
-.team:hover {
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
-    z-index: 1;
-}
 
 /* GEWINNER STYLING - DEZENTE FARBLICHE MARKIERUNG */
 .team.winner {
@@ -152,10 +140,6 @@ html, body {
     padding-left: 13px; /* Kompensiert den dickeren Border */
 }
 
-.team.winner:hover {
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.4);
-    background: linear-gradient(90deg, rgba(76, 175, 80, 0.2) 0%, transparent 100%);
-}
 
 /* FREILOS TEAM STYLING */
 .team.freilos-team {
@@ -174,10 +158,6 @@ html, body {
     padding-left: 13px;
 }
 
-.smart-match-absolute:has(.team.freilos-team) .team:not(.freilos-team):hover {
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.4);
-    background: linear-gradient(90deg, rgba(76, 175, 80, 1) 0%, transparent 100%);
-}
 
 .team-name {
     flex: 1;
@@ -194,18 +174,13 @@ html, body {
     pointer-events: none;
     color: #ffffff;
     min-width: 0;
-    max-width: calc(100% - 80px);
-    padding-right: 8px;
-}
-
-.team.winner .team-name {
-    font-weight: 500;
-    color: #ffffff;
+    max-width: calc(100% - 50px);
+    padding-right: 0px;
 }
 
 .team-score {
     font-weight: 600;
-    font-size: 15px;
+    font-size: 14px;
     min-width: 24px;
     text-align: right;
     display: flex;
@@ -219,25 +194,19 @@ html, body {
     font-variant-numeric: tabular-nums;
 }
 
-.team.winner .team-score {
-    color: #4caf50;
-    font-weight: 700;
-}
 
 /* Responsive Schriftgröße für längere Namen */
 .team-name.long-name {
-    font-size: 11px;
-    line-height: 1.2;
+    font-size: 13px;
+  
 }
 
 .team-name.very-long-name {
     font-size: 11px;
-    line-height: 1.1;
 }
 
 .team-name.extra-long-name {
     font-size: 10px;
-    line-height: 1.0;
 }
 
 .team.tbd {
@@ -249,7 +218,12 @@ html, body {
     font-style: italic;
 }
 
-/* SMART MATCH LINK - DIREKT RECHTS VOM TEAMNAMEN POSITIONIERT */
+/* ============================================================================ */
+/* SMART MATCH LINK - KORRIGIERT MIT STÄRKERER SPEZIFITÄT */
+/* ============================================================================ */
+
+/* Basis Smart Match Link mit höchster Spezifität */
+.smart-match-absolute .smart-match-link,
 .smart-match-link {
     position: absolute !important;
     right: 30px !important;
@@ -270,24 +244,33 @@ html, body {
     font-size: 9px !important;
     color: rgba(80, 80, 80, 1) !important;
     opacity: 1 !important;
+    visibility: visible !important;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif !important;
     font-weight: 600 !important;
+    box-sizing: border-box !important;
+    pointer-events: auto !important;
 }
 
+/* Content für Info Icon */
+.smart-match-absolute .smart-match-link::before,
 .smart-match-link::before {
     content: "i" !important;
     font-style: normal !important;
     font-weight: 600 !important;
     line-height: 0 !important;
+    display: block !important;
 }
 
+/* Hover States */
 .smart-match-link:hover {
     background: rgba(220, 220, 220, 1) !important;
     border-color: rgba(170, 170, 170, 1) !important;
     color: rgba(60, 60, 60, 1) !important;
     text-decoration: none !important;
+    transform: translateY(-50%) scale(1.1) !important;
 }
 
+/* Played Status */
 .smart-match-link.played {
     background: rgba(80, 80, 80, 1) !important;
     border-color: rgb(43, 43, 43) !important;
@@ -299,8 +282,11 @@ html, body {
     border-color: rgba(80, 80, 80, 1) !important;
     color: rgba(220, 220, 220, 1) !important;
     text-decoration: none !important;
+    transform: translateY(-50%) scale(1.1) !important;
 }
 
+/* Scheduled Status */
+.smart-match-absolute .smart-match-link.scheduled,
 .smart-match-link.scheduled {
     background: rgba(200, 200, 200, 1) !important;
     border-color: rgba(150, 150, 150, 1) !important;
@@ -312,7 +298,169 @@ html, body {
     border-color: rgba(170, 170, 170, 1) !important;
     color: rgba(60, 60, 60, 1) !important;
     text-decoration: none !important;
+    transform: translateY(-50%) scale(1.1) !important;
 }
+
+/* ============================================================================ */
+/* GAME DETAILS POPUP - ERGÄNZT */
+/* ============================================================================ */
+
+.game-details-popup {
+    position: fixed !important;
+    z-index: 99999 !important;
+    background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%) !important;
+    border: 1px solid #555 !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(15px) !important;
+    color: #ffffff !important;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 13px !important;
+    min-width: 320px !important;
+    max-width: 400px !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateY(10px) !important;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0.2, 1) !important;
+    display: none !important;
+}
+
+.game-details-popup.visible {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0) !important;
+    display: block !important;
+}
+
+.game-details-content {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+}
+
+.game-details-info-simple {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 11px !important;
+    color: #bbb !important;
+    border-bottom: 1px solid #444 !important;
+    padding-bottom: 10px !important;
+}
+
+.info-simple {
+    text-align: center !important;
+    min-width: 60px !important;
+}
+
+.info-refs-simple {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+}
+
+.game-details-teams {
+    display: flex !important;
+    align-items: center !important;
+    gap: 15px !important;
+}
+
+.game-details-team {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 !important;
+}
+
+.game-details-team.winner .game-details-team-name {
+    color: #4caf50 !important;
+    font-weight: 600 !important;
+}
+
+.game-details-logo {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #ffffff !important;
+    border: 1px solid #555 !important;
+}
+
+.game-details-logo img {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+}
+
+.logo-placeholder {
+    color: #888 !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+}
+
+.game-details-team-name {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+    max-width: 100px !important;
+}
+
+.game-details-middle {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 5px !important;
+}
+
+.game-details-vs {
+    font-size: 11px !important;
+    color: #888 !important;
+    font-weight: 500 !important;
+}
+
+.game-details-result-inline {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 2px !important;
+}
+
+.game-details-score-inline {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+}
+
+.game-details-periods-inline {
+    font-size: 10px !important;
+    color: #bbb !important;
+}
+
+.game-details-subtitle {
+    text-align: center !important;
+    font-size: 11px !important;
+    color: #888 !important;
+    border-top: 1px solid #444 !important;
+    padding-top: 10px !important;
+    font-style: italic !important;
+}
+
+.game-details-error {
+    text-align: center !important;
+    color: #ff6666 !important;
+    padding: 20px !important;
+    font-size: 14px !important;
+}
+
+/* ============================================================================ */
+/* LOADING STATES UND RESPONSIVE */
+/* ============================================================================ */
 
 /* Loading States */
 .loading {
@@ -400,166 +548,3 @@ html, body {
     transform: translateZ(0);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .bracket-container {
-        padding: 16px;
-    }
-    
-    .team {
-        padding: 10px 14px;
-    }
-    
-    .team-name {
-        font-size: 13px;
-        max-width: calc(100% - 70px);
-    }
-    
-    .team-name.long-name {
-        font-size: 11px;
-    }
-    
-    .team-name.very-long-name {
-        font-size: 10px;
-    }
-    
-    .team-name.extra-long-name {
-        font-size: 9px;
-    }
-    
-    .team-score {
-        font-size: 14px;
-        min-width: 20px;
-        margin-left: 0px;
-        margin-right: 0px;
-    }
-    
-    .smart-match-absolute {
-        min-width: 200px;
-    }
-    
-    .smart-match-link {
-        width: 18px !important;
-        height: 18px !important;
-        font-size: 10px !important;
-        right: 10px !important;
-    }
-}
-
-@media (max-width: 480px) {
-    .bracket-container {
-        padding: 12px;
-    }
-    
-    .team {
-        padding: 8px 12px;
-    }
-    
-    .team-name {
-        font-size: 12px;
-        max-width: calc(100% - 60px);
-    }
-    
-    .team-name.long-name {
-        font-size: 10px;
-    }
-    
-    .team-name.very-long-name {
-        font-size: 9px;
-    }
-    
-    .team-name.extra-long-name {
-        font-size: 8px;
-    }
-    
-    .team-score {
-        font-size: 13px;
-        min-width: 18px;
-        margin-right: 0px;
-    }
-    
-    .smart-match-absolute {
-        min-width: 180px;
-    }
-    
-    .smart-match-link {
-        width: 16px !important;
-        height: 16px !important;
-        font-size: 9px !important;
-        right: 8px !important;
-    }
-}
-
-/* High contrast mode */
-@media (prefers-contrast: high) {
-    .smart-match-absolute {
-        border-color: rgba(255, 255, 255, 0.4);
-    }
-    
-    .team.winner {
-        border-left-color: #4caf50;
-        background: rgba(76, 175, 80, 0.25);
-    }
-    
-    .smart-match-absolute:has(.team.freilos-team) .team:not(.freilos-team) {
-        border-left-color: #ffc107;
-        background: rgba(255, 193, 7, 0.25);
-    }
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-    .bracket-viewport {
-        transition: none !important;
-    }
-    
-    .smart-match-absolute, .team, .smart-match-link {
-        transition: none !important;
-    }
-    
-    .loading-spinner {
-        animation: none !important;
-    }
-}
-
-/* Accessibility improvements */
-.team:focus-within {
-    outline: 2px solid rgba(76, 175, 80, 0.6);
-    outline-offset: 1px;
-}
-
-.smart-match-link:focus {
-    outline: 2px solid rgba(76, 175, 80, 0.6);
-    outline-offset: 2px;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
-}
-
-/* Team name length adaptations */
-.team-name.long-name {
-    font-size: 13px;
-    line-height: 1.3;
-}
-
-/* Focus states */
-.smart-match-absolute:focus-within {
-    outline: 1px solid rgba(76, 175, 80, 0.5);
-    outline-offset: 2px;
-}

@@ -1,86 +1,51 @@
-/* Minimalist Team Highlighting CSS - REPLACE team_highlight.css */
+/* Team Highlighting - MAXIMALE CSS-SPEZIFITÄT gegen JavaScript */
 
 .team.highlight {
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6) !important;
-    background: rgba(255, 255, 255, 0.05) !important;
-    transition: all 0.2s ease !important;
-    z-index: 2 !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 0 !important;
+    transition: 0.2s ease !important;
 }
 
 .team.highlight.winner {
-    box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.8) !important;
-    background: linear-gradient(90deg, rgba(76, 175, 80, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%) !important;
 }
 
 .team.highlight.freilos-team {
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3) !important;
-    background: rgba(255, 255, 255, 0.02) !important;
-    opacity: 0.8 !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    opacity: 0.9 !important;
 }
 
 /* Highlight für Freilos-Gewinner */
 .smart-match-absolute:has(.team.freilos-team) .team.highlight:not(.freilos-team) {
-    box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.3) !important;
-    background: linear-gradient(90deg, rgba(255, 193, 7, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+    background: linear-gradient(90deg, rgba(76, 175, 80, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%) !important;
 }
 
-/* Highlighting-Effekt für Match-Container */
-.smart-match-absolute:has(.team.highlight) {
-    border-color: rgba(255, 255, 255, 0.4) !important;
-    z-index: 1 !important;
+/* NUKLEAR-OPTION: Überschreibe ALLES mit höchster Spezifität */
+.smart-match-absolute .team.highlight .team-name{
+    color: #ffffff !important;
+    transform: none !important;
 }
 
-/* Sanfte Animation für Highlight-Übergänge */
+.smart-match-absolute .team.highlight .team-score{
+    color: #ffffff !important;
+    transform: none !important;
+}
+
+/* Winner-Highlighting */
+.smart-match-absolute .team.highlight.winner .team-name {
+    color: #ffffff !important;
+}
+
+.smart-match-absolute .team.highlight.winner .team-score {
+    color: #ffffff !important;
+}
+
+/* Basis Styling */
 .team {
+    border-radius: 0 !important;
     transition: all 0.2s ease;
 }
 
 .smart-match-absolute {
-    transition: border-color 0.2s ease;
-}
-
-/* Team-Namen Hervorhebung */
-.team.highlight .team-name {
-    color: #ffffff !important;
-    font-weight: 500 !important;
-}
-
-.team.highlight .team-score {
-    color: #ffffff !important;
-    font-weight: 700 !important;
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-    .team.highlight {
-        transition: none !important;
-    }
-    
-    .smart-match-absolute:has(.team.highlight) {
-        transition: none !important;
-    }
-    
-    .team {
-        transition: none !important;
-    }
-    
-    .smart-match-absolute {
-        transition: none !important;
-    }
-}
-
-/* High contrast mode */
-@media (prefers-contrast: high) {
-    .team.highlight {
-        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9) !important;
-        background: rgba(255, 255, 255, 0.1) !important;
-    }
-    
-    .team.highlight.winner {
-        box-shadow: 0 0 0 4px rgba(76, 175, 80, 1) !important;
-    }
-    
-    .smart-match-absolute:has(.team.freilos-team) .team.highlight:not(.freilos-team) {
-        box-shadow: 0 0 0 4px rgba(255, 193, 7, 1) !important;
-    }
+    border-radius: 0 !important;
 }

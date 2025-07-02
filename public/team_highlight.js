@@ -35,6 +35,8 @@ function initializeTeamHighlighting() {
     console.log(`✅ Team highlighting initialized for ${teams.length} team elements`);
 }
 
+// Modifikation für team_highlight.js - BEHÄLT die ursprüngliche Schriftgröße
+
 function highlightAllTeams(teamName) {
     console.log(`🔍 Highlighting all instances of team: ${teamName}`);
     
@@ -52,9 +54,51 @@ function highlightAllTeams(teamName) {
         const elementText = teamNameElement.textContent.trim();
         
         if (elementText === teamName) {
+            // WICHTIG: Speichere die AKTUELLE Schriftgröße BEVOR das Highlighting
+            const currentStyle = getComputedStyle(teamNameElement);
+            const originalFontSize = currentStyle.fontSize;
+            const originalFontWeight = currentStyle.fontWeight;
+            const originalLineHeight = currentStyle.lineHeight;
+            
+            const teamScoreEl = teamElement.querySelector('.team-score');
+            let originalScoreFontSize = '15px';
+            let originalScoreFontWeight = '600';
+            
+            if (teamScoreEl) {
+                const scoreStyle = getComputedStyle(teamScoreEl);
+                originalScoreFontSize = scoreStyle.fontSize;
+                originalScoreFontWeight = scoreStyle.fontWeight;
+            }
+            
+            // CSS-Klasse hinzufügen
             teamElement.classList.add('highlight');
+            
+            // Force die ORIGINALE Schrift per Inline-Styles (behält responsive Größen)
+            if (teamNameElement) {
+                teamNameElement.style.setProperty('font-size', originalFontSize, 'important');
+                teamNameElement.style.setProperty('font-weight', originalFontWeight, 'important');
+                teamNameElement.style.setProperty('line-height', originalLineHeight, 'important');
+                teamNameElement.style.setProperty('color', '#ffffff', 'important');
+                teamNameElement.style.setProperty('transform', 'none', 'important');
+                
+                // Speichere die Original-Werte für später
+                teamNameElement.setAttribute('data-original-font-size', originalFontSize);
+                teamNameElement.setAttribute('data-original-font-weight', originalFontWeight);
+            }
+            
+            if (teamScoreEl) {
+                teamScoreEl.style.setProperty('font-size', originalScoreFontSize, 'important');
+                teamScoreEl.style.setProperty('font-weight', originalScoreFontWeight, 'important');
+                teamScoreEl.style.setProperty('color', '#ffffff', 'important');
+                
+                // Winner-spezifische Farbanpassungen
+                if (teamElement.classList.contains('winner')) {
+                    teamScoreEl.style.setProperty('color', '#ffffff', 'important');
+                }
+            }
+            
             highlightCount++;
-            console.log(`   -> Highlighted team instance ${highlightCount}: ${elementText}`);
+            console.log(`   -> Highlighted team instance ${highlightCount}: ${elementText} (font-size: ${originalFontSize})`);
         }
     });
     
@@ -62,10 +106,42 @@ function highlightAllTeams(teamName) {
 }
 
 function removeHighlight() {
-    // Entferne alle highlight Klassen
+    // Entferne alle highlight Klassen UND Inline-Styles
     const highlightedTeams = document.querySelectorAll('.team.highlight');
     highlightedTeams.forEach(team => {
         team.classList.remove('highlight');
+        
+        // Entferne die geforcten Inline-Styles
+        const teamNameEl = team.querySelector('.team-name');
+        const teamScoreEl = team.querySelector('.team-score');
+        
+        if (teamNameEl) {
+            teamNameEl.style.removeProperty('font-size');
+            teamNameEl.style.removeProperty('font-weight');
+            teamNameEl.style.removeProperty('line-height');
+            teamNameEl.style.removeProperty('color');
+            teamNameEl.style.removeProperty('transform');
+            
+            // Entferne auch die gespeicherten Attribute
+            teamNameEl.removeAttribute('data-original-font-size');
+            teamNameEl.removeAttribute('data-original-font-weight');
+        }
+        
+        if (teamScoreEl) {
+            teamScoreEl.style.removeProperty('font-size');
+            teamScoreEl.style.removeProperty('font-weight');
+            teamScoreEl.style.removeProperty('color');
+        }
+    });
+}
+
+// ZUSATZ: Debugging-Funktion um zu sehen welche Schriftgrößen gesetzt sind
+function debugTeamFontSizes() {
+    console.log('🔍 Aktuelle Team-Schriftgrößen:');
+    document.querySelectorAll('.team-name').forEach((el, index) => {
+        const style = getComputedStyle(el);
+        const text = el.textContent.trim();
+        console.log(`Team ${index + 1}: "${text}" → ${style.fontSize} (${el.className})`);
     });
 }
 

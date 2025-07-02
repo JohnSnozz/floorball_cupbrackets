@@ -437,6 +437,16 @@ function renderSmartBracket() {
             console.log('⚠️ initializeSmartConnectors function not found');
         }
         
+        // KRITISCHER FIX 3: Round Headers mit echten Rundennamen initialisieren
+        if (typeof initializeRoundHeaders === 'function') {
+            console.log('📋 Initializing Round Headers with real round names...');
+            // Speichere smartRounds global für round-headers.js
+            window.lastProcessedSmartRounds = smartRounds;
+            initializeRoundHeaders(smartRounds);
+        } else {
+            console.log('⚠️ initializeRoundHeaders function not found');
+        }
+        
         if (!document.getElementById('fullscreenContainer')) {
             adjustContainerWidth();
         }
@@ -508,16 +518,16 @@ function adjustTeamNameSizes() {
         // Bestimme Schriftgröße basierend auf Textlänge
         let lengthCategory = 'short';
         
-        if (textLength >= 30) {
+        if (textLength >= 32) {
             lengthCategory = 'extra-long';
             teamNameElement.classList.add('extra-long-name');
-        } else if (textLength >= 25) {
+        } else if (textLength >= 30) {
             lengthCategory = 'very-long';
             teamNameElement.classList.add('very-long-name');
-        } else if (textLength >= 20) {
+        } else if (textLength >= 24) {
             lengthCategory = 'long';
             teamNameElement.classList.add('long-name');
-        } else if (textLength >= 15) {
+        } else if (textLength >= 22) {
             lengthCategory = 'medium';
         }
         

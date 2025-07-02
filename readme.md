@@ -59,7 +59,6 @@ PostgreSQL-basierte Anwendung zum Crawlen und Verwalten von Swiss Unihockey Cup-
 - **`team_highlight.css`** - Team-Highlighting beim Hover
 - **`smart-match-link.css`** - Info-Links zu Spieldetails
 - **`smart-connector.css`** - Verbindungslinien zwischen Bracket-Runden
-- **`overlay-controls.css`** - Overlay-Steuerung (versteckt in aktueller Version)
 - **`bottom-controls.css`** - Bottom-Right Controls für Cup/Season/Zoom
 - **`backend-dashboard.css`** - Backend-Dashboard Styling
 
@@ -69,7 +68,6 @@ PostgreSQL-basierte Anwendung zum Crawlen und Verwalten von Swiss Unihockey Cup-
 - **`team_highlight.js`** - Team-Highlighting über alle Runden
 - **`smart-match-link.js`** - Spieldetails-Integration mit DB-Tooltips
 - **`smart-connector.js`** - Zeichnet Verbindungslinien zwischen Bracket-Runden
-- **`overlay-manager.js`** - Overlay-Controls Management (derzeit versteckt)
 - **`bottom-controls.js`** - Bottom-Right Controls (Cup-Auswahl, Zoom)
 - **`backend-functions.js`** - Backend-Dashboard Funktionen
 
