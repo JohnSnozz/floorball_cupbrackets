@@ -90,9 +90,9 @@ html, body {
 /* Smart Match Styling - MINIMAL INSPIRED DESIGN */
 .smart-match-absolute {
     background: #2a2a2a;
-    border-radius: 6px;
-    border: 1px solid #3a3a3a;
-    transition: border-color 0.2s ease;
+    border-radius: 3px;
+    border: 1px solid #1f1f1f;
+    transition: border-color 0.1s ease;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -110,17 +110,17 @@ html, body {
 .smart-match-absolute:has(.team.freilos-team) {
     background: #252525;
     border-color: #333333;
-    opacity: 0.7;
+    opacity: 0.4;
 }
 
 /* Team Styling - CLEAN AND MINIMAL */
 .team {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    padding: 12px 16px;
+    padding: 12px 10px 12px 10px;
     background: transparent;
-    border-bottom: 1px solid #3a3a3a;
+    border-bottom: 1px solid #1f1f1f;
     transition: all 0.2s ease;
     height: 50%;
     flex: 1;
@@ -149,7 +149,6 @@ html, body {
 /* GEWINNER STYLING - DEZENTE FARBLICHE MARKIERUNG */
 .team.winner {
     background: linear-gradient(90deg, rgba(76, 175, 80, 0.15) 0%, transparent 100%);
-    border-left: 3px solid rgba(76, 175, 80, 0.6);
     padding-left: 13px; /* Kompensiert den dickeren Border */
 }
 
@@ -171,14 +170,13 @@ html, body {
 
 /* FREILOS GEWINNER - AUTOMATISCHER GEWINNER MIT DEZENTER FARBE */
 .smart-match-absolute:has(.team.freilos-team) .team:not(.freilos-team) {
-    background: linear-gradient(90deg, rgba(255, 193, 7, 0.15) 0%, transparent 100%);
-    border-left: 3px solid rgba(255, 193, 7, 0.6);
+    background: linear-gradient(90deg, rgba(76, 175, 80, 0.2) 0%, transparent 100%);
     padding-left: 13px;
 }
 
 .smart-match-absolute:has(.team.freilos-team) .team:not(.freilos-team):hover {
-    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.4);
-    background: linear-gradient(90deg, rgba(255, 193, 7, 0.2) 0%, transparent 100%);
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.4);
+    background: linear-gradient(90deg, rgba(76, 175, 80, 1) 0%, transparent 100%);
 }
 
 .team-name {
@@ -209,13 +207,13 @@ html, body {
     font-weight: 600;
     font-size: 15px;
     min-width: 24px;
-    text-align: center;
+    text-align: right;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     flex-shrink: 0;
-    margin-left: 8px;
-    margin-right: 30px;
+    margin-left: auto; /* Schiebt Score nach rechts */
+    margin-right: 0px; /* 10px Abstand zum rechten Rand */
     pointer-events: none;
     color: #ffffff;
     font-variant-numeric: tabular-nums;
@@ -228,7 +226,7 @@ html, body {
 
 /* Responsive Schriftgröße für längere Namen */
 .team-name.long-name {
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.2;
 }
 
@@ -254,7 +252,7 @@ html, body {
 /* SMART MATCH LINK - DIREKT RECHTS VOM TEAMNAMEN POSITIONIERT */
 .smart-match-link {
     position: absolute !important;
-    right: 35px !important;
+    right: 30px !important;
     top: 50% !important;
     transform: translateY(-50%) !important;
     width: 16px !important;
@@ -280,7 +278,7 @@ html, body {
     content: "i" !important;
     font-style: normal !important;
     font-weight: 600 !important;
-    line-height: 1 !important;
+    line-height: 0 !important;
 }
 
 .smart-match-link:hover {
@@ -292,7 +290,7 @@ html, body {
 
 .smart-match-link.played {
     background: rgba(80, 80, 80, 1) !important;
-    border-color: rgba(60, 60, 60, 1) !important;
+    border-color: rgb(43, 43, 43) !important;
     color: rgba(200, 200, 200, 1) !important;
 }
 
@@ -432,8 +430,8 @@ html, body {
     .team-score {
         font-size: 14px;
         min-width: 20px;
-        margin-left: 6px;
-        margin-right: 25px;
+        margin-left: 0px;
+        margin-right: 0px;
     }
     
     .smart-match-absolute {
@@ -477,8 +475,7 @@ html, body {
     .team-score {
         font-size: 13px;
         min-width: 18px;
-        margin-left: 4px;
-        margin-right: 20px;
+        margin-right: 0px;
     }
     
     .smart-match-absolute {

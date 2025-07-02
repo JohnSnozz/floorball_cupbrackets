@@ -1,26 +1,26 @@
 /* Minimalist Team Highlighting CSS - REPLACE team_highlight.css */
 
 .team.highlight {
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6) !important;
     background: rgba(255, 255, 255, 0.05) !important;
     transition: all 0.2s ease !important;
     z-index: 2 !important;
 }
 
 .team.highlight.winner {
-    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.8) !important;
+    box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.8) !important;
     background: linear-gradient(90deg, rgba(76, 175, 80, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
 }
 
 .team.highlight.freilos-team {
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3) !important;
     background: rgba(255, 255, 255, 0.02) !important;
     opacity: 0.8 !important;
 }
 
 /* Highlight für Freilos-Gewinner */
 .smart-match-absolute:has(.team.freilos-team) .team.highlight:not(.freilos-team) {
-    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.8) !important;
+    box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.3) !important;
     background: linear-gradient(90deg, rgba(255, 193, 7, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
 }
 
