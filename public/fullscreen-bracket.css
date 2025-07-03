@@ -178,6 +178,16 @@ html, body {
     padding-right: 0px;
 }
 
+.team-score-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-right: 0px;
+    gap: 4px;
+}
+
 .team-score {
     font-weight: 600;
     font-size: 14px;
@@ -187,11 +197,42 @@ html, body {
     align-items: center;
     justify-content: flex-end;
     flex-shrink: 0;
-    margin-left: auto; /* Schiebt Score nach rechts */
-    margin-right: 0px; /* 10px Abstand zum rechten Rand */
     pointer-events: none;
     color: #ffffff;
     font-variant-numeric: tabular-nums;
+}
+
+/* Overtime-Markierung vertikal zentriert zwischen den Teams */
+.overtime-center-marker {
+    position: absolute;
+    top: 50%;
+    right: 7px; /* Mehr Abstand zu den Scores */
+    transform: translateY(-50%);
+    font-size: 8px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+    background: none;
+    pointer-events: none;
+    z-index: 5;
+    white-space: nowrap;
+    line-height: 1;
+    letter-spacing: 0.3px;
+}
+
+/* Für Gewinner: Overtime etwas sichtbarer */
+.smart-match-absolute:has(.team.winner) .overtime-center-marker {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Alternative Position: Weiter links, zwischen Namen und Scores */
+.overtime-center-marker.left-position {
+    right: 50px;
+}
+
+/* Alternative: Noch subtiler */
+.overtime-center-marker.subtle {
+    font-size: 7px;
+    color: rgba(255, 255, 255, 0.4);
 }
 
 
@@ -457,6 +498,7 @@ html, body {
     padding: 20px !important;
     font-size: 14px !important;
 }
+
 
 /* ============================================================================ */
 /* LOADING STATES UND RESPONSIVE */

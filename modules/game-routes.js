@@ -1,60 +1,135 @@
-// modules/game-routes.js - Routen für Spiel-Daten
+// ERWEITERTE game-routes.js - JOIN mit gamedetails für vollständige Results
 
 function register(app, pool) {
-  console.log('🔧 Registriere Game-Routen...');
+  console.log('🔧 Registriere Enhanced Game-Routen...');
 
-  // GET /games/all - Alle Spiele ohne Limit
+  // GET /games/all - Alle Spiele ohne Limit mit gamedetails JOIN
   app.get('/games/all', async (req, res) => {
-    console.log('📊 Fetching ALL games from database...');
+    console.log('📊 Fetching ALL games with enhanced results...');
     
     try {
-      const query = 'SELECT * FROM games ORDER BY crawledat DESC';
+      // ENHANCED QUERY: JOIN mit gamedetails für vollständige Results
+      const query = `
+        SELECT 
+          g.*,
+          COALESCE(gd.result, g.result) as enhanced_result,
+          gd.result as gamedetails_result,
+          g.result as games_result
+        FROM games g
+        LEFT JOIN gamedetails gd ON g.numericgameid = gd.numericgameid
+        ORDER BY g.crawledat DESC
+      `;
+      
       const result = await pool.query(query);
       
-      console.log(`✅ Returning ${result.rows.length} total games`);
-      res.json(result.rows);
+      // Ersetze result mit enhanced_result für bessere Overtime-Unterstützung
+      const enhancedGames = result.rows.map(game => ({
+        ...game,
+        result: game.enhanced_result || game.games_result || '',
+        // Debug-Info (kann später entfernt werden)
+        _debug: {
+          original_result: game.games_result,
+          gamedetails_result: game.gamedetails_result,
+          used_enhanced: game.enhanced_result !== game.games_result
+        }
+      }));
+      
+      console.log(`✅ Returning ${enhancedGames.length} games with enhanced results`);
+      
+      // Debug: Zeige Overtime-Spiele
+      const overtimeGames = enhancedGames.filter(game => 
+        game.result && (game.result.includes('n.V.') || game.result.includes('n.P.'))
+      );
+      console.log(`🏒 Found ${overtimeGames.length} overtime games with enhanced results`);
+      
+      res.json(enhancedGames);
       
     } catch (error) {
-      console.error('❌ Error fetching all games:', error.message);
+      console.error('❌ Error fetching enhanced games:', error.message);
       res.status(500).json({ error: error.message });
     }
   });
 
-  // GET /games - Spiele mit Filtern und Limit
+  // GET /games - Spiele mit Filtern und Limit - ENHANCED VERSION
   app.get('/games', async (req, res) => {
     const cuptype = req.query.cup;
     const season = req.query.season;
     const limit = parseInt(req.query.limit) || 100;
     
-    console.log(`📊 Fetching games: cup=${cuptype}, season=${season}, limit=${limit}`);
+    console.log(`📊 Fetching enhanced games: cup=${cuptype}, season=${season}, limit=${limit}`);
     
     try {
-      let query = 'SELECT * FROM games ORDER BY crawledat DESC LIMIT $1';
-      let params = [limit];
+      let query = `
+        SELECT 
+          g.*,
+          COALESCE(gd.result, g.result) as enhanced_result,
+          gd.result as gamedetails_result,
+          g.result as games_result
+        FROM games g
+        LEFT JOIN gamedetails gd ON g.numericgameid = gd.numericgameid
+      `;
+      
+      let whereConditions = [];
+      let params = [];
       
       if (cuptype && season) {
-        query = 'SELECT * FROM games WHERE cuptype = $1 AND season = $2 ORDER BY crawledat DESC LIMIT $3';
-        params = [cuptype, season, limit];
+        whereConditions.push('g.cuptype = $1', 'g.season = $2');
+        params.push(cuptype, season);
       } else if (cuptype) {
-        query = 'SELECT * FROM games WHERE cuptype = $1 ORDER BY crawledat DESC LIMIT $2';
-        params = [cuptype, limit];
+        whereConditions.push('g.cuptype = $1');
+        params.push(cuptype);
       } else if (season) {
-        query = 'SELECT * FROM games WHERE season = $1 ORDER BY crawledat DESC LIMIT $2';
-        params = [season, limit];
+        whereConditions.push('g.season = $1');
+        params.push(season);
+      }
+      
+      if (whereConditions.length > 0) {
+        query += ' WHERE ' + whereConditions.join(' AND ');
+      }
+      
+      query += ' ORDER BY g.crawledat DESC';
+      
+      if (limit > 0) {
+        query += ` LIMIT $${params.length + 1}`;
+        params.push(limit);
       }
       
       const result = await pool.query(query, params);
       
-      console.log(`✅ Returning ${result.rows.length} games (${cuptype || 'all cups'}, ${season || 'all seasons'})`);
-      res.json(result.rows);
+      // Ersetze result mit enhanced_result
+      const enhancedGames = result.rows.map(game => ({
+        ...game,
+        result: game.enhanced_result || game.games_result || '',
+        // Debug-Info für Development
+        _debug: {
+          original_result: game.games_result,
+          gamedetails_result: game.gamedetails_result,
+          used_enhanced: game.enhanced_result !== game.games_result
+        }
+      }));
+      
+      console.log(`✅ Returning ${enhancedGames.length} enhanced games (${cuptype || 'all cups'}, ${season || 'all seasons'})`);
+      
+      // Debug: Overtime-Spiele zählen
+      const overtimeGames = enhancedGames.filter(game => 
+        game.result && (game.result.includes('n.V.') || game.result.includes('n.P.'))
+      );
+      if (overtimeGames.length > 0) {
+        console.log(`🏒 Found ${overtimeGames.length} overtime games in this result set`);
+        overtimeGames.forEach(game => {
+          console.log(`  - ${game.team1} vs ${game.team2}: "${game.result}"`);
+        });
+      }
+      
+      res.json(enhancedGames);
       
     } catch (error) {
-      console.error('❌ Error fetching games:', error.message);
+      console.error('❌ Error fetching enhanced games:', error.message);
       res.status(500).json({ error: error.message });
     }
   });
 
-  // GET /stats - Datenbank-Statistiken
+  // GET /stats - Datenbank-Statistiken (unverändert)
   app.get('/stats', async (req, res) => {
     console.log('📈 Generating database statistics...');
     
@@ -84,7 +159,7 @@ function register(app, pool) {
     }
   });
 
-  // GET /api/seasons - Verfügbare Seasons aus DB
+  // GET /api/seasons - Verfügbare Seasons aus DB (unverändert)
   app.get('/api/seasons', async (req, res) => {
     try {
       console.log('📅 API call: Get available seasons');
@@ -108,12 +183,11 @@ function register(app, pool) {
     }
   });
 
-  // GET /api/cups - Verfügbare Cups
+  // GET /api/cups - Verfügbare Cups (unverändert)
   app.get('/api/cups', async (req, res) => {
     try {
       console.log('🏆 API call: Get available cups');
       
-      // Cup-Konfiguration
       const CUP_CONFIGS = {
         herren_grossfeld: { name: 'Grossfeld Herren' },
         damen_grossfeld: { name: 'Grossfeld Damen' },
@@ -148,7 +222,48 @@ function register(app, pool) {
     }
   });
 
-  console.log('✅ Game-Routen registriert');
+  // NEW: Debug-Endpoint um JOIN-Results zu testen
+  app.get('/games/debug/:gameId', async (req, res) => {
+    try {
+      const gameId = parseInt(req.params.gameId);
+      
+      const query = `
+        SELECT 
+          g.numericgameid,
+          g.team1,
+          g.team2,
+          g.result as games_result,
+          gd.result as gamedetails_result,
+          COALESCE(gd.result, g.result) as enhanced_result
+        FROM games g
+        LEFT JOIN gamedetails gd ON g.numericgameid = gd.numericgameid
+        WHERE g.numericgameid = $1
+      `;
+      
+      const result = await pool.query(query, [gameId]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+      
+      const game = result.rows[0];
+      
+      res.json({
+        gameId: game.numericgameid,
+        teams: `${game.team1} vs ${game.team2}`,
+        games_result: game.games_result,
+        gamedetails_result: game.gamedetails_result,
+        enhanced_result: game.enhanced_result,
+        has_overtime: game.enhanced_result && (game.enhanced_result.includes('n.V.') || game.enhanced_result.includes('n.P.')),
+        enhancement_applied: game.enhanced_result !== game.games_result
+      });
+      
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  console.log('✅ Enhanced Game-Routen mit gamedetails JOIN registriert');
 }
 
 module.exports = {

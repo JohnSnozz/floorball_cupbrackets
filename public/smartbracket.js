@@ -341,6 +341,42 @@ function calculatePostMaxRound(currentGames, previousRound, roundX) {
     });
 }
 
+// KORRIGIERTE parseScore Funktion mit Overtime/Penalty Detection
+function parseScore(resultString) {
+    if (!resultString || resultString === 'TBD') {
+        return {team1: 'TBD', team2: 'TBD', overtime: null};
+    }
+    
+    // Prüfe auf n.V. oder n.P. am Ende des Strings
+    let overtime = null;
+    if (resultString.trim().endsWith('n.V.')) {
+        overtime = 'n.V.';
+    } else if (resultString.trim().endsWith('n.P.')) {
+        overtime = 'n.P.';
+    } else if (resultString.includes('n.V.')) {
+        overtime = 'n.V.';
+    } else if (resultString.includes('n.P.')) {
+        overtime = 'n.P.';
+    }
+    
+    // Extrahiere die eigentlichen Scores (erstes Vorkommen von Zahl:Zahl)
+    const match = resultString.match(/^(\d+):(\d+)/);
+    
+    if (match) {
+        return {
+            team1: match[1], 
+            team2: match[2], 
+            overtime: overtime
+        };
+    } else {
+        return {
+            team1: resultString, 
+            team2: '', 
+            overtime: overtime
+        };
+    }
+}
+
 function renderAbsoluteMatch(position) {
     const {game, x, y, width, height} = position;
     const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
@@ -359,8 +395,26 @@ function renderAbsoluteMatch(position) {
         const team1Classes = getTeamClasses(game, game.team1, hasResult);
         const team2Classes = getTeamClasses(game, game.team2, hasResult);
         
-        html += `<div class="team ${team1Classes}"><span class="team-name">${game.team1}</span><span class="team-score">${scores.team1}</span></div>`;
-        html += `<div class="team ${team2Classes}"><span class="team-name">${game.team2}</span><span class="team-score">${scores.team2}</span></div>`;
+        // Team 1 - nur Score, kein Overtime
+        html += `<div class="team ${team1Classes}">
+                    <span class="team-name">${game.team1}</span>
+                    <div class="team-score-container">
+                        <span class="team-score">${scores.team1}</span>
+                    </div>
+                 </div>`;
+        
+        // Team 2 - nur Score, kein Overtime
+        html += `<div class="team ${team2Classes}">
+                    <span class="team-name">${game.team2}</span>
+                    <div class="team-score-container">
+                        <span class="team-score">${scores.team2}</span>
+                    </div>
+                 </div>`;
+        
+        // Overtime-Markierung ZWISCHEN den Teams (vertikal zentriert)
+        if (scores.overtime) {
+            html += `<div class="overtime-center-marker">${scores.overtime}</div>`;
+        }
     }
     
     html += '</div>';
@@ -489,186 +543,176 @@ function isWinner(game, teamName) {
     return (teamName === game.team1 && s1 > s2) || (teamName === game.team2 && s2 > s1);
 }
 
-function parseScore(resultString) {
-    if (!resultString || resultString === 'TBD') return {team1: 'TBD', team2: 'TBD'};
-    const match = resultString.match(/(\d+)[\s\-:]+(\d+)/);
-    return match ? {team1: match[1], team2: match[2]} : {team1: resultString, team2: ''};
-}
-
 function adjustLongTeamNames() {
     document.querySelectorAll('.team-name').forEach(el => {
         if (el.textContent.length > 15) el.classList.add('long-name');
     });
 }
 
-// Verbesserte dynamische Schriftgrößenanpassung für Team-Namen
-function adjustTeamNameSizes() {
-    console.log('🔧 Adjusting team name sizes...');
+// TEST-FUNKTIONEN für Debugging
+// 1. FINDE DAS SPEZIFISCHE SPIEL IN DEN GELADENEN DATEN
+function findOvertimeGameInCurrentGames() {
+    console.log('🔍 SUCHE NACH DEM BEKANNTEN OVERTIME SPIEL IN currentGames:');
+    console.log('='.repeat(60));
     
-    const teamNames = document.querySelectorAll('.team-name');
+    if (!currentGames || currentGames.length === 0) {
+        console.log('❌ currentGames ist leer oder nicht verfügbar');
+        return null;
+    }
     
-    teamNames.forEach((teamNameElement, index) => {
-        // Reset alle Klassen und Attribute
-        teamNameElement.classList.remove('long-name', 'very-long-name', 'extra-long-name');
-        teamNameElement.removeAttribute('data-length');
-        
-        const text = teamNameElement.textContent.trim();
-        const textLength = text.length;
-        
-        // Bestimme Schriftgröße basierend auf Textlänge
-        let lengthCategory = 'short';
-        
-        if (textLength >= 32) {
-            lengthCategory = 'extra-long';
-            teamNameElement.classList.add('extra-long-name');
-        } else if (textLength >= 30) {
-            lengthCategory = 'very-long';
-            teamNameElement.classList.add('very-long-name');
-        } else if (textLength >= 24) {
-            lengthCategory = 'long';
-            teamNameElement.classList.add('long-name');
-        } else if (textLength >= 22) {
-            lengthCategory = 'medium';
-        }
-        
-        // Setze data-attribute für CSS-Selektor
-        teamNameElement.setAttribute('data-length', lengthCategory);
-        
-        // Zusätzliche Prüfung auf tatsächliche Container-Breite
-        setTimeout(() => {
-            const team = teamNameElement.closest('.team');
-            if (team) {
-                const teamRect = team.getBoundingClientRect();
-                const scoreElement = team.querySelector('.team-score');
-                const scoreWidth = scoreElement ? scoreElement.getBoundingClientRect().width : 22;
-                
-                // Verfügbare Breite berechnen (Container - Score - Info-Button - Padding)
-                const availableWidth = teamRect.width - scoreWidth - 30 - 20; // 30px für Info-Button, 20px Padding
-                
-                // Setze maximale Breite
-                teamNameElement.style.maxWidth = `${Math.max(availableWidth, 80)}px`;
-                
-                // Prüfe Overflow und reduziere Schriftgröße weiter falls nötig
-                const nameRect = teamNameElement.getBoundingClientRect();
-                if (nameRect.width >= availableWidth - 5) { // 5px Buffer
-                    if (lengthCategory === 'short') {
-                        teamNameElement.setAttribute('data-length', 'medium');
-                    } else if (lengthCategory === 'medium') {
-                        teamNameElement.setAttribute('data-length', 'long');
-                        teamNameElement.classList.add('long-name');
-                    } else if (lengthCategory === 'long') {
-                        teamNameElement.setAttribute('data-length', 'very-long');
-                        teamNameElement.classList.remove('long-name');
-                        teamNameElement.classList.add('very-long-name');
-                    } else if (lengthCategory === 'very-long') {
-                        teamNameElement.setAttribute('data-length', 'extra-long');
-                        teamNameElement.classList.remove('very-long-name');
-                        teamNameElement.classList.add('extra-long-name');
-                    }
-                }
-            }
-        }, 50);
-        
-        console.log(`Team ${index + 1}: "${text}" (${textLength} chars) -> ${lengthCategory}`);
-    });
+    // Suche nach dem bekannten Spiel: 4:5 (1:0, 3:1, 0:3, 0:1) n.V.
+    const overtimeGame = currentGames.find(game => 
+        game.result && game.result.includes('4:5') && game.result.includes('n.V.')
+    );
     
-    console.log(`✅ Adjusted ${teamNames.length} team names`);
-}
-
-// Beobachter für DOM-Änderungen um dynamisch zu reagieren
-function initializeFontSizeObserver() {
-    const bracketContainer = document.querySelector('.bracket-container');
-    if (!bracketContainer) return;
-    
-    const observer = new MutationObserver((mutations) => {
-        let shouldAdjust = false;
+    if (overtimeGame) {
+        console.log('✅ OVERTIME SPIEL GEFUNDEN:');
+        console.log('Game ID:', overtimeGame.numericgameid);
+        console.log('Teams:', overtimeGame.team1, 'vs', overtimeGame.team2);
+        console.log('Result:', `"${overtimeGame.result}"`);
+        console.log('Round:', overtimeGame.roundname);
+        console.log('Sort Order:', overtimeGame.bracketsortorder);
         
-        mutations.forEach((mutation) => {
-            if (mutation.type === 'childList') {
-                // Prüfe ob neue Smart Matches hinzugefügt wurden
-                mutation.addedNodes.forEach((node) => {
-                    if (node.nodeType === Node.ELEMENT_NODE && 
-                        (node.classList.contains('smart-match-absolute') || 
-                         node.querySelector('.smart-match-absolute'))) {
-                        shouldAdjust = true;
-                    }
-                });
-            }
+        // Teste parseScore für dieses spezifische Spiel
+        const parsed = parseScore(overtimeGame.result);
+        console.log('Parsed Score:', parsed);
+        
+        return overtimeGame;
+    } else {
+        console.log('❌ Das bekannte Overtime-Spiel wurde NICHT in currentGames gefunden');
+        console.log('🔍 Erste 5 Spiele zur Referenz:');
+        currentGames.slice(0, 5).forEach((game, index) => {
+            console.log(`Game ${index + 1}: ${game.team1} vs ${game.team2} = "${game.result}"`);
         });
+        return null;
+    }
+}
+
+// 2. PRÜFE OB DAS SPIEL IM DOM KORREKT GERENDERT WURDE
+function checkOvertimeGameInDOM() {
+    console.log('🔍 PRÜFE OVERTIME SPIEL IM DOM:');
+    console.log('='.repeat(60));
+    
+    const smartMatches = document.querySelectorAll('.smart-match-absolute');
+    console.log(`Gefundene Smart Matches im DOM: ${smartMatches.length}`);
+    
+    let foundOvertimeInDOM = false;
+    
+    smartMatches.forEach((match, index) => {
+        // Suche nach dem bekannten Overtime-Spiel im DOM
+        const teams = match.querySelectorAll('.team-name');
+        const scores = match.querySelectorAll('.team-score');
         
-        if (shouldAdjust) {
-            setTimeout(adjustTeamNameSizes, 100);
+        if (teams.length >= 2 && scores.length >= 2) {
+            const team1 = teams[0].textContent.trim();
+            const team2 = teams[1].textContent.trim();
+            const score1 = scores[0].textContent.trim();
+            const score2 = scores[1].textContent.trim();
+            
+            // Prüfe auf 4:5 Ergebnis
+            if (score1 === '4' && score2 === '5') {
+                console.log(`\n🎯 GEFUNDEN: Match ${index + 1} mit 4:5 Ergebnis:`);
+                console.log(`Teams: ${team1} vs ${team2}`);
+                console.log(`Scores: ${score1}:${score2}`);
+                
+                // Prüfe auf Overtime-Elemente
+                const overtimeElements = match.querySelectorAll('.score-overtime, .score-overtime-inline, .overtime-indicator');
+                console.log(`Overtime-Elemente gefunden: ${overtimeElements.length}`);
+                
+                if (overtimeElements.length > 0) {
+                    overtimeElements.forEach((el, idx) => {
+                        console.log(`  Overtime Element ${idx + 1}: "${el.textContent}" (class: ${el.className})`);
+                    });
+                    foundOvertimeInDOM = true;
+                } else {
+                    console.log('❌ KEINE Overtime-Elemente im DOM gefunden!');
+                    
+                    // Zeige die komplette HTML-Struktur dieses Matches
+                    console.log('📋 Komplette Match-HTML:');
+                    console.log(match.outerHTML);
+                }
+                
+                // Prüfe game-id
+                const gameId = match.getAttribute('data-game-id');
+                console.log(`Game ID: ${gameId}`);
+            }
         }
     });
     
-    observer.observe(bracketContainer, {
-        childList: true,
-        subtree: true
-    });
+    if (!foundOvertimeInDOM) {
+        console.log('❌ Kein Overtime-Spiel mit 4:5 Ergebnis im DOM gefunden');
+    }
     
-    console.log('👁️ Font size observer initialized');
+    return foundOvertimeInDOM;
 }
 
-// Integration in bestehende Funktionen
-// Diese Funktion sollte in der renderSmartBracket() Funktion aufgerufen werden
-function enhancedBracketSetup() {
-    // Nach dem Bracket-Rendering:
-    setTimeout(() => {
-        adjustTeamNameSizes();
-        initializeFontSizeObserver();
-        
-        // Bestehende Funktionen
-        if (typeof initializeTeamHighlighting === 'function') {
-            initializeTeamHighlighting();
-        }
-        if (typeof initializeSmartMatchLinks === 'function') {
-            initializeSmartMatchLinks();
-        }
-        if (typeof initializeSmartConnectors === 'function') {
-            console.log('🔗 Initializing Smart Connectors...');
-            initializeSmartConnectors(smartRounds);
-        }
-        
-        console.log('🎯 Enhanced bracket setup complete with improved font sizing');
-    }, 200);
-}
-
-// Resize-Handler für responsive Anpassungen
-window.addEventListener('resize', () => {
-    clearTimeout(window.resizeTimeout);
-    window.resizeTimeout = setTimeout(() => {
-        adjustTeamNameSizes();
-    }, 250);
-});
-
-// Export für globale Verwendung
-window.adjustTeamNameSizes = adjustTeamNameSizes;
-window.enhancedBracketSetup = enhancedBracketSetup;
-
-// Fügen Sie diese Zeile zur bestehenden renderSmartBracket() Funktion hinzu:
-// Rufen Sie adjustTeamNameSizes() nach dem Rendering auf
-function enhancedRenderSmartBracket() {
-    // Ihr bestehender renderSmartBracket Code hier...
+// 3. VOLLSTÄNDIGER OVERTIME-DEBUG
+function fullOvertimeDebug() {
+    console.log('🚀 VOLLSTÄNDIGER OVERTIME-DEBUG:');
+    console.log('='.repeat(60));
     
-    // Nach dem Rendering:
-    setTimeout(() => {
-        adjustLongTeamNames(); // Bestehende Funktion
-        adjustTeamNameSizes(); // Neue Funktion
+    // Schritt 1: Finde Spiel in currentGames
+    const gameInData = findOvertimeGameInCurrentGames();
+    
+    // Schritt 2: Prüfe DOM
+    const gameInDOM = checkOvertimeGameInDOM();
+    
+    // Schritt 3: Vergleiche
+    console.log('\n📊 ZUSAMMENFASSUNG:');
+    console.log(`✅ Spiel in currentGames gefunden: ${gameInData ? 'JA' : 'NEIN'}`);
+    console.log(`✅ Overtime im DOM angezeigt: ${gameInDOM ? 'JA' : 'NEIN'}`);
+    
+    if (gameInData && !gameInDOM) {
+        console.log('\n🔧 PROBLEM IDENTIFIZIERT:');
+        console.log('Das Spiel ist in den Daten vorhanden, aber die Overtime-Anzeige wird nicht korrekt gerendert.');
+        console.log('LÖSUNG: Die renderAbsoluteMatch Funktion muss aktualisiert werden.');
         
-        if (typeof initializeTeamHighlighting === 'function') {
-            initializeTeamHighlighting();
-        }
-        if (typeof initializeSmartMatchLinks === 'function') {
-            initializeSmartMatchLinks();
-        }
-        if (typeof initializeSmartConnectors === 'function') {
-            initializeSmartConnectors(smartRounds);
-        }
-        
-        console.log('🎯 Enhanced bracket setup complete with dynamic font sizing');
-    }, 150);
+        // Zeige die aktuelle renderAbsoluteMatch Implementierung
+        console.log('\n🔍 Aktuelle renderAbsoluteMatch Funktion:');
+        console.log(renderAbsoluteMatch.toString());
+    }
+    
+    return { gameInData, gameInDOM };
 }
 
+// 4. TESTE DIE KORRIGIERTE renderAbsoluteMatch FUNKTION
+function testCorrectedRenderFunction() {
+    console.log('🧪 TESTE KORRIGIERTE RENDER-FUNKTION:');
+    
+    // Finde das Overtime-Spiel
+    const overtimeGame = findOvertimeGameInCurrentGames();
+    if (!overtimeGame) {
+        console.log('❌ Kein Overtime-Spiel zum Testen gefunden');
+        return;
+    }
+    
+    // Simuliere Position
+    const testPosition = {
+        game: overtimeGame,
+        x: 0,
+        y: 0,
+        width: 240,
+        height: 62
+    };
+    
+    // Teste parseScore
+    const scores = parseScore(overtimeGame.result);
+    console.log('ParseScore Ergebnis:', scores);
+    
+    // Erstelle Test-HTML mit der korrigierten Funktion
+    console.log('\n🔧 Test-HTML würde so aussehen:');
+    
+    const hasResult = overtimeGame.result && overtimeGame.result.trim() && overtimeGame.result !== 'TBD';
+    console.log('hasResult:', hasResult);
+    
+    if (hasResult && scores.overtime) {
+        console.log('✅ Overtime würde korrekt erkannt und gerendert werden!');
+        console.log(`Team 1: ${overtimeGame.team1} - Score: ${scores.team1}`);
+        console.log(`Team 2: ${overtimeGame.team2} - Score: ${scores.team2} - Overtime: ${scores.overtime}`);
+    } else {
+        console.log('❌ Problem beim Erkennen von Overtime');
+    }
+}
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -710,5 +754,8 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-window.loadSmartBracket = loadSmartBracket;
-window.loadAvailableOptions = loadAvailableOptions;
+// Export functions
+window.fullOvertimeDebug = fullOvertimeDebug;
+window.findOvertimeGameInCurrentGames = findOvertimeGameInCurrentGames;
+window.checkOvertimeGameInDOM = checkOvertimeGameInDOM;
+window.testCorrectedRenderFunction = testCorrectedRenderFunction;
