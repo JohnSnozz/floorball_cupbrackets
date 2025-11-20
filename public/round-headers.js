@@ -54,10 +54,10 @@ class RoundHeaders {
     createSingleHeader(round, index) {
         const headerElement = document.createElement('div');
         headerElement.className = 'round-header';
-        
+
         // Position über der Runde (gleiche X-Position wie die Runde)
         const roundX = round.roundX || (index * 300); // Fallback auf Index * 300
-        const headerY = -40; // 40px über dem Bracket
+        const headerY = 30; // 30px Padding vom oberen Rand des Brackets
         
         // Styling
         headerElement.style.cssText = `

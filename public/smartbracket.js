@@ -380,7 +380,9 @@ function parseScore(resultString) {
 function renderAbsoluteMatch(position) {
     const {game, x, y, width, height} = position;
     const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
-    const style = `position: absolute; top: ${y}px; left: ${x}px; width: ${width}px; height: ${height}px;`;
+    // 30px padding top + 40px für Round-Headers = 70px offset
+    const yWithHeaderSpace = y + 70;
+    const style = `position: absolute; top: ${yWithHeaderSpace}px; left: ${x}px; width: ${width}px; height: ${height}px;`;
     
     let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericgameid || ''}" data-bracket-sort="${game.bracketsortorder}">`;
     
@@ -456,10 +458,14 @@ function renderSmartBracket() {
     
     const smartRounds = processSmartPositioning(currentRounds);
     const totalWidth = smartRounds.length * TOTAL_ROUND_SPACING;
-    const totalHeight = debugData.maxBracketHeight || 400;
-    
-    // KRITISCHER FIX 1: Explizite Größenangabe für das Smart Bracket
-    let html = `<div class="smart-bracket" style="position: relative; width: ${totalWidth}px; height: ${totalHeight}px;">`;
+    const totalHeight = (debugData.maxBracketHeight || 400) + 40; // +40px für Round-Headers
+
+    // Padding oben und unten für besseres Pan-Verhalten
+    const verticalPadding = 30; // 30px oben und unten
+    const totalHeightWithPadding = totalHeight + (verticalPadding * 2);
+
+    // KRITISCHER FIX 1: Explizite Größenangabe für das Smart Bracket mit Padding
+    let html = `<div class="smart-bracket" style="position: relative; width: ${totalWidth}px; height: ${totalHeightWithPadding}px; padding: ${verticalPadding}px 0;">`;
     
     smartRounds.forEach(round => {
         round.gamePositions.forEach(position => {
@@ -468,9 +474,16 @@ function renderSmartBracket() {
     });
     
     html += '</div>';
-    
+
     bracketcontent.innerHTML = html;
-    
+
+    // KRITISCHER FIX: Entferne .loading Klasse und setze korrekte Position
+    bracketcontent.classList.remove('loading', 'error');
+    bracketcontent.style.position = 'static';
+    bracketcontent.style.top = 'auto';
+    bracketcontent.style.left = 'auto';
+    bracketcontent.style.transform = 'none';
+
     console.log(`✅ Bracket rendered: ${totalWidth}x${totalHeight}px`);
     
     setTimeout(() => {
@@ -505,11 +518,11 @@ function renderSmartBracket() {
             adjustContainerWidth();
         }
         
-        // Auto-fit das Bracket nach dem Laden
-        if (window.fullscreenInteraction && typeof window.fullscreenInteraction.autoFitBracket === 'function') {
+        // Reset zu 100% Zoom, top-center
+        if (window.fullscreenInteraction && typeof window.fullscreenInteraction.resetView === 'function') {
             setTimeout(() => {
-                window.fullscreenInteraction.autoFitBracket();
-                console.log('✅ Auto-fit bracket triggered');
+                window.fullscreenInteraction.resetView();
+                console.log('✅ Bracket reset to 100% top-center');
             }, 500);
         }
         

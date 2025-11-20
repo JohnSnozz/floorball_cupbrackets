@@ -31,3 +31,35 @@ Thumbs.db
 # Temporary Files
 *.tmp
 *.temp
+temp/
+
+# Screenshots und Bilder
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.svg
+!public/**/*.svg
+!public/**/*.png
+!public/**/*.jpg
+
+# Documentation (optional - entferne wenn du Docs committen willst)
+CLEANUP_SUMMARY.md
+SECURITY_AUDIT.md
+AWS_DEPLOYMENT_GUIDE.md
+
+# Backup und alte Readme
+readme.md
+
+# System/Service Files
+*.service
+
+# Build und Cache
+dist/
+build/
+.cache/
+
+# Test Coverage
+coverage/
+.nyc_output/

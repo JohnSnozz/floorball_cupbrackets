@@ -10,7 +10,7 @@ class SmartConnector {
     
     // Initialisiert die Smart Connectors mit Rundendaten
     initialize(smartRounds) {
-        console.log('🔗 Initializing Smart Connectors...');
+        // console.log('🔗 Initializing Smart Connectors...');
         
         this.rounds = smartRounds || [];
         this.bracketContainer = document.querySelector('.smart-bracket');
@@ -26,7 +26,7 @@ class SmartConnector {
         // Erstelle neue Connector
         this.createConnectors();
         
-        console.log(`✅ Smart Connectors initialized with ${this.connectors.length} connectors`);
+        // console.log(`✅ Smart Connectors initialized with ${this.connectors.length} connectors`);
     }
     
     // Entfernt alle bestehenden Connector
@@ -34,13 +34,13 @@ class SmartConnector {
         const existingConnectors = this.bracketContainer.querySelectorAll('.smart-connector');
         existingConnectors.forEach(connector => connector.remove());
         this.connectors = [];
-        console.log('🧹 Cleared existing connectors');
+        // console.log('🧹 Cleared existing connectors');
     }
     
     // Erstellt alle Verbindungslinien
     createConnectors() {
         if (this.rounds.length < 2) {
-            console.log('⏭️ Not enough rounds for connectors');
+            // console.log('⏭️ Not enough rounds for connectors');
             return;
         }
         
@@ -55,7 +55,7 @@ class SmartConnector {
     
     // Verbindet zwei aufeinanderfolgende Runden
     connectRounds(sourceRound, targetRound) {
-        console.log(`🔗 Connecting ${sourceRound.name} -> ${targetRound.name}`);
+        // console.log(`🔗 Connecting ${sourceRound.name} -> ${targetRound.name}`);
         
         // Für jedes Spiel in der Zielrunde finde die Vorgängerspiele
         targetRound.gamePositions.forEach(targetPos => {
@@ -88,13 +88,17 @@ class SmartConnector {
     createConnection(sourcePos, targetPos, connectionType) {
         const sourceGame = sourcePos.game;
         const targetGame = targetPos.game;
-        
+
+        // KRITISCHER FIX: Padding und Header-Offset berücksichtigen
+        // Matches werden mit y + 70 gerendert (30px Padding + 40px Header)
+        const yOffset = 70;
+
         // Berechne Verbindungspunkte - KORRIGIERTE BERECHNUNG
         const sourceRight = sourcePos.x + sourcePos.width;
-        const sourceCenterY = sourcePos.y + (sourcePos.height / 2);
-        
+        const sourceCenterY = sourcePos.y + yOffset + (sourcePos.height / 2);
+
         const targetLeft = targetPos.x;
-        const targetCenterY = targetPos.y + (targetPos.height / 2);
+        const targetCenterY = targetPos.y + yOffset + (targetPos.height / 2);
         
         // KRITISCHER FIX: Korrekte Berechnung der Verbindungsgeometrie
         const bridgeX = sourceRight + 30; // 30px Abstand vom Source-Match
@@ -117,7 +121,7 @@ class SmartConnector {
         const left = Math.min(startX, endX);
         
         if (width < 1) {
-            console.log(`⚠️ Skipping horizontal line: width too small (${width})`);
+            // console.log(`⚠️ Skipping horizontal line: width too small (${width})`);
             return;
         }
         
@@ -143,7 +147,7 @@ class SmartConnector {
         this.bracketContainer.appendChild(connector);
         this.connectors.push(connector);
         
-        console.log(`➡️ Created horizontal ${type} line: ${left}px,${y}px (${width}px wide)`);
+        // console.log(`➡️ Created horizontal ${type} line: ${left}px,${y}px (${width}px wide)`);
     }
     
     // KRITISCHER FIX: Erstellt eine vertikale Linie mit korrekter Positionierung
@@ -152,7 +156,7 @@ class SmartConnector {
         const top = Math.min(startY, endY);
         
         if (height < 1) {
-            console.log(`⚠️ Skipping vertical line: height too small (${height})`);
+            // console.log(`⚠️ Skipping vertical line: height too small (${height})`);
             return;
         }
         
@@ -178,7 +182,7 @@ class SmartConnector {
         this.bracketContainer.appendChild(connector);
         this.connectors.push(connector);
         
-        console.log(`⬇️ Created vertical bridge: ${x}px,${top}px (${height}px tall)`);
+        // console.log(`⬇️ Created vertical bridge: ${x}px,${top}px (${height}px tall)`);
     }
     
     // Highlight-Pfad für bestimmtes Team
@@ -224,36 +228,11 @@ class SmartConnector {
     
     // Debug-Funktion: Zeigt alle Connector-Informationen
     debugConnectors() {
-        console.log('🔍 Smart Connectors Debug:');
-        console.log(`Total connectors: ${this.connectors.length}`);
-        
-        this.connectors.forEach((connector, index) => {
-            const rect = connector.getBoundingClientRect();
-            console.log(`Connector ${index + 1}:`, {
-                type: connector.getAttribute('data-connector-type'),
-                source: connector.getAttribute('data-source-game'),
-                target: connector.getAttribute('data-target-game'),
-                position: { x: connector.style.left, y: connector.style.top },
-                size: { width: connector.style.width, height: connector.style.height },
-                visible: rect.width > 0 && rect.height > 0,
-                computedStyle: {
-                    display: window.getComputedStyle(connector).display,
-                    opacity: window.getComputedStyle(connector).opacity,
-                    zIndex: window.getComputedStyle(connector).zIndex
-                }
-            });
-        });
-        
-        // Zusätzlich: Zeige Bracket-Dimensionen
-        if (this.bracketContainer) {
-            const bracketRect = this.bracketContainer.getBoundingClientRect();
-            console.log('Bracket Container:', {
-                width: bracketRect.width,
-                height: bracketRect.height,
-                position: this.bracketContainer.style.position,
-                overflow: window.getComputedStyle(this.bracketContainer).overflow
-            });
-        }
+        // DEAKTIVIERT - zu viel Console Output
+        return;
+
+        // console.log('🔍 Smart Connectors Debug:');
+        // console.log(`Total connectors: ${this.connectors.length}`);
     }
     
     // Passt Connector-Farben basierend auf Status an
@@ -293,7 +272,7 @@ class SmartConnector {
     
     // KRITISCHER FIX: Force Refresh der Connectors
     forceRefresh() {
-        console.log('🔄 Force refreshing connectors...');
+        // console.log('🔄 Force refreshing connectors...');
         
         // Entferne und erstelle alle Connectors neu
         this.clearConnectors();
@@ -305,7 +284,7 @@ class SmartConnector {
             
             // Debug nach Refresh
             setTimeout(() => {
-                console.log(`🔄 Force refresh complete: ${this.connectors.length} connectors`);
+                // console.log(`🔄 Force refresh complete: ${this.connectors.length} connectors`);
                 this.debugConnectors();
             }, 100);
         }, 50);
@@ -316,7 +295,7 @@ class SmartConnector {
         this.clearConnectors();
         this.rounds = [];
         this.bracketContainer = null;
-        console.log('🗑️ Smart Connectors destroyed');
+        // console.log('🗑️ Smart Connectors destroyed');
     }
 }
 
@@ -325,19 +304,19 @@ let smartConnectorInstance = null;
 
 // KRITISCHER FIX: Haupt-Initialisierungsfunktion
 function initializeSmartConnectors(smartRounds) {
-    console.log('🔗 Initializing Smart Connectors with rounds:', smartRounds?.length || 0);
+    // console.log('🔗 Initializing Smart Connectors with rounds:', smartRounds?.length || 0);
     
     if (!smartRounds || smartRounds.length === 0) {
-        console.log('⏭️ No rounds provided for connectors');
+        // console.log('⏭️ No rounds provided for connectors');
         return;
     }
     
     // Debug: Zeige die Rundendaten
-    console.log('📋 Smart Rounds Data:');
+    // console.log('📋 Smart Rounds Data:');
     smartRounds.forEach((round, index) => {
-        console.log(`  Round ${index + 1} (${round.name}): ${round.gamePositions?.length || 0} games`);
+        // console.log(`  Round ${index + 1} (${round.name}): ${round.gamePositions?.length || 0} games`);
         if (round.gamePositions && round.gamePositions.length > 0) {
-            console.log(`    First game position:`, round.gamePositions[0]);
+            // console.log(`    First game position:`, round.gamePositions[0]);
         }
     });
     
@@ -356,7 +335,7 @@ function initializeSmartConnectors(smartRounds) {
             
             // KRITISCHER FIX: Falls keine Connectors erstellt wurden, force refresh
             if (smartConnectorInstance.connectors.length === 0) {
-                console.log('⚠️ No connectors created, attempting force refresh...');
+                // console.log('⚠️ No connectors created, attempting force refresh...');
                 smartConnectorInstance.forceRefresh();
             }
         }
@@ -365,7 +344,7 @@ function initializeSmartConnectors(smartRounds) {
     // Debug nach weiterer Verzögerung
     setTimeout(() => {
         if (smartConnectorInstance) {
-            console.log('🔍 Final connector debug:');
+            // console.log('🔍 Final connector debug:');
             smartConnectorInstance.debugConnectors();
         }
     }, 500);
@@ -377,7 +356,7 @@ function resetSmartConnectors() {
         smartConnectorInstance.destroy();
         smartConnectorInstance = null;
     }
-    console.log('🔄 Smart Connectors reset');
+    // console.log('🔄 Smart Connectors reset');
 }
 
 // Team-Highlighting Integration
@@ -398,7 +377,7 @@ function debugSmartConnectors() {
     if (smartConnectorInstance) {
         smartConnectorInstance.debugConnectors();
     } else {
-        console.log('❌ No Smart Connector instance available');
+        // console.log('❌ No Smart Connector instance available');
     }
 }
 
@@ -407,7 +386,7 @@ function refreshSmartConnectors() {
     if (smartConnectorInstance) {
         smartConnectorInstance.forceRefresh();
     } else {
-        console.log('❌ No Smart Connector instance to refresh');
+        // console.log('❌ No Smart Connector instance to refresh');
     }
 }
 
@@ -431,20 +410,20 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
     
-    console.log('🔗 Smart Connectors integration loaded');
+    // console.log('🔗 Smart Connectors integration loaded');
 });
 
 // KRITISCHER FIX: Keyboard shortcut für debugging
 document.addEventListener('keydown', function(e) {
     if (e.key === 'c' && e.ctrlKey && e.shiftKey) {
         e.preventDefault();
-        console.log('🔍 Manual connector debug triggered');
+        // console.log('🔍 Manual connector debug triggered');
         debugSmartConnectors();
     }
     
     if (e.key === 'r' && e.ctrlKey && e.shiftKey) {
         e.preventDefault();
-        console.log('🔄 Manual connector refresh triggered');
+        // console.log('🔄 Manual connector refresh triggered');
         refreshSmartConnectors();
     }
 });

@@ -221,12 +221,7 @@ class BottomControlsManager {
                 if (cupSection) {
                     cupSection.classList.remove('loading');
                 }
-                // Auto-fit nach dem Laden
-                if (window.fullscreenInteraction && typeof window.fullscreenInteraction.autoFitBracket === 'function') {
-                    setTimeout(() => {
-                        window.fullscreenInteraction.autoFitBracket();
-                    }, 200);
-                }
+                // REMOVED: autoFitBracket - wird bereits von smartbracket.js aufgerufen
             }, 500);
         }
     }

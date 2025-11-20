@@ -589,7 +589,6 @@ function initializeGameDetails() {
     
     smartMatchLinks.forEach((link, index) => {
         const gameid = link.getAttribute('data-game-id');
-        console.log(`📝 Link ${index + 1}: gameid="${gameid}"`);
         
         if (!gameid || gameid === '' || gameid === 'null' || gameid === 'undefined') {
             console.log(`⏭️ Überspringe Link ${index + 1} - keine gültige gameid`);
@@ -601,7 +600,6 @@ function initializeGameDetails() {
         // Markiere als initialisiert
         link.setAttribute('data-details-events', 'true');
         
-        console.log(`✅ Initialisiere Events für Link ${index + 1} (gameid: ${gameid})`);
         
         // Mouse Enter
         link.addEventListener('mouseenter', function(e) {
@@ -632,7 +630,6 @@ function initializeGameDetails() {
             hideGameDetails();
         });
         
-        console.log(`✅ Events registriert für gameid: ${gameid}`);
     });
     
     console.log(`\n📊 GAME DETAILS INITIALISIERUNG ABGESCHLOSSEN:`);
