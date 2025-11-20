@@ -6,7 +6,7 @@ const rateLimit = require('express-rate-limit');
 // Rate Limiting für Login-Versuche
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minuten
-  max: 5, // Max 5 Versuche pro IP
+  max: 50, // Temporär erhöht von 5 auf 50 Versuche pro IP
   message: {
     error: 'Zu viele Login-Versuche. Bitte warten Sie 15 Minuten.'
   },
@@ -19,10 +19,20 @@ function requireAuth(req, res, next) {
   if (req.session && req.session.isAuthenticated) {
     return next();
   } else {
-    return res.status(401).json({ 
-      error: 'Authentication required',
-      redirect: '/dev/login'
-    });
+    // Check if request wants JSON (API call) or HTML (browser)
+    const wantsJson = req.xhr ||
+                     req.headers['content-type']?.includes('application/json') ||
+                     req.headers['accept']?.includes('application/json');
+
+    if (wantsJson) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        redirect: '/dev/login'
+      });
+    } else {
+      // Browser request - redirect to login page
+      return res.redirect('/dev/login');
+    }
   }
 }
 
@@ -180,7 +190,7 @@ function register(app) {
       await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
       
       const isValid = await validateLogin(username, password);
-      
+
       if (isValid) {
         req.session.isAuthenticated = true;
         req.session.loginTime = new Date().toISOString();

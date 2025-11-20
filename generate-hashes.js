@@ -5,8 +5,8 @@ async function generateHashes() {
   console.log('🔐 Generiere sichere Login-Hashes...\n');
   
   // HIER deine gewünschten Login-Daten eingeben:
-  const username = 'admin';           
-  const password = 'PjVvqy$QX9CJM#^hFyWM';  
+  const username = 'admin';
+  const password = 'IHR_SICHERES_PASSWORT_HIER';  // ÄNDERN SIE DIES VOR DEM AUSFÜHREN!  
   
   try {
     console.log('⏳ Generiere bcrypt-Hashes...');

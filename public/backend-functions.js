@@ -172,34 +172,40 @@ async function executeCupDataDelete() {
 
 async function executeTeamshortsUpload() {
     const fileInput = document.getElementById('teamshortsCsv');
-    if (fileInput.files.length === 0) {
-        updateBackendStatus('teamshortsStatus', '❌ Bitte eine CSV-Datei auswählen', 'error');
-        return;
-    }
 
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append('csv', file);
-
-    updateBackendStatus('teamshortsStatus', '⏳ CSV wird hochgeladen und synchronisiert...', 'loading');
-
-    try {
-        const response = await fetch('/api/backend/teamshorts-sync', {
-            method: 'POST',
-            body: formData
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            updateBackendStatus('teamshortsStatus', '✅ Synchronisation erfolgreich abgeschlossen', 'success');
-            fileInput.value = ''; // Input leeren
-        } else {
-            updateBackendStatus('teamshortsStatus', `❌ Fehler: ${result.error}`, 'error');
+    // Trigger file selection dialog
+    fileInput.onchange = async function() {
+        if (fileInput.files.length === 0) {
+            return;
         }
-    } catch (error) {
-        updateBackendStatus('teamshortsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
-    }
+
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('csv', file);
+
+        updateBackendStatus('teamshortsStatus', '⏳ CSV wird hochgeladen und synchronisiert...', 'loading');
+
+        try {
+            const response = await fetch('/api/backend/teamshorts-sync', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                updateBackendStatus('teamshortsStatus', '✅ Synchronisation erfolgreich abgeschlossen', 'success');
+                fileInput.value = ''; // Input leeren
+            } else {
+                updateBackendStatus('teamshortsStatus', `❌ Fehler: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            updateBackendStatus('teamshortsStatus', `❌ Verbindungsfehler: ${error.message}`, 'error');
+        }
+    };
+
+    // Trigger file selection
+    fileInput.click();
 }
 
 async function executeBracketSorting() {

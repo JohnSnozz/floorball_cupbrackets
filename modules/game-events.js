@@ -446,10 +446,31 @@ module.exports = {
     // Manual crawl trigger (alle Seasons)
     app.post('/api/crawl-game-events', async (req, res) => {
       try {
-        const result = await manager.crawlGameEventsFromCups();
-        res.json(result);
+        // Starte im Hintergrund
+        setImmediate(async () => {
+          try {
+            console.log('🎯 Starte Game Events Crawling für alle Cups im Hintergrund...');
+            const result = await manager.crawlGameEventsFromCups();
+            console.log('✅ Game Events Crawling abgeschlossen:', result);
+          } catch (error) {
+            console.error('❌ Fehler beim Game Events Crawling:', error.message);
+          }
+        });
+
+        // Sofort kompatible Response zurückgeben
+        res.json({
+          success: 1,
+          errors: 0,
+          totalEvents: 0,
+          message: 'Game Events Crawling gestartet (läuft im Hintergrund)'
+        });
+
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({
+          error: error.message,
+          success: 0,
+          errors: 1
+        });
       }
     });
 
@@ -457,10 +478,32 @@ module.exports = {
     app.post('/api/crawl-game-events/:season', async (req, res) => {
       try {
         const season = req.params.season;
-        const result = await manager.crawlGameEventsForSeason(season);
-        res.json(result);
+
+        // Starte im Hintergrund
+        setImmediate(async () => {
+          try {
+            console.log(`🎯 Starte Game Events Crawling für Season ${season} im Hintergrund...`);
+            const result = await manager.crawlGameEventsForSeason(season);
+            console.log(`✅ Game Events Crawling für Season ${season} abgeschlossen:`, result);
+          } catch (error) {
+            console.error(`❌ Fehler beim Game Events Crawling für Season ${season}:`, error.message);
+          }
+        });
+
+        // Sofort kompatible Response zurückgeben
+        res.json({
+          success: 1,
+          errors: 0,
+          totalEvents: 0,
+          message: `Game Events Crawling für Season ${season} gestartet (läuft im Hintergrund)`
+        });
+
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({
+          error: error.message,
+          success: 0,
+          errors: 1
+        });
       }
     });
 

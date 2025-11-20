@@ -18,51 +18,7 @@
             </div>
         </header>
 
-        <nav class="dashboard-nav">
-            <a href="/dev/dbreview.html" class="nav-item">📊 DB Review</a>
-            <a href="/dev/gamedetails.html" class="nav-item">🎮 Game Details</a>
-            <a href="/bracket" class="nav-item">🏆 Bracket View</a>
-        </nav>
-
         <main class="dashboard-main">
-            <!-- System Status Section -->
-            <section class="status-section">
-                <h2>📈 System Status</h2>
-                <div class="status-grid">
-                    <div class="status-item">
-                        <span class="status-label">Server Status</span>
-                        <span class="status-value status-active" id="serverStatus">🟢 Online</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">Uptime</span>
-                        <span class="status-value" id="uptime">Lädt...</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">Letzte Aktualisierung</span>
-                        <span class="status-value" id="lastUpdate">-</span>
-                    </div>
-                </div>
-
-                <div class="quick-stats">
-                    <div class="stat-card">
-                        <span class="stat-value" id="totalGames">-</span>
-                        <span class="stat-label">Spiele Total</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-value" id="gameDetailsCount">-</span>
-                        <span class="stat-label">Game Details</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-value" id="gameEventsCount">-</span>
-                        <span class="stat-label">Game Events</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-value" id="bracketSorted">-</span>
-                        <span class="stat-label">Bracket-sortiert</span>
-                    </div>
-                </div>
-            </section>
-
             <!-- Backend Interface Section -->
             <section class="backend-interface-section">
                 <h2>⚙️ Backend Management</h2>
@@ -106,15 +62,20 @@
                         <div class="backend-status" id="crawlingStatus"></div>
                     </div>
 
-                    <!-- Teamshorts CSV Upload -->
+                    <!-- Teamshorts Management -->
                     <div class="backend-card">
                         <div class="backend-icon">🏷️</div>
                         <h3>Teamshorts Management</h3>
-                        <p>Team-Abkürzungen per CSV hochladen und synchronisieren</p>
-                        <input type="file" id="teamshortsCsv" accept=".csv" class="file-input" />
-                        <button class="btn btn-primary btn-small" onclick="executeTeamshortsUpload()">
-                            📁 CSV Upload & Sync
-                        </button>
+                        <p>Team-Abkürzungen verwalten, bearbeiten und synchronisieren</p>
+                        <div class="teamshorts-actions">
+                            <button class="btn btn-success btn-small" onclick="window.location.href='/teamshorts-manager.html'">
+                                ✏️ Teamshorts bearbeiten
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="executeTeamshortsUpload()">
+                                📁 CSV Upload
+                            </button>
+                        </div>
+                        <input type="file" id="teamshortsCsv" accept=".csv" class="file-input" style="display:none;" />
                         <div class="backend-status" id="teamshortsStatus"></div>
                     </div>
                     
@@ -179,12 +140,9 @@
                             <option value="2022/23">2022/23</option>
                         </select>
                         <div class="game-details-actions">
-                            <button class="btn btn-info btn-small" onclick="executeGameDetailsCrawling()">
-                                🎯 Season crawlen
+                            <button class="btn btn-success btn-small" onclick="executeGameDetailsRetryCrawling()">
+                                🔄 Robustes Retry-Crawling
                             </button>
-               <button class="btn btn-success btn-small" onclick="executeGameDetailsRetryCrawling()">
-    🔄 Robustes Retry-Crawling
-</button>
                             <button class="btn btn-danger btn-small" onclick="executeGameDetailsDelete()">
                                 🗑️ Season löschen
                             </button>
@@ -207,9 +165,6 @@
                         <div class="game-events-actions">
                             <button class="btn btn-info btn-small" onclick="executeGameEventsCrawling()">
                                 ⚡ Season crawlen
-                            </button>
-                            <button class="btn btn-secondary btn-small" onclick="executeGameEventsAllCrawling()">
-                                🌐 Legacy Crawl (alle)
                             </button>
                             <button class="btn btn-danger btn-small" onclick="executeGameEventsDelete()">
                                 🗑️ Season löschen
@@ -238,30 +193,9 @@
                     </div>
                 </div>
             </section>
-            
-            <!-- Admin Tools Section -->
-            <section class="admin-section">
-                <h2>⚙️ Admin Tools</h2>
-                <div class="admin-buttons">
-                    <a href="/stats" class="btn btn-info btn-small">📊 Statistiken</a>
-                    <a href="/games/all" class="btn btn-info btn-small">📋 Alle Spiele</a>
-                    <a href="/bracket-sorting-status" class="btn btn-info btn-small">🎯 Bracket Status</a>
-                    <a href="/health" class="btn btn-success btn-small">❤️ Health Check</a>
-                    <a href="/api/seasons" class="btn btn-secondary btn-small">📅 API: Seasons</a>
-                    <a href="/api/cups" class="btn btn-secondary btn-small">🏆 API: Cups</a>
-                    <a href="/api/stats" class="btn btn-secondary btn-small">📊 API: Stats</a>
-                </div>
-            </section>
         </main>
     </div>
 
     <script src="/backend-functions.js"></script>
-    <script>
-        // Status beim Laden prüfen
-        checkStatus();
-        
-        // Status alle 30 Sekunden aktualisieren
-        setInterval(checkStatus, 30000);
-    </script>
 </body>
 </html>

@@ -110,19 +110,99 @@ function register(app, pool) {  // ← pool statt db
       if (!req.file) {
         return res.status(400).json({ success: false, error: 'Keine CSV-Datei hochgeladen' });
       }
-      
+
       await ensureTeamshortsTable();
       const result = await syncCSVBuffer(req.file.buffer);
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         updated: result.updated,
         inserted: result.inserted,
         message: `${result.inserted} neue Teams, ${result.updated} aktualisiert`
       });
-      
+
     } catch (err) {
       console.error('❌ Fehler beim Verarbeiten der CSV:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // GET /api/teamshorts - Alle Teamshorts abrufen (geschützt)
+  app.get('/api/teamshorts', auth.requireAuth, async (req, res) => {
+    try {
+      await ensureTeamshortsTable();
+      const result = await pool.query('SELECT team, teamshort FROM teamshorts ORDER BY team ASC');
+      res.json({ success: true, teamshorts: result.rows });
+    } catch (err) {
+      console.error('❌ Fehler beim Abrufen der Teamshorts:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST /api/teamshorts - Neues Team hinzufügen (geschützt)
+  app.post('/api/teamshorts', auth.requireAuth, async (req, res) => {
+    try {
+      const { team, teamshort } = req.body;
+
+      if (!team || !teamshort) {
+        return res.status(400).json({ success: false, error: 'Team und Teamshort sind erforderlich' });
+      }
+
+      await ensureTeamshortsTable();
+      await pool.query(
+        `INSERT INTO teamshorts (team, teamshort)
+         VALUES ($1, $2)
+         ON CONFLICT (team) DO UPDATE
+         SET teamshort = EXCLUDED.teamshort`,
+        [team, teamshort]
+      );
+
+      res.json({ success: true, message: 'Team erfolgreich hinzugefügt' });
+    } catch (err) {
+      console.error('❌ Fehler beim Hinzufügen:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST /api/teamshorts/update-multiple - Multiple Teams updaten (geschützt)
+  app.post('/api/teamshorts/update-multiple', auth.requireAuth, async (req, res) => {
+    try {
+      const { updates } = req.body;
+
+      if (!updates || !Array.isArray(updates)) {
+        return res.status(400).json({ success: false, error: 'Updates-Array erforderlich' });
+      }
+
+      await ensureTeamshortsTable();
+
+      for (const update of updates) {
+        const { team, teamshort } = update;
+        if (team) {
+          await pool.query(
+            `UPDATE teamshorts SET teamshort = $1 WHERE team = $2`,
+            [teamshort || '', team]
+          );
+        }
+      }
+
+      res.json({ success: true, message: `${updates.length} Team(s) aktualisiert` });
+    } catch (err) {
+      console.error('❌ Fehler beim Update:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // DELETE /api/teamshorts/:team - Team löschen (geschützt)
+  app.delete('/api/teamshorts/:team', auth.requireAuth, async (req, res) => {
+    try {
+      const team = decodeURIComponent(req.params.team);
+
+      await ensureTeamshortsTable();
+      await pool.query('DELETE FROM teamshorts WHERE team = $1', [team]);
+
+      res.json({ success: true, message: 'Team erfolgreich gelöscht' });
+    } catch (err) {
+      console.error('❌ Fehler beim Löschen:', err);
       res.status(500).json({ success: false, error: err.message });
     }
   });

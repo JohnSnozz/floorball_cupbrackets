@@ -500,21 +500,51 @@ async crawlGameDetailsFromCups() {
 }
 
   async getGameDetailsStats() {
-    const statsSQL = `
-      select 
-        count(*) as totalgames,
-        count(case when result is not null and result != '' then 1 end) as gameswithresults,
-        count(case when spectators is not null and spectators > 0 then 1 end) as gameswithspectators,
-        avg(case when spectators is not null and spectators > 0 then spectators end) as avgspectators,
-        count(case when first_referee is not null and first_referee != '' then 1 end) as gameswithreferees
-      from gamedetails
-    `;
-    
     try {
-      return await this.queryAsync(statsSQL);
+      // Sicherstellen dass Tabelle existiert
+      const tableCheck = await this.queryAsync(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'gamedetails')"
+      );
+
+      if (!tableCheck || !tableCheck.exists) {
+        return {
+          totalgames: 0,
+          gameswithresults: 0,
+          gameswithspectators: 0,
+          avgspectators: 0,
+          gameswithreferees: 0
+        };
+      }
+
+      const statsSQL = `
+        SELECT
+          COALESCE(COUNT(*), 0)::int as totalgames,
+          COALESCE(COUNT(CASE WHEN result IS NOT NULL AND result != '' THEN 1 END), 0)::int as gameswithresults,
+          COALESCE(COUNT(CASE WHEN spectators > 0 THEN 1 END), 0)::int as gameswithspectators,
+          COALESCE(ROUND(AVG(CASE WHEN spectators > 0 THEN spectators::numeric END), 2), 0)::float as avgspectators,
+          COALESCE(COUNT(CASE WHEN first_referee IS NOT NULL AND first_referee != '' THEN 1 END), 0)::int as gameswithreferees
+        FROM gamedetails
+      `;
+
+      const result = await this.queryAsync(statsSQL);
+
+      return {
+        totalgames: parseInt(result?.totalgames || 0),
+        gameswithresults: parseInt(result?.gameswithresults || 0),
+        gameswithspectators: parseInt(result?.gameswithspectators || 0),
+        avgspectators: parseFloat(result?.avgspectators || 0),
+        gameswithreferees: parseInt(result?.gameswithreferees || 0)
+      };
+
     } catch (error) {
-      console.error('❌ Fehler beim Abrufen der Stats:', error);
-      return { totalgames: 0, gameswithresults: 0, gameswithspectators: 0, avgspectators: 0, gameswithreferees: 0 };
+      console.error('❌ Fehler beim Abrufen der Stats:', error.message);
+      return {
+        totalgames: 0,
+        gameswithresults: 0,
+        gameswithspectators: 0,
+        avgspectators: 0,
+        gameswithreferees: 0
+      };
     }
   }
 
@@ -777,23 +807,66 @@ module.exports = {
     app.post('/api/crawl-game-details/:season', async (req, res) => {
       try {
         const season = req.params.season;
-        const result = await manager.crawlGameDetailsForSeason(season);
-        res.json(result);
+
+        // Starte im Hintergrund
+        setImmediate(async () => {
+          try {
+            console.log(`🔄 Starte Crawling für Season ${season} im Hintergrund...`);
+            const result = await manager.crawlGameDetailsForSeason(season);
+            console.log(`✅ Crawling für Season ${season} abgeschlossen:`, result);
+          } catch (error) {
+            console.error(`❌ Fehler beim Crawling für Season ${season}:`, error.message);
+          }
+        });
+
+        // Sofort kompatible Response zurückgeben
+        res.json({
+          success: 1,
+          errors: 0,
+          message: `Crawling für Season ${season} gestartet (läuft im Hintergrund)`
+        });
+
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({
+          error: error.message,
+          success: 0,
+          errors: 1
+        });
       }
     });
 
     // Robustes Crawling mit Retry für spezifische Season
-app.post('/api/crawl-game-details/:season/retry', async (req, res) => {
-  try {
-    const season = req.params.season;
-    const result = await manager.crawlGameDetailsForSeasonWithRetry(season);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    app.post('/api/crawl-game-details/:season/retry', async (req, res) => {
+      try {
+        const season = req.params.season;
+
+        // Starte im Hintergrund
+        setImmediate(async () => {
+          try {
+            console.log(`🔄 Starte robustes Crawling für Season ${season} im Hintergrund...`);
+            const result = await manager.crawlGameDetailsForSeasonWithRetry(season);
+            console.log(`✅ Robustes Crawling für Season ${season} abgeschlossen:`, result);
+          } catch (error) {
+            console.error(`❌ Fehler beim robusten Crawling für Season ${season}:`, error.message);
+          }
+        });
+
+        // Sofort kompatible Response zurückgeben
+        res.json({
+          success: 1,  // Dummy-Wert für Kompatibilität
+          errors: 0,
+          retries: 0,
+          message: `Robustes Crawling für Season ${season} gestartet (läuft im Hintergrund)`
+        });
+
+      } catch (error) {
+        res.status(500).json({
+          error: error.message,
+          success: 0,
+          errors: 1
+        });
+      }
+    });
 
     // Delete gamedetails für Season
     app.delete('/api/game-details/season/:season', async (req, res) => {
@@ -839,11 +912,6 @@ app.post('/api/crawl-game-details/:season/retry', async (req, res) => {
         res.status(500).json({ error: error.message });
       }
     });
-
-  app.post('/api/crawl-game-details/:season/retry', async (req, res) => {
-  const result = await manager.crawlGameDetailsForSeasonWithRetry(req.params.season);
-  res.json(result);
-});
 
     console.log('🎯 gamedetails API-Routes mit Season-Management registriert');
   }

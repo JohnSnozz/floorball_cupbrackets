@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏷️ Teamshorts Manager - Swiss Cup Crawler</title>
+    <link rel="stylesheet" href="/teamshorts-manager.css">
+</head>
+<body>
+    <div class="manager-container">
+        <header class="manager-header">
+            <div class="header-content">
+                <h1>🏷️ Teamshorts Manager</h1>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="window.location.href='/dev/'">← Zurück zum Dashboard</button>
+                    <button class="btn btn-logout" onclick="logout()">🚪 Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <nav class="manager-nav">
+            <div class="nav-info">
+                <span class="nav-label">📊 Total Teams:</span>
+                <span class="nav-value" id="totalTeams">-</span>
+            </div>
+            <div class="nav-actions">
+                <button class="btn btn-success" onclick="saveAllChanges()">💾 Alle Änderungen speichern</button>
+                <button class="btn btn-info" onclick="loadTeamshorts()">🔄 Neu laden</button>
+                <button class="btn btn-warning" onclick="addNewTeam()">➕ Neues Team</button>
+            </div>
+        </nav>
+
+        <main class="manager-main">
+            <div class="alert alert-info">
+                <strong>Info:</strong> Hier können Sie die Team-Abkürzungen direkt bearbeiten. Klicken Sie auf ein Feld um es zu ändern, und speichern Sie mit "Alle Änderungen speichern".
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="🔍 Team suchen..." onkeyup="filterTeams()">
+                <button class="btn btn-small btn-secondary" onclick="clearSearch()">✖ Löschen</button>
+            </div>
+
+            <div class="table-container">
+                <table class="teamshorts-table" id="teamshortsTable">
+                    <thead>
+                        <tr>
+                            <th>Team (voller Name)</th>
+                            <th>Abkürzung (Teamshort)</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teamshortsTableBody">
+                        <tr>
+                            <td colspan="3" class="loading-row">
+                                <div class="loading-spinner">Lade Daten...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="status-message" id="statusMessage"></div>
+        </main>
+    </div>
+
+    <script src="/teamshorts-manager.js"></script>
+    <script>
+        // Lade Teamshorts beim Start
+        loadTeamshorts();
+    </script>
+</body>
+</html>
