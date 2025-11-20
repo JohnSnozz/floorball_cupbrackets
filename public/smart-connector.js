@@ -90,14 +90,15 @@ class SmartConnector {
         const targetGame = targetPos.game;
 
         // KRITISCHER FIX: Padding und Header-Offset berücksichtigen
-        // Matches werden mit y + 70 gerendert (30px Padding + 40px Header)
+        // Matches werden mit x + 30, y + 70 gerendert (30px Padding + 40px Header)
+        const xOffset = 30;
         const yOffset = 70;
 
         // Berechne Verbindungspunkte - KORRIGIERTE BERECHNUNG
-        const sourceRight = sourcePos.x + sourcePos.width;
+        const sourceRight = sourcePos.x + xOffset + sourcePos.width;
         const sourceCenterY = sourcePos.y + yOffset + (sourcePos.height / 2);
 
-        const targetLeft = targetPos.x;
+        const targetLeft = targetPos.x + xOffset;
         const targetCenterY = targetPos.y + yOffset + (targetPos.height / 2);
         
         // KRITISCHER FIX: Korrekte Berechnung der Verbindungsgeometrie

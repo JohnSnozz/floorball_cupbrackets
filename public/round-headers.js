@@ -55,8 +55,8 @@ class RoundHeaders {
         const headerElement = document.createElement('div');
         headerElement.className = 'round-header';
 
-        // Position über der Runde (gleiche X-Position wie die Runde)
-        const roundX = round.roundX || (index * 300); // Fallback auf Index * 300
+        // Position über der Runde mit Padding-Offset
+        const roundX = (round.roundX || (index * 300)) + 30; // +30px für linkes Padding
         const headerY = 30; // 30px Padding vom oberen Rand des Brackets
         
         // Styling

@@ -154,16 +154,19 @@ class FullscreenInteraction {
 
         let minX, maxX, minY, maxY;
 
+        // Padding berücksichtigen (30px auf allen Seiten)
+        const horizontalPadding = 30 * this.zoom;
+
         if (scaledW <= containerRect.width) {
-            // Bracket passt horizontal rein - zentrieren, aber kleine Pan-Toleranz lassen
+            // Bracket passt horizontal rein - erlaube Pan bis zum Padding-Bereich
             const centerX = (containerRect.width - scaledW) / 2;
-            const tolerance = 50; // 50px Pan-Toleranz
-            minX = centerX - tolerance;
-            maxX = centerX + tolerance;
+            minX = centerX - horizontalPadding;
+            maxX = centerX + horizontalPadding;
         } else {
-            // Bracket breiter als Container - normale Constraints
-            maxX = 0;
-            minX = containerRect.width - scaledW;
+            // Bracket breiter als Container
+            // Erlaube Pannen bis zum Padding links und rechts
+            maxX = horizontalPadding;
+            minX = containerRect.width - scaledW - horizontalPadding;
         }
 
         // KRITISCHER FIX: Vertikale Constraints mit Padding-Berücksichtigung

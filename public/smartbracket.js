@@ -380,9 +380,10 @@ function parseScore(resultString) {
 function renderAbsoluteMatch(position) {
     const {game, x, y, width, height} = position;
     const hasResult = game.result && game.result.trim() && game.result !== 'TBD';
-    // 30px padding top + 40px für Round-Headers = 70px offset
+    // 30px padding left/top + 40px für Round-Headers = 70px Y-offset, 30px X-offset
+    const xWithPadding = x + 30;
     const yWithHeaderSpace = y + 70;
-    const style = `position: absolute; top: ${yWithHeaderSpace}px; left: ${x}px; width: ${width}px; height: ${height}px;`;
+    const style = `position: absolute; top: ${yWithHeaderSpace}px; left: ${xWithPadding}px; width: ${width}px; height: ${height}px;`;
     
     let html = `<div class="smart-match-absolute" style="${style}" data-game-id="${game.numericgameid || ''}" data-bracket-sort="${game.bracketsortorder}">`;
     
@@ -460,12 +461,13 @@ function renderSmartBracket() {
     const totalWidth = smartRounds.length * TOTAL_ROUND_SPACING;
     const totalHeight = (debugData.maxBracketHeight || 400) + 40; // +40px für Round-Headers
 
-    // Padding oben und unten für besseres Pan-Verhalten
-    const verticalPadding = 30; // 30px oben und unten
-    const totalHeightWithPadding = totalHeight + (verticalPadding * 2);
+    // Padding auf allen Seiten für besseres Pan-Verhalten
+    const padding = 30; // 30px auf allen Seiten
+    const totalWidthWithPadding = totalWidth + (padding * 2);
+    const totalHeightWithPadding = totalHeight + (padding * 2);
 
     // KRITISCHER FIX 1: Explizite Größenangabe für das Smart Bracket mit Padding
-    let html = `<div class="smart-bracket" style="position: relative; width: ${totalWidth}px; height: ${totalHeightWithPadding}px; padding: ${verticalPadding}px 0;">`;
+    let html = `<div class="smart-bracket" style="position: relative; width: ${totalWidthWithPadding}px; height: ${totalHeightWithPadding}px; padding: ${padding}px;">`;
     
     smartRounds.forEach(round => {
         round.gamePositions.forEach(position => {
