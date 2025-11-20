@@ -1,0 +1,41 @@
+# systemd service file for Floorball Cup Brackets
+# Alternative to PM2 for running the app as a system service
+#
+# Installation:
+# 1. Edit this file and replace /home/ubuntu/floorball_cupbrackets with your actual path
+# 2. sudo cp floorball-app.service /etc/systemd/system/
+# 3. sudo systemctl daemon-reload
+# 4. sudo systemctl enable floorball-app
+# 5. sudo systemctl start floorball-app
+#
+# Usage:
+# - sudo systemctl status floorball-app
+# - sudo systemctl restart floorball-app
+# - sudo systemctl stop floorball-app
+# - sudo journalctl -u floorball-app -f  (logs)
+
+[Unit]
+Description=Floorball Cup Brackets Application
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/floorball_cupbrackets
+ExecStart=/home/ubuntu/.bun/bin/bun start
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=floorball-app
+
+# Environment
+Environment=NODE_ENV=production
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

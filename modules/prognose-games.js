@@ -87,6 +87,13 @@ async function generatePrognoseGames(pool, cuptype, season) {
             console.log(`   ❌ Tournament-Info nicht gefunden für ${cuptype} ${season}`);
             return { generated: 0, updated: 0, error: 'Tournament-Info nicht gefunden' };
         }
+
+        // Bestimme Stopp-Runde basierend auf fieldtype
+        // Grossfeld: Achtelsfinal (1/8) wird ausgelost → Predict bis 1/16, stoppe vor 1/8
+        // Kleinfeld: Viertelsfinal (1/4) wird ausgelost → Predict bis 1/8, stoppe vor 1/4
+        const isGrossfeld = tournamentInfo.fieldtype && tournamentInfo.fieldtype.toLowerCase() === 'grossfeld';
+        const stopBeforeRound = isGrossfeld ? '1/8' : '1/4';
+        console.log(`   🏟️ Feldtyp: ${tournamentInfo.fieldtype} → Stoppe Prognose vor ${stopBeforeRound}`);
         
         // 4. Lösche ALLE existierenden Prognose-Spiele für diesen Cup/Saison
         console.log(`   🧹 Lösche alle existierenden Prognose-Spiele...`);
@@ -112,9 +119,10 @@ async function generatePrognoseGames(pool, cuptype, season) {
                 break;
             }
             
-            // Prüfe ob die NÄCHSTE Runde eine Stopp-Runde ist
-            if (nextRound === '1/4' || nextRound === '1/2' || nextRound === '1/1') {
-                console.log(`   🛑 Stoppe vor Generierung von ${nextRound} - ab hier gibt es Losung`);
+            // Prüfe ob die NÄCHSTE Runde die Stopp-Runde erreicht hat
+            // stopBeforeRound kann '1/4' (Grossfeld) oder '1/8' (Kleinfeld) sein
+            if (nextRound === stopBeforeRound || nextRound === '1/2' || nextRound === '1/1') {
+                console.log(`   🛑 Stoppe vor Generierung von ${nextRound} - ab hier gibt es Losung (${tournamentInfo.fieldtype})`);
                 break;
             }
             
